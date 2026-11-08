@@ -320,44 +320,6 @@ class PetPack(
 class PetPackException(message: String) : Exception(message)
 
 /**
- * Where installed packs live: `<root>/<id>/pack`, `<root>` being the support directory's `pets/`
- * as Dart pushes it (docs/design/pet-packs.md §4). Set once at startup, idempotently; read from
- * the overlay's worker too.
- *
- * Nothing here throws. `null` clears the root; a path that is unusable — relative, blank, too
- * long — is ignored, so a bad message never loses a good root. With no root the overlay reads the
- * `files/pets/<id>` directory and the bundled assets exactly as before.
- */
-internal object PetPackRoot {
-    @Volatile
-    private var dir: File? = null
-
-    fun current(): File? = dir
-
-    /** [path] as the root; null clears it, anything unusable is ignored. Whether the root changed. */
-    fun set(path: String?): Boolean {
-        if (path == null) {
-            if (dir == null) return false
-            dir = null
-            return true
-        }
-        val next = usable(path) ?: return false
-        if (next == dir) return false
-        dir = next
-        return true
-    }
-
-    /** [path] as a directory, or null when it cannot be one: relative, blank, too long. */
-    fun usable(path: String): File? = try {
-        path.takeIf { it.isNotBlank() && it.length <= MAX_PATH }?.let { File(it) }?.takeIf { it.isAbsolute }?.canonicalFile
-    } catch (_: Exception) {
-        null
-    }
-
-    private const val MAX_PATH = 4096
-}
-
-/**
  * An installed pack on disk: its directory and parsed manifest. Only data files are read
  * (`pack.json`, `sounds.json`, `*.png`, `*.wav`); the pack is never executed, and a file outside
  * the directory — `..`, an absolute path, a symbolic link — is refused.

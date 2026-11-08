@@ -21,7 +21,7 @@
 ## 4. 读取路径
 
 - Dart：`app/lib/pets/pet_library.dart`（导入/删除/列出），`petPackProvider` 对 `user-` id 从安装目录读，其余从 APK 资产读。
-- 原生悬浮窗：`PetSprites.kt` 的 `sourceFor` 先看安装目录，没有再看资产；根路径由 Dart 经 `setPackRoot` 下发。
+- 原生悬浮窗：`PetSprites.kt` 的 `sourceFor` 先看安装目录 `files/pets/<id>`，没有再回退到 APK 资产；目录是固定的，不需要 Dart 下发。
 - 音效：安装包的音效还没接上（`app/lib/pets/pet_sounds.dart` 只读 `assets/pet_sounds/<id>/`），宠物页的「音效」开关只对内置音效集生效。
 
 ## 5. 本期不做

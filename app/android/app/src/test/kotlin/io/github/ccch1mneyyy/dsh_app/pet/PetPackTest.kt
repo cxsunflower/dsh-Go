@@ -451,22 +451,4 @@ class PetPackTest {
         assertTrue(read(assetsOnly).contains("内置版"))
     }
 
-    @Test fun theRootSetterIsIdempotentAndIgnoresJunk() {
-        val path = tempDir().canonicalPath
-        try {
-            assertTrue(PetPackRoot.set(path))
-            assertFalse(PetPackRoot.set(path))
-            assertNotNull(PetPackRoot.current())
-            // Junk never loses a good root.
-            for (junk in listOf("relative/pets", "   ", "", "a".repeat(5000))) {
-                assertFalse(junk, PetPackRoot.set(junk))
-                assertEquals(PetPackRoot.current()?.canonicalPath, path)
-            }
-            assertTrue(PetPackRoot.set(null))
-            assertNull(PetPackRoot.current())
-            assertFalse(PetPackRoot.set(null))
-        } finally {
-            PetPackRoot.set(null)
-        }
-    }
 }
