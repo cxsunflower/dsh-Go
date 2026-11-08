@@ -97,6 +97,8 @@ class MergeCliTest(MergeFixture):
         self.write('en', {'title': 'Title for {name}'})
         result = self.run_cli('--no-gen')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        zh_bytes, en_bytes = [output.read_bytes() for output in self.outputs]
+        self.assertNotIn(b'\r\n', zh_bytes + en_bytes, 'merged catalogs keep LF on every platform')
         zh, en = [json.loads(output.read_text(encoding='utf-8')) for output in self.outputs]
         self.assertEqual(zh, {'@@locale': 'zh', 'title': '{name} 的标题',
                              '@title': {'placeholders': {'name': {'type': 'String'}}}})

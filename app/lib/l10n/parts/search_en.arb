@@ -59,6 +59,7 @@
   "searchKwAppIcon": "launcher icon,icon",
   "searchKwPetSize": "pet size",
   "searchKwPetQuiet": "quiet,pet quiet",
+  "searchKwPetSound": "sound,sounds,laugh,pet sound",
   "searchKwPetOutside": "overlay,floating pet,outside app",
   "searchKwPetDisplayWhen": "pet display,when to show",
   "searchKwBlur": "blur,glass,frosted",
