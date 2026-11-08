@@ -34,6 +34,7 @@ class PhoneA11yService : AccessibilityService() {
     private var probe: A11yProbe? = null
     private var receiverRegistered = false
     private var overlayContext: Context? = null
+    private var destroyed = false
 
     /** A dedicated manager whose default token comes from the live accessibility connection. */
     internal fun overlayWindowContext(): Context = overlayContext ?: run {
@@ -59,7 +60,12 @@ class PhoneA11yService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        if (destroyed) return
         super.onServiceConnected()
+        // Re-init can reuse this service object. Retire the old driver/handler before publishing
+        // the new one; coordinate starts are on this same main queue and check exact publication.
+        instance?.takeIf { it !== this }?.teardown("无障碍连接已更换") // l10n:keep agent stop reason
+        if (driver != null) teardown("无障碍连接已更换") // l10n:keep agent stop reason
         invalidateOverlayWindowContext()
         val o = ControlOverlay(this)
         val d = MainScreenDriver(this, o)
@@ -80,6 +86,10 @@ class PhoneA11yService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         clock.tick(event?.packageName)
+        // A window shown or refocused retires coordinate starts verified before it. Our own overlay
+        // re-shows itself after each full-display capture: that is not a transition of the target.
+        if (event != null && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            event.packageName?.toString() != packageName) driver?.windowChanged()
     }
 
     /**
@@ -103,6 +113,7 @@ class PhoneA11yService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        destroyed = true
         // l10n:keep agent stop reason
         teardown("无障碍服务已停止")
         super.onDestroy()
@@ -112,7 +123,7 @@ class PhoneA11yService : AccessibilityService() {
     internal fun stopAll(reason: String) {
         driver?.abort()
         overlay?.stopAll()
-        PhoneRegistry.controlListener?.onStopRequested(reason)
+        PhoneRegistry.controlListener?.onStopAllRequested(reason)
     }
 
     private fun teardown(reason: String) {
@@ -132,7 +143,7 @@ class PhoneA11yService : AccessibilityService() {
         driver = null
         overlay = null
         Log.i(TAG, "accessibility service gone: $reason")
-        PhoneRegistry.controlListener?.let { it.onStopRequested(reason); it.onAccessibilityChanged(false) }
+        PhoneRegistry.controlListener?.let { it.onStopAllRequested(reason); it.onAccessibilityChanged(false) }
     }
 
     companion object {
