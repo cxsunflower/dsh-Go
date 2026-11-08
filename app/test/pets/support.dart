@@ -68,12 +68,15 @@ List<Override> petOverrides({
   PetSignals? signals,
   PetSize size = PetSize.medium,
   double position = PetPrefs.defaultPosition,
+  bool sound = true,
   bool quiet = false,
 }) => [
   petClockProvider.overrideWithValue(clock.call),
   petPackProvider.overrideWith((ref, id) async => id == pack.id ? pack : diskPack(id)),
   petPrefsProvider.overrideWith(
-    () => FixedPetPrefs(PetPrefs(packId: pack.id, size: size, position: position, quiet: quiet, loaded: true)),
+    () => FixedPetPrefs(
+      PetPrefs(packId: pack.id, size: size, position: position, sound: sound, quiet: quiet, loaded: true),
+    ),
   ),
   testSignalsProvider.overrideWith(() => TestSignals(signals ?? PetSignals(lastInteraction: clock.now))),
   // As the app's own signals do: the last touch on the page counts.
@@ -130,6 +133,9 @@ class FixedPetPrefs extends PetPrefsController {
   Future<void> setQuiet(bool v) async => state = state.copyWith(quiet: v);
 
   @override
+  Future<void> setSound(bool v) async => state = state.copyWith(sound: v);
+
+  @override
   Future<void> setPosition(double v) async => state = state.copyWith(position: v.clamp(0.0, 1.0));
 
   @override
@@ -157,6 +163,7 @@ class HarnessConfig {
     this.cover = false,
     this.avoid = false,
     this.aside = false,
+    this.food = false,
   });
 
   /// A phone on its side typing: the bars fold toward the composer.
@@ -165,6 +172,10 @@ class HarnessConfig {
   final bool dock;
   final bool cover;
   final bool avoid;
+
+  /// A reply being written in the list, on its right ([PetFood], key
+  /// `food`).
+  final bool food;
 }
 
 class HarnessConfigController extends Notifier<HarnessConfig> {
@@ -213,6 +224,14 @@ class ChatBottomHarness extends ConsumerWidget {
                   right: 12,
                   bottom: 96 + 12,
                   child: PetAvoid(child: SizedBox.square(key: ValueKey('jump'), dimension: 44)),
+                ),
+              if (config.food)
+                const Positioned(
+                  right: 24,
+                  top: 160,
+                  width: 140,
+                  height: 240,
+                  child: PetFood(child: SizedBox.expand(key: ValueKey('food'))),
                 ),
               Positioned(
                 left: 0,
@@ -323,7 +342,7 @@ Rect petCanvas(WidgetTester tester) => tester.getRect(find.byKey(const ValueKey(
 /// Logical px per art px at [size] on the test view.
 double petScaleOn(WidgetTester tester, PetPack pack, [PetSize size = PetSize.medium]) {
   final dpr = tester.view.devicePixelRatio;
-  int k(PetSize s) => (s.bodyHeight * dpr / pack.contentBox.height).round().clamp(1, 1 << 20);
+  int k(PetSize s) => (s.bodyHeight * pack.sizeScale * dpr / pack.contentBox.height).round().clamp(1, 1 << 20);
   final small = k(PetSize.small);
   final medium = [small + 1, k(PetSize.medium)].reduce((a, b) => a > b ? a : b);
   final large = [medium + 1, k(PetSize.large)].reduce((a, b) => a > b ? a : b);

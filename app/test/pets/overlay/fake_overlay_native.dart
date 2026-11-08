@@ -30,6 +30,9 @@ class FakeOverlayNative {
 
   List<String> get methods => [for (final c in calls) c.method];
 
+  /// The last `setPackRoot` the channel sent (field `path`), null when none.
+  String? get packRoot => calls.where((c) => c.method == 'setPackRoot').map((c) => (c.arguments as Map)['path'] as String?).lastOrNull;
+
   Map<String, Object?> get status => {
     'enabled': enabled,
     'alwaysShow': alwaysShow,
@@ -55,6 +58,8 @@ class FakeOverlayNative {
     switch (call.method) {
       case 'push' || 'reloadPack':
         return null;
+      case 'setPackRoot':
+        return true;
       case 'setEnabled':
         enabled = args['enabled'] == true;
         return status;
