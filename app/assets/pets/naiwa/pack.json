@@ -1,0 +1,362 @@
+{
+  "schema": 1,
+  "id": "naiwa",
+  "name": "奶蛙",
+  "author": "github.com/cxsunflower",
+  "license": "像素重绘；奶龙角色形象权利归其权利人，非官方",
+  "source": "来自 github.com/cxsunflower，参考网络二创「奶蛙」形象重画（github.com/Orliss/nailong），不含原图",
+  "pixelArt": true,
+  "scale": 1,
+  "sizeScale": 2,
+  "canvas": {"w": 64, "h": 64},
+  "anchor": {"x": 32, "baseline": 60},
+  "contentBox": {"x": 16, "y": 25, "w": 32, "h": 35},
+  "hitBoxes": {
+    "default": {"x": 16, "y": 25, "w": 32, "h": 35},
+    "wide": {"x": 8, "y": 25, "w": 48, "h": 35},
+    "sleeping": {"x": 17, "y": 27, "w": 30, "h": 33},
+    "byAnim": {
+      "laugh-point": {"x": 13, "y": 24, "w": 45, "h": 36},
+      "carry": {"x": 15, "y": 14, "w": 34, "h": 46},
+      "wake": {"x": 16, "y": 16, "w": 32, "h": 44},
+      "prone-eat": {"x": 5, "y": 35, "w": 51, "h": 25}
+    },
+    "wideAnims": ["guichu", "dance", "eat-code-fast", "juggle", "juggle-many", "shocked", "alert"],
+    "sleepingAnims": ["sleep"]
+  },
+  "animations": {
+    "idle": {
+      "sheet": "idle.png",
+      "frameW": 32,
+      "frameH": 35,
+      "cols": 4,
+      "box": {"x": 16, "y": 25, "w": 32, "h": 35},
+      "loop": true,
+      "ms": 2540,
+      "frames": [{"i": 0, "ms": 260}, {"i": 1, "ms": 200}, {"i": 1, "ms": 240}, {"i": 0, "ms": 200}, {"i": 2, "ms": 240}, {"i": 0, "ms": 220}, {"i": 0, "ms": 260}, {"i": 1, "ms": 200}, {"i": 1, "ms": 240}, {"i": 0, "ms": 200}, {"i": 3, "ms": 100}, {"i": 0, "ms": 180}]
+    },
+    "idle-look": {
+      "sheet": "idle-look.png",
+      "frameW": 34,
+      "frameH": 34,
+      "cols": 6,
+      "box": {"x": 15, "y": 26, "w": 34, "h": 34},
+      "loop": true,
+      "ms": 2260,
+      "frames": [{"i": 0, "ms": 200}, {"i": 1, "ms": 160}, {"i": 2, "ms": 360}, {"i": 1, "ms": 280}, {"i": 0, "ms": 160}, {"i": 3, "ms": 160}, {"i": 4, "ms": 360}, {"i": 3, "ms": 280}, {"i": 5, "ms": 100}, {"i": 0, "ms": 200}]
+    },
+    "idle-giggle": {
+      "sheet": "idle-giggle.png",
+      "frameW": 32,
+      "frameH": 36,
+      "cols": 5,
+      "box": {"x": 16, "y": 24, "w": 32, "h": 36},
+      "loop": true,
+      "ms": 1290,
+      "frames": [{"i": 0, "ms": 220}, {"i": 1, "ms": 160}, {"i": 2, "ms": 120}, {"i": 3, "ms": 90}, {"i": 4, "ms": 90}, {"i": 3, "ms": 90}, {"i": 2, "ms": 120}, {"i": 3, "ms": 90}, {"i": 4, "ms": 90}, {"i": 2, "ms": 220}]
+    },
+    "guichu": {
+      "sheet": "guichu.png",
+      "frameW": 62,
+      "frameH": 55,
+      "cols": 13,
+      "box": {"x": 1, "y": 5, "w": 62, "h": 55},
+      "loop": true,
+      "ms": 1080,
+      "frames": [{"i": 0, "ms": 80}, {"i": 1, "ms": 60}, {"i": 0, "ms": 60}, {"i": 2, "ms": 60}, {"i": 3, "ms": 70}, {"i": 4, "ms": 60}, {"i": 0, "ms": 60}, {"i": 5, "ms": 60}, {"i": 6, "ms": 60}, {"i": 7, "ms": 70}, {"i": 8, "ms": 70}, {"i": 9, "ms": 60}, {"i": 10, "ms": 60}, {"i": 11, "ms": 60}, {"i": 12, "ms": 70}, {"i": 0, "ms": 120}]
+    },
+    "snack": {
+      "sheet": "snack.png",
+      "frameW": 44,
+      "frameH": 43,
+      "cols": 9,
+      "box": {"x": 16, "y": 17, "w": 44, "h": 43},
+      "loop": true,
+      "ms": 2010,
+      "frames": [{"i": 0, "ms": 240}, {"i": 1, "ms": 200}, {"i": 2, "ms": 160}, {"i": 3, "ms": 200}, {"i": 4, "ms": 150}, {"i": 5, "ms": 150}, {"i": 4, "ms": 150}, {"i": 6, "ms": 200}, {"i": 7, "ms": 260}, {"i": 8, "ms": 300}]
+    },
+    "dance": {
+      "sheet": "dance.png",
+      "frameW": 48,
+      "frameH": 35,
+      "cols": 6,
+      "box": {"x": 8, "y": 25, "w": 48, "h": 35},
+      "loop": true,
+      "ms": 1520,
+      "frames": [{"i": 0, "ms": 160}, {"i": 1, "ms": 200}, {"i": 0, "ms": 160}, {"i": 2, "ms": 120}, {"i": 3, "ms": 120}, {"i": 4, "ms": 160}, {"i": 5, "ms": 200}, {"i": 4, "ms": 160}, {"i": 3, "ms": 120}, {"i": 2, "ms": 120}]
+    },
+    "thinking": {
+      "sheet": "thinking.png",
+      "frameW": 35,
+      "frameH": 48,
+      "cols": 8,
+      "box": {"x": 17, "y": 12, "w": 35, "h": 48},
+      "loop": true,
+      "ms": 2060,
+      "frames": [{"i": 0, "ms": 300}, {"i": 1, "ms": 300}, {"i": 2, "ms": 300}, {"i": 3, "ms": 300}, {"i": 4, "ms": 220}, {"i": 5, "ms": 220}, {"i": 6, "ms": 300}, {"i": 7, "ms": 120}]
+    },
+    "eat-code": {
+      "sheet": "eat-code.png",
+      "frameW": 46,
+      "frameH": 34,
+      "cols": 10,
+      "box": {"x": 16, "y": 26, "w": 46, "h": 34},
+      "loop": true,
+      "ms": 1340,
+      "frames": [{"i": 0, "ms": 100}, {"i": 1, "ms": 90}, {"i": 2, "ms": 90}, {"i": 3, "ms": 110}, {"i": 4, "ms": 140}, {"i": 5, "ms": 140}, {"i": 6, "ms": 100}, {"i": 7, "ms": 90}, {"i": 8, "ms": 90}, {"i": 9, "ms": 110}, {"i": 4, "ms": 140}, {"i": 5, "ms": 140}]
+    },
+    "feast": {
+      "sheet": "feast.png",
+      "frameW": 56,
+      "frameH": 43,
+      "cols": 14,
+      "box": {"x": 4, "y": 17, "w": 56, "h": 43},
+      "loop": true,
+      "ms": 880,
+      "frames": [{"i": 0, "ms": 70}, {"i": 1, "ms": 60}, {"i": 2, "ms": 60}, {"i": 3, "ms": 60}, {"i": 4, "ms": 60}, {"i": 5, "ms": 60}, {"i": 6, "ms": 60}, {"i": 7, "ms": 70}, {"i": 8, "ms": 60}, {"i": 9, "ms": 60}, {"i": 10, "ms": 60}, {"i": 11, "ms": 60}, {"i": 12, "ms": 60}, {"i": 13, "ms": 80}]
+    },
+    "eat-code-fast": {
+      "sheet": "eat-code-fast.png",
+      "frameW": 46,
+      "frameH": 34,
+      "cols": 7,
+      "box": {"x": 9, "y": 26, "w": 46, "h": 34},
+      "loop": true,
+      "ms": 850,
+      "frames": [{"i": 0, "ms": 90}, {"i": 1, "ms": 80}, {"i": 2, "ms": 90}, {"i": 3, "ms": 80}, {"i": 4, "ms": 90}, {"i": 1, "ms": 80}, {"i": 5, "ms": 90}, {"i": 3, "ms": 80}, {"i": 6, "ms": 90}, {"i": 1, "ms": 80}]
+    },
+    "juggle": {
+      "sheet": "juggle.png",
+      "frameW": 56,
+      "frameH": 51,
+      "cols": 8,
+      "box": {"x": 4, "y": 9, "w": 56, "h": 51},
+      "loop": true,
+      "ms": 1040,
+      "frames": [{"i": 0, "ms": 130}, {"i": 1, "ms": 130}, {"i": 2, "ms": 130}, {"i": 3, "ms": 130}, {"i": 4, "ms": 130}, {"i": 5, "ms": 130}, {"i": 6, "ms": 130}, {"i": 7, "ms": 130}]
+    },
+    "juggle-many": {
+      "sheet": "juggle-many.png",
+      "frameW": 62,
+      "frameH": 54,
+      "cols": 12,
+      "box": {"x": 1, "y": 6, "w": 62, "h": 54},
+      "loop": true,
+      "ms": 1200,
+      "frames": [{"i": 0, "ms": 100}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 100}, {"i": 4, "ms": 100}, {"i": 5, "ms": 100}, {"i": 6, "ms": 100}, {"i": 7, "ms": 100}, {"i": 8, "ms": 100}, {"i": 9, "ms": 100}, {"i": 10, "ms": 100}, {"i": 11, "ms": 100}]
+    },
+    "shocked": {
+      "sheet": "shocked.png",
+      "frameW": 42,
+      "frameH": 49,
+      "cols": 11,
+      "box": {"x": 11, "y": 11, "w": 42, "h": 49},
+      "loop": true,
+      "ms": 1090,
+      "frames": [{"i": 0, "ms": 70}, {"i": 1, "ms": 60}, {"i": 2, "ms": 60}, {"i": 3, "ms": 60}, {"i": 4, "ms": 60}, {"i": 2, "ms": 60}, {"i": 5, "ms": 120}, {"i": 6, "ms": 120}, {"i": 7, "ms": 120}, {"i": 8, "ms": 120}, {"i": 9, "ms": 120}, {"i": 10, "ms": 120}]
+    },
+    "laugh": {
+      "sheet": "laugh.png",
+      "frameW": 63,
+      "frameH": 57,
+      "cols": 8,
+      "box": {"x": 0, "y": 3, "w": 63, "h": 57},
+      "loop": true,
+      "ms": 1060,
+      "frames": [{"i": 0, "ms": 120}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 100}, {"i": 0, "ms": 100}, {"i": 4, "ms": 100}, {"i": 5, "ms": 100}, {"i": 6, "ms": 100}, {"i": 0, "ms": 100}, {"i": 7, "ms": 140}]
+    },
+    "laugh-point": {
+      "sheet": "laugh-point.png",
+      "frameW": 47,
+      "frameH": 55,
+      "cols": 5,
+      "box": {"x": 13, "y": 5, "w": 47, "h": 55},
+      "loop": true,
+      "ms": 860,
+      "frames": [{"i": 0, "ms": 120}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 100}, {"i": 4, "ms": 100}, {"i": 2, "ms": 100}, {"i": 1, "ms": 100}, {"i": 0, "ms": 140}]
+    },
+    "laugh-roll": {
+      "sheet": "laugh-roll.png",
+      "frameW": 56,
+      "frameH": 51,
+      "cols": 7,
+      "box": {"x": 4, "y": 9, "w": 56, "h": 51},
+      "loop": true,
+      "ms": 880,
+      "frames": [{"i": 0, "ms": 110}, {"i": 1, "ms": 110}, {"i": 2, "ms": 110}, {"i": 3, "ms": 110}, {"i": 0, "ms": 110}, {"i": 4, "ms": 110}, {"i": 5, "ms": 110}, {"i": 6, "ms": 110}]
+    },
+    "laugh-belly": {
+      "sheet": "laugh-belly.png",
+      "frameW": 61,
+      "frameH": 53,
+      "cols": 7,
+      "box": {"x": 1, "y": 7, "w": 61, "h": 53},
+      "loop": true,
+      "ms": 780,
+      "frames": [{"i": 0, "ms": 120}, {"i": 1, "ms": 90}, {"i": 2, "ms": 90}, {"i": 3, "ms": 90}, {"i": 4, "ms": 90}, {"i": 1, "ms": 90}, {"i": 5, "ms": 90}, {"i": 6, "ms": 120}]
+    },
+    "alert": {
+      "sheet": "alert.png",
+      "frameW": 42,
+      "frameH": 48,
+      "cols": 3,
+      "box": {"x": 13, "y": 12, "w": 42, "h": 48},
+      "loop": true,
+      "ms": 1280,
+      "frames": [{"i": 0, "ms": 160}, {"i": 1, "ms": 160}, {"i": 0, "ms": 160}, {"i": 2, "ms": 160}, {"i": 0, "ms": 160}, {"i": 1, "ms": 160}, {"i": 0, "ms": 160}, {"i": 2, "ms": 160}]
+    },
+    "devour": {
+      "sheet": "devour.png",
+      "frameW": 48,
+      "frameH": 34,
+      "cols": 12,
+      "box": {"x": 16, "y": 26, "w": 48, "h": 34},
+      "loop": true,
+      "ms": 1360,
+      "frames": [{"i": 0, "ms": 120}, {"i": 1, "ms": 100}, {"i": 2, "ms": 120}, {"i": 3, "ms": 120}, {"i": 4, "ms": 100}, {"i": 5, "ms": 120}, {"i": 6, "ms": 120}, {"i": 7, "ms": 100}, {"i": 8, "ms": 120}, {"i": 9, "ms": 120}, {"i": 10, "ms": 100}, {"i": 11, "ms": 120}]
+    },
+    "carry": {
+      "sheet": "carry.png",
+      "frameW": 34,
+      "frameH": 46,
+      "cols": 4,
+      "box": {"x": 15, "y": 14, "w": 34, "h": 46},
+      "loop": true,
+      "ms": 1120,
+      "frames": [{"i": 0, "ms": 140}, {"i": 1, "ms": 140}, {"i": 0, "ms": 140}, {"i": 2, "ms": 140}, {"i": 0, "ms": 140}, {"i": 3, "ms": 140}, {"i": 0, "ms": 140}, {"i": 2, "ms": 140}]
+    },
+    "sleep": {
+      "sheet": "sleep.png",
+      "frameW": 37,
+      "frameH": 48,
+      "cols": 8,
+      "box": {"x": 17, "y": 12, "w": 37, "h": 48},
+      "loop": true,
+      "ms": 3040,
+      "frames": [{"i": 0, "ms": 380}, {"i": 1, "ms": 380}, {"i": 2, "ms": 380}, {"i": 3, "ms": 380}, {"i": 4, "ms": 380}, {"i": 5, "ms": 380}, {"i": 6, "ms": 380}, {"i": 7, "ms": 380}]
+    },
+    "wake": {
+      "sheet": "wake.png",
+      "frameW": 32,
+      "frameH": 46,
+      "cols": 8,
+      "box": {"x": 16, "y": 14, "w": 32, "h": 46},
+      "loop": false,
+      "ms": 1720,
+      "frames": [{"i": 0, "ms": 260}, {"i": 1, "ms": 200}, {"i": 2, "ms": 300}, {"i": 3, "ms": 360}, {"i": 4, "ms": 160}, {"i": 5, "ms": 140}, {"i": 6, "ms": 100}, {"i": 7, "ms": 200}]
+    },
+    "walk": {
+      "sheet": "walk.png",
+      "frameW": 34,
+      "frameH": 35,
+      "cols": 7,
+      "box": {"x": 15, "y": 25, "w": 34, "h": 35},
+      "loop": true,
+      "ms": 1000,
+      "frames": [{"i": 0, "ms": 140}, {"i": 1, "ms": 120}, {"i": 2, "ms": 120}, {"i": 3, "ms": 120}, {"i": 4, "ms": 140}, {"i": 5, "ms": 120}, {"i": 6, "ms": 120}, {"i": 3, "ms": 120}]
+    },
+    "poke-left": {
+      "sheet": "poke-left.png",
+      "frameW": 34,
+      "frameH": 34,
+      "cols": 8,
+      "box": {"x": 16, "y": 26, "w": 34, "h": 34},
+      "loop": false,
+      "ms": 900,
+      "frames": [{"i": 0, "ms": 90}, {"i": 1, "ms": 110}, {"i": 2, "ms": 100}, {"i": 3, "ms": 110}, {"i": 4, "ms": 110}, {"i": 5, "ms": 120}, {"i": 6, "ms": 100}, {"i": 7, "ms": 160}]
+    },
+    "poke-right": {
+      "sheet": "poke-right.png",
+      "frameW": 34,
+      "frameH": 34,
+      "cols": 8,
+      "box": {"x": 14, "y": 26, "w": 34, "h": 34},
+      "loop": false,
+      "ms": 900,
+      "frames": [{"i": 0, "ms": 90}, {"i": 1, "ms": 110}, {"i": 2, "ms": 100}, {"i": 3, "ms": 110}, {"i": 4, "ms": 110}, {"i": 5, "ms": 120}, {"i": 6, "ms": 100}, {"i": 7, "ms": 160}]
+    },
+    "tickle": {
+      "sheet": "tickle.png",
+      "frameW": 60,
+      "frameH": 55,
+      "cols": 11,
+      "box": {"x": 2, "y": 5, "w": 60, "h": 55},
+      "loop": false,
+      "ms": 1140,
+      "frames": [{"i": 0, "ms": 70}, {"i": 1, "ms": 60}, {"i": 2, "ms": 60}, {"i": 0, "ms": 60}, {"i": 3, "ms": 60}, {"i": 4, "ms": 60}, {"i": 5, "ms": 60}, {"i": 6, "ms": 60}, {"i": 7, "ms": 70}, {"i": 0, "ms": 60}, {"i": 1, "ms": 60}, {"i": 8, "ms": 100}, {"i": 9, "ms": 160}, {"i": 10, "ms": 200}]
+    },
+    "prone-eat": {
+      "sheet": "prone-eat.png",
+      "frameW": 62,
+      "frameH": 25,
+      "cols": 12,
+      "box": {"x": 2, "y": 35, "w": 62, "h": 25},
+      "loop": true,
+      "ms": 1360,
+      "frames": [{"i": 0, "ms": 110}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 130}, {"i": 4, "ms": 120}, {"i": 5, "ms": 120}, {"i": 6, "ms": 110}, {"i": 7, "ms": 100}, {"i": 8, "ms": 100}, {"i": 9, "ms": 130}, {"i": 10, "ms": 120}, {"i": 11, "ms": 120}]
+    }
+  },
+  "idlePool": {
+    "everyMs": {"mean": 120000, "min": 45000, "max": 300000},
+    "anims": [
+      {"anim": "idle-look", "ms": 4520, "weight": 2},
+      {"anim": "idle-giggle", "ms": 2580, "weight": 2},
+      {"anim": "guichu", "ms": 2160, "weight": 1},
+      {"anim": "snack", "ms": 2010, "weight": 2},
+      {"anim": "dance", "ms": 3040, "weight": 1}
+    ]
+  },
+  "states": {
+    "idle": ["idle"],
+    "thinking": ["thinking"],
+    "working": ["eat-code"],
+    "juggling": ["juggle"],
+    "error": ["shocked"],
+    "attention": ["laugh"],
+    "notification": ["alert"],
+    "sweeping": ["devour"],
+    "carrying": ["carry"],
+    "sleeping": ["sleep"],
+    "waking": ["wake"],
+    "roam": ["walk"]
+  },
+  "bonus": {"attention": {"anims": ["laugh-point", "laugh-roll", "laugh-belly"], "chance": 0.5}},
+  "tiers": {
+    "working": [
+      {"min": 3, "anim": "feast"},
+      {"min": 2, "anim": "eat-code-fast"},
+      {"min": 1, "anim": "eat-code"}
+    ],
+    "juggling": [{"min": 2, "anim": "juggle-many"}, {"min": 1, "anim": "juggle"}]
+  },
+  "timings": {
+    "minDisplay": {
+      "attention": 3180,
+      "error": 2180,
+      "sweeping": 1360,
+      "notification": 2560,
+      "carrying": 2240,
+      "working": 1000,
+      "thinking": 1000
+    },
+    "autoReturn": {"attention": 3180, "error": 2180, "sweeping": 300000, "carrying": 2240},
+    "wakeMs": 1720
+  },
+  "reactions": {"tapLeft": "poke-left", "tapRight": "poke-right", "tickle": "tickle", "drag": "prone-eat"},
+  "roam": {"anim": "walk", "faces": "front", "free": true},
+  "drag": {"mirror": true},
+  "sleep": {"afterMs": 60000},
+  "sounds": "naiwa",
+  "snack": {
+    "mouth": {"x": 32, "y": 39},
+    "mouths": {"prone-eat": {"x": 43, "y": 52}},
+    "every": {
+      "eat-code": 700,
+      "eat-code-fast": 380,
+      "feast": 200,
+      "devour": 260,
+      "snack": 1500,
+      "prone-eat": 260
+    }
+  }
+}
