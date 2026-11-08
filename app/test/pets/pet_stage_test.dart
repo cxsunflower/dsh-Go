@@ -296,8 +296,8 @@ void main() {
       expect(list, hasLength(1));
     });
 
-    testWidgets('tap left / right: their reactions; three quick taps: tickle', (tester) async {
-      await pumpPet(tester, warm: ['react-left', 'react-right', 'react-double']);
+    testWidgets('tap left / right: their reactions', (tester) async {
+      await pumpPet(tester, warm: ['react-left', 'react-right']);
       final body = hitBox(tester, deepy);
       final s = petScaleOn(tester, deepy);
       final split = petCanvas(tester).left + deepy.anchorX * s;
@@ -311,14 +311,31 @@ void main() {
       expect(petLayer(tester).playing!.name, 'react-right');
       await tester.pump(const Duration(seconds: 3));
       clock.advance(const Duration(seconds: 3));
+      // Tapping on stays a poke: only Naiwa's second quick tap has a step of
+      // its own, and there is no third.
       for (var i = 0; i < 3; i++) {
-        await tester.tapAt(body.center);
+        await tester.tapAt(Offset(split + 6, body.center.dy));
         await tester.pump(const Duration(milliseconds: 50));
         clock.advance(const Duration(milliseconds: 300));
       }
-      expect(petLayer(tester).playing!.name, 'react-double');
+      expect(petLayer(tester).playing!.name, 'react-right');
       await tester.pump(const Duration(seconds: 3));
       expect(petLayer(tester).playing!.name, 'idle');
+    });
+
+    testWidgets('a tap after the menu closed still reacts', (tester) async {
+      await pumpPet(tester, warm: ['react-left', 'react-right']);
+      final body = hitBox(tester, deepy);
+      await tester.longPressAt(body.center);
+      await tester.pumpAndSettle();
+      expect(find.text('换宠物'), findsOneWidget);
+      await tester.tapAt(const Offset(200, 40));
+      await tester.pumpAndSettle();
+      expect(find.text('换宠物'), findsNothing);
+      await tester.tapAt(body.center);
+      await tester.pump();
+      await tester.pump();
+      expect(petLayer(tester).playing!.name, isNot('idle'), reason: 'a tap after the menu reacts');
     });
 
     testWidgets('long press: 换宠物 · 藏起来 1 小时 · 宠物设置; hiding it hides it', (tester) async {
