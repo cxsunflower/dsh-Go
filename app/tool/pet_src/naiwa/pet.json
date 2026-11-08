@@ -1,0 +1,108 @@
+{
+  "id": "naiwa",
+  "w": 64,
+  "h": 64,
+  "anims": [
+    {
+      "key": "idle",
+      "durs": [260, 200, 240, 200, 240, 220, 260, 200, 240, 200, 100, 180],
+      "loop": true
+    },
+    {"key": "idle-look", "durs": [200, 160, 360, 280, 160, 160, 360, 280, 100, 200], "loop": true},
+    {"key": "idle-giggle", "durs": [220, 160, 120, 90, 90, 90, 120, 90, 90, 220], "loop": true},
+    {
+      "key": "guichu",
+      "durs": [80, 60, 60, 60, 70, 60, 60, 60, 60, 70, 70, 60, 60, 60, 70, 120],
+      "loop": true
+    },
+    {"key": "snack", "durs": [240, 200, 160, 200, 150, 150, 150, 200, 260, 300], "loop": true},
+    {"key": "dance", "durs": [160, 200, 160, 120, 120, 160, 200, 160, 120, 120], "loop": true},
+    {"key": "thinking", "durs": [300, 300, 300, 300, 220, 220, 300, 120], "loop": true},
+    {
+      "key": "eat-code",
+      "durs": [100, 90, 90, 110, 140, 140, 100, 90, 90, 110, 140, 140],
+      "loop": true
+    },
+    {"key": "eat-code-fast", "durs": [90, 80, 90, 80, 90, 80, 90, 80, 90, 80], "loop": true},
+    {"key": "feast", "durs": [70, 60, 60, 60, 60, 60, 60, 70, 60, 60, 60, 60, 60, 80], "loop": true},
+    {"key": "juggle", "durs": [130, 130, 130, 130, 130, 130, 130, 130], "loop": true},
+    {
+      "key": "juggle-many",
+      "durs": [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
+      "loop": true
+    },
+    {"key": "shocked", "durs": [70, 60, 60, 60, 60, 60, 120, 120, 120, 120, 120, 120], "loop": true},
+    {"key": "laugh", "durs": [120, 100, 100, 100, 100, 100, 100, 100, 100, 140], "loop": true},
+    {"key": "laugh-point", "durs": [120, 100, 100, 100, 100, 100, 100, 140], "loop": true},
+    {"key": "laugh-roll", "durs": [110, 110, 110, 110, 110, 110, 110, 110], "loop": true},
+    {"key": "laugh-belly", "durs": [120, 90, 90, 90, 90, 90, 90, 120], "loop": true},
+    {"key": "alert", "durs": [160, 160, 160, 160, 160, 160, 160, 160], "loop": true},
+    {
+      "key": "devour",
+      "durs": [120, 100, 120, 120, 100, 120, 120, 100, 120, 120, 100, 120],
+      "loop": true
+    },
+    {"key": "carry", "durs": [140, 140, 140, 140, 140, 140, 140, 140], "loop": true},
+    {"key": "sleep", "durs": [380, 380, 380, 380, 380, 380, 380, 380], "loop": true},
+    {"key": "wake", "durs": [260, 200, 300, 360, 160, 140, 100, 200], "loop": false},
+    {"key": "walk", "durs": [140, 120, 120, 120, 140, 120, 120, 120], "loop": true},
+    {"key": "poke-left", "durs": [90, 110, 100, 110, 110, 120, 100, 160], "loop": false},
+    {"key": "poke-right", "durs": [90, 110, 100, 110, 110, 120, 100, 160], "loop": false},
+    {
+      "key": "tickle",
+      "durs": [70, 60, 60, 60, 60, 60, 60, 60, 70, 60, 60, 100, 160, 200],
+      "loop": false
+    },
+    {
+      "key": "prone-eat",
+      "durs": [110, 100, 100, 130, 120, 120, 110, 100, 100, 130, 120, 120],
+      "loop": true
+    }
+  ],
+  "states": {
+    "idle": ["idle"],
+    "thinking": ["thinking"],
+    "working": ["eat-code"],
+    "juggling": ["juggle"],
+    "error": ["shocked"],
+    "attention": ["laugh"],
+    "notification": ["alert"],
+    "sweeping": ["devour"],
+    "carrying": ["carry"],
+    "sleeping": ["sleep"],
+    "waking": ["wake"],
+    "roam": ["walk"]
+  },
+  "tiers": {
+    "working": [
+      {"min": 3, "anim": "feast"},
+      {"min": 2, "anim": "eat-code-fast"},
+      {"min": 1, "anim": "eat-code"}
+    ],
+    "juggling": [{"min": 2, "anim": "juggle-many"}, {"min": 1, "anim": "juggle"}]
+  },
+  "idlePool": [
+    {"anim": "idle-look", "loops": 2, "weight": 2},
+    {"anim": "idle-giggle", "loops": 2, "weight": 2},
+    {"anim": "guichu", "loops": 2, "weight": 1},
+    {"anim": "snack", "loops": 1, "weight": 2},
+    {"anim": "dance", "loops": 2, "weight": 1}
+  ],
+  "bonus": {"attention": {"anims": ["laugh-point", "laugh-roll", "laugh-belly"], "chance": 0.5}},
+  "reactions": {"tapLeft": "poke-left", "tapRight": "poke-right", "tickle": "tickle", "drag": "prone-eat"},
+  "holds": {"attention": 3, "error": 2, "notification": 2, "carrying": 2, "waking": 1, "sweeping": 1},
+  "faces": "front",
+  "sounds": "naiwa",
+  "snack": {
+    "mouth": {"x": 32, "y": 39},
+    "mouths": {"prone-eat": {"x": 43, "y": 52}},
+    "every": {
+      "eat-code": 700,
+      "eat-code-fast": 380,
+      "feast": 200,
+      "devour": 260,
+      "snack": 1500,
+      "prone-eat": 260
+    }
+  }
+}
