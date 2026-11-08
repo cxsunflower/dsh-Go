@@ -4,10 +4,12 @@
 // link in the same frame, hops when that changes, walks about now and then,
 // sleeps when left alone, reacts to taps, drags and long presses, and raises a
 // bubble when a turn ends or something waits in another conversation. Only its
-// body takes touches.
+// body takes touches. A pack's sounds and code snacks play here too
+// (docs/design/naiwa-pet.md §6, §7); a pet that eats runs along its perch to
+// the reasoning being written ([PetFood]) and walks home once idle.
 //
-// Interaction: tap left / right, a quick run of taps tickles, drag, sleep
-// after 60 s idle. The overlay twin lives in Kotlin.
+// Interaction: tap left / right, a second quick tap laughs, drag, sleep after
+// 60 s idle. The overlay twin lives in Kotlin.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -26,9 +28,11 @@ import '../../pets/pet_pack.dart';
 import '../../pets/pet_prefs.dart';
 import '../../pets/pet_sheets.dart';
 import '../../pets/pet_signals.dart';
+import '../../pets/pet_sounds.dart';
 import '../../pets/pet_state.dart';
 import '../../state/chat_state.dart';
 import '../../state/hosts_state.dart';
+import '../../state/notify_state.dart' show chatOnScreenProvider;
 import '../../state/sessions_state.dart';
 import '../../state/ui_mode_state.dart';
 import '../chat/widgets/approval_card.dart';
@@ -38,6 +42,7 @@ import '../theme/theme.dart';
 import 'pet_bubble.dart';
 import 'pet_menu.dart';
 import 'pet_perch.dart';
+import 'pet_snack.dart';
 import 'pet_sprite.dart';
 
 /// Geometry and timing shared with the tests.
@@ -71,14 +76,46 @@ abstract final class PetMetrics {
   /// A drag starts after this much movement.
   static const dragSlop = 6.0;
 
-  /// A tickle: this many taps within [tickleWithin].
-  static const tickleTaps = 3;
-  static const tickleWithin = Duration(milliseconds: 1100);
+  /// Dragging a pack with `drag.mirror` turns its art left once the foot has
+  /// gone this far left; it turns back only after this far right.
+  static const dragMirrorSlop = 2.0;
+
+  /// A second tap this soon after the first laughs; the chain starts over
+  /// once the laugh does.
+  static const doubleTapWithin = Duration(milliseconds: 1100);
+
+  /// Code snacks take off between these heights over the perch, this far
+  /// clear of the body.
+  static const snackLow = 12.0;
+  static const snackHigh = 40.0;
+  static const snackClear = 8.0;
+
+  /// Running to the reasoning being written (docs/design/naiwa-pet.md §7),
+  /// logical px per second, at least [runMin] at a time.
+  static const runSpeed = 72.0;
+  static const runMin = 24.0;
+
+  /// While it eats a reasoning, it runs again after this long.
+  static const rerunMin = Duration(seconds: 6);
+  static const rerunMax = Duration(seconds: 9);
+
+  /// Back home this long after it went idle away from it.
+  static const homeAfter = Duration(milliseconds: 1200);
+
+  /// A reasoning's glyphs take off within this much of the bottom of what
+  /// shows of it, this far either side of the mouth.
+  static const foodBand = 36.0;
+  static const foodSpread = 48.0;
+
+  /// Mouth reach in logical pixels, independent of the pet's art scale.
+  static const eraseRadius = 12.0;
+  static const eatRadius = 20.0;
 }
 
 /// The pet over the chat page. Wrap the page body; capsules inside report
 /// with [PetPerch], panels that should send it away with [PetCover], areas
-/// it keeps out of with [PetAvoid].
+/// it keeps out of with [PetAvoid], the reasoning being written with
+/// [PetFood].
 class PetStage extends ConsumerStatefulWidget {
   const PetStage({super.key, this.sessionId, this.aside = false, required this.child});
 
@@ -290,7 +327,7 @@ class PetLayer extends ConsumerStatefulWidget {
   ConsumerState<PetLayer> createState() => PetLayerState();
 }
 
-class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixin {
+class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixin, WidgetsBindingObserver {
   // ── Where it stands ──
   PerchSpot? _spot;
   Size _stage = Size.zero;
@@ -316,8 +353,39 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   bool _walking = false;
   bool _walkRight = false;
 
+  // ── Eating the reasoning being written ──
+  /// What shows of it, in stage coordinates.
+  Rect? _food;
+  PetFoodState? _meal;
+  final _snacks = GlobalKey<PetSnackLayerState>();
+
+  /// The state's animation eats, and what it eats is that reasoning.
+  bool _feeding = false;
+  bool _chasing = false;
+
+  /// The next run may start: at once when chasing starts, then on [_chaseTimer].
+  bool _runDue = false;
+
+  /// The walk under way is a run to the reasoning.
+  bool _running = false;
+
+  /// Runs took it away from home: idle, it walks back.
+  bool _fed = false;
+  Timer? _chaseTimer;
+  Timer? _homeTimer;
+
   // ── Held ──
   bool _dragging = false;
+
+  /// Dragged left far enough: the art (and its mouth) mirrors. Cleared only
+  /// after [PetMetrics.dragMirrorSlop] the other way, so a jittering finger
+  /// does not flip it back and forth.
+  bool _dragLeft = false;
+
+  /// Where the drag started, in stage coordinates: the mirroring turns on and
+  /// off [PetMetrics.dragMirrorSlop] either side of it.
+  double? _dragFrom;
+  Offset? _freeFoot;
   double _dragFoot = 0;
   double _lift = 0;
   late final AnimationController _drop = AnimationController(vsync: this, value: 1)..addListener(_tick);
@@ -325,6 +393,12 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   // ── One-offs ──
   PetAnimation? _reaction;
+  bool _laughing = false;
+
+  /// The current one-off has a recording playing (any reaction, not only the
+  /// laugh): interrupting it stops the native clip.
+  bool _audible = false;
+  late final PetSoundPlayer _soundPlayer;
   Timer? _reactionTimer;
   PetAnimation? _variant;
   Timer? _idleTimer;
@@ -337,9 +411,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   PetPack? _statePack;
   PetPack? _pinned;
 
+  // ── Sounds ──
+  /// The animation whose cue came last (a running one does not repeat it).
+  String? _cued;
+  PetSoundSet? _prepared;
+
   /// Where the foot stands now, in stage coordinates (tests).
   @visibleForTesting
-  Offset? get foot => _spot == null ? null : _spot!.rect.topLeft + Offset(_footX(_spot!), 0);
+  Offset? get foot => _freeFoot ?? (_spot == null ? null : _spot!.rect.topLeft + Offset(_footX(_spot!), 0));
 
   /// The perch it stands on (tests).
   @visibleForTesting
@@ -351,10 +430,26 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   @visibleForTesting
   bool get walking => _walking;
 
+  /// It eats the reasoning being written, running to it now and then (tests).
+  @visibleForTesting
+  bool get chasing => _chasing;
+
   /// The animation playing now (tests).
   @visibleForTesting
   PetAnimation? get playing => _anim;
   PetAnimation? _anim;
+
+  /// Why the last one-off did not start (tests): a sound it needed would
+  /// have been dropped, or the pet could not be heard. Null when it played.
+  @visibleForTesting
+  String? get reactionBlocked => _blocked;
+  String? _blocked;
+
+  /// The art is mirrored while held (tests).
+  @visibleForTesting
+  bool get dragMirrored => _mirror;
+  bool get _mirror =>
+      (_dragging && _pack?.dragMirror == true && _dragLeft) || (_walking && (_pack?.mirrorWalking(right: _walkRight) ?? false));
 
   /// In the tree (not parked by a moving global key or a closing route).
   bool _active = true;
@@ -362,13 +457,21 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   @override
   void initState() {
     super.initState();
+    _soundPlayer = ref.read(petSoundPlayerProvider);
+    WidgetsBinding.instance.addObserver(this);
     widget.registry.addListener(_schedulePoll);
   }
 
   @override
   void deactivate() {
     _active = false;
+    if (_reaction != null) _clearReaction();
     super.deactivate();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && _reaction != null) setState(_clearReaction);
   }
 
   @override
@@ -390,12 +493,16 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clearReaction();
     widget.registry.removeListener(_schedulePoll);
     widget.registry.occupied.value = null;
     _reactionTimer?.cancel();
     _idleTimer?.cancel();
     _roamTimer?.cancel();
     _unhideTimer?.cancel();
+    _chaseTimer?.cancel();
+    _homeTimer?.cancel();
     _hop.dispose();
     _walk.dispose();
     _drop.dispose();
@@ -421,6 +528,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   void _poll(Duration _) {
     _polling = false;
     if (!mounted || !_active) return;
+    if (_reaction != null && (!_visible || _typing || !ref.read(chatOnScreenProvider))) setState(_clearReaction);
     final stage = context.findRenderObject();
     if (stage is! RenderBox || !stage.hasSize || !stage.attached) return;
     var spots = widget.registry.spots(stage);
@@ -436,6 +544,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     }
     final avoid = [for (final r in widget.registry.avoids(stage)) r.inflate(PetMetrics.avoidGap)];
     final covered = widget.registry.covered;
+    // Only a pet that eats follows the reasoning: it moves with every delta.
+    final food = _pack?.snack == null ? null : _foodOver(top, widget.registry.foods(stage), stage.size);
+    final point = _freeFoot;
+    final pack = _pack;
+    final mouth = pack?.snack?.mouthOf('prone-eat');
+    final meal = point != null && pack != null && mouth != null
+        ? widget.registry.mealAt(stage, point + (mouth - Offset(pack.anchorX, pack.baseline)) * _scale)
+        : null;
     final global = stage.localToGlobal(Offset.zero);
     final old = _spot;
     final moved = top?.perch != old?.perch;
@@ -447,8 +563,11 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
         stage.size != _stage ||
         (global - _stageGlobal).distance > 0.01 ||
         covered != _covered ||
-        !_sameRects(avoid, _avoid);
-    if (moved && top != null && old != null && _lastFoot != null) {
+        meal != _meal ||
+        (point != null && top?.rect.top != old?.rect.top) ||
+        !_sameRects(avoid, _avoid) ||
+        !_sameRects([?food], [?_food]);
+    if (moved && top != null && old != null && _lastFoot != null && _freeFoot == null) {
       // Hop from where it stood to the new perch.
       _spot = top;
       _hopFrom = _lastFoot! - (top.rect.topLeft + Offset(_footX(top), 0));
@@ -466,22 +585,30 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
         _stageGlobal = global;
         _avoid = avoid;
         _covered = covered;
+        _food = food;
+        _meal = meal;
+        if (_freeFoot case final point?) _freeFoot = _clampFree(point);
       });
     }
     final spot = _spot;
-    _lastFoot = spot == null ? null : spot.rect.topLeft + Offset(_footX(spot), 0);
+    _lastFoot = foot;
     final shown = _visible && _ready;
     // Perches lead their links once there is a pet to draw (and keep leading
     // while it fades out when covered or hidden).
     final leading = _ready && _pack != null;
     if (widget.registry.leading.value != leading) widget.registry.leading.value = leading;
-    final occupied = shown ? spot?.kind : null;
+    final occupied = shown && _freeFoot == null ? spot?.kind : null;
     if (widget.registry.occupied.value != occupied) widget.registry.occupied.value = occupied;
     ref.read(petLayerShownProvider.notifier).set(shown);
-    final pack = _pack;
+    final shownPack = _pack;
     ref
         .read(petHeadroomProvider.notifier)
-        .set(shown && pack != null ? (pack.baseline - pack.contentBox.top) * _scale : 0);
+        .set(
+          shown && shownPack != null && _freeFoot == null
+              ? (shownPack.baseline - shownPack.contentBox.top) * _scale
+              : 0,
+        );
+    _syncChase();
     // Keep watching while frames come (keyboard, strips rising).
     _polling = true;
     SchedulerBinding.instance.addPostFrameCallback(_poll);
@@ -493,6 +620,24 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       if ((a[i].topLeft - b[i].topLeft).distance > 0.25 || a[i].size != b[i].size) return false;
     }
     return true;
+  }
+
+  /// What shows of the newest of [foods] (the lowest) within the stage,
+  /// above [spot]; null when nothing does.
+  static Rect? _foodOver(PerchSpot? spot, List<Rect> foods, Size stage) {
+    if (spot == null) return null;
+    Rect? newest;
+    for (final f in foods) {
+      final shows = Rect.fromLTRB(
+        math.max(f.left, 0.0),
+        math.max(f.top, 0.0),
+        math.min(f.right, stage.width),
+        math.min(f.bottom, spot.rect.top),
+      );
+      if (shows.width < 1 || shows.height < 1) continue;
+      if (newest == null || shows.bottom > newest.bottom) newest = shows;
+    }
+    return newest;
   }
 
   PetPack? get _pack => ref.read(currentPetPackProvider);
@@ -578,7 +723,9 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (next != PetStateName.idle) {
       _idleTimer?.cancel();
       _roamTimer?.cancel();
-      if (_walking) {
+      _homeTimer?.cancel();
+      // A run to the reply goes on: the chase decides when it stops.
+      if (_walking && !_running) {
         _roamed = _walkFrom + (_walkTo - _walkFrom) * _walk.value;
         _walk.stop();
         _walking = false;
@@ -591,6 +738,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       if (bonus != null && PetLayer.random.nextDouble() < bonus.chance) {
         _variant = pack.animations[bonus.anims[PetLayer.random.nextInt(bonus.anims.length)]];
       }
+      final celebration = _variant ?? pack.animFor(next);
+      if (!_laughing && _isLaugh(celebration)) _play(celebration);
     }
     // Touching a sleeper only wakes it.
     if (next == PetStateName.sleeping || next == PetStateName.waking) _clearReaction();
@@ -600,10 +749,12 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   bool get _reduced => AppMotion.reduced(context);
 
-  /// Idle: now and then an idle extra, now and then a walk.
+  /// Idle: now and then an idle extra, now and then a walk; home first if
+  /// runs took it away.
   void _armIdle() {
     _idleTimer?.cancel();
     _roamTimer?.cancel();
+    if (_fed) _armHome();
     final pack = _pack;
     if (_reduced || pack == null) return;
     _idleTimer = Timer(pack.idleEvery.draw(PetLayer.random.nextDouble()), _idleTick);
@@ -612,6 +763,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
 
   void _armRoam() {
     _roamTimer?.cancel();
+    if (_freeFoot != null) return;
     _roamTimer = Timer(PetMetrics.roamEvery.draw(PetLayer.random.nextDouble()), _roam);
   }
 
@@ -637,6 +789,10 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       }
     }
     final anim = pack.animations[chosen.anim];
+    if (_isLaugh(anim)) {
+      _play(anim);
+      return;
+    }
     setState(() => _variant = anim);
     final ms = chosen.ms > 0 ? chosen.ms : (anim?.durationMs ?? 4800);
     _idleTimer = Timer(Duration(milliseconds: ms), () {
@@ -656,6 +812,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   /// Walks a little way along the perch (and back home the next time).
   void _roam() {
     if (!mounted || !_active) return;
+    if (_freeFoot != null) return;
     final spot = _spot;
     final pack = _pack;
     if (spot == null || pack == null || _lastState != PetStateName.idle) return;
@@ -677,47 +834,250 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     final (lo, hi) = _range(spot);
     final endX = _clear(spot, (to * spot.rect.width).clamp(lo, hi));
     final startX = _footX(spot);
-    final distance = (endX - startX).abs();
-    if (distance < 4) {
+    if ((endX - startX).abs() < 4) {
       _armRoam();
       return;
     }
+    _go(spot, startX, endX, PetMetrics.walkSpeed);
+  }
+
+  /// Walks the foot from [startX] to [endX] along [spot] at [speed];
+  /// [run]: to the reasoning being written.
+  void _go(PerchSpot spot, double startX, double endX, double speed, {bool run = false}) {
     setState(() {
       _walkFrom = startX / spot.rect.width;
       _walkTo = endX / spot.rect.width;
       _walkRight = endX > startX;
       _walking = true;
+      _running = run;
       _variant = null;
     });
-    _walk.duration = Duration(milliseconds: (distance / PetMetrics.walkSpeed * 1000).round());
+    _walk.duration = Duration(milliseconds: ((endX - startX).abs() / speed * 1000).round());
     unawaited(_walk.forward(from: 0));
   }
 
   void _walked(AnimationStatus status) {
     if (status != AnimationStatus.completed || !_walking) return;
+    final run = _running;
     final home = ref.read(petPrefsProvider).position;
     setState(() {
       _walking = false;
+      _running = false;
       _roamed = (_walkTo - home).abs() < 0.002 ? null : _walkTo;
+      _fed = (run || _fed) && _roamed != null;
     });
-    if (_lastState == PetStateName.idle) _armRoam();
+    if (run && _chasing) {
+      _armChase();
+    } else if (_lastState == PetStateName.idle) {
+      _armRoam();
+    }
   }
 
+  // ── Eating the reasoning being written ─────────────────────────────────────
+
+  /// After every frame: while the state's animation eats a reasoning and
+  /// some of it shows, it runs along the perch to below it (at once, then
+  /// every 6–9 s); otherwise it stops where it is.
+  void _syncChase() {
+    final spot = _spot;
+    final food = _food;
+    if (!_feeding || spot == null || food == null || _dragging || _freeFoot != null) {
+      _endChase();
+      return;
+    }
+    if (!_chasing) {
+      _chasing = true;
+      _runDue = true;
+      _homeTimer?.cancel();
+    }
+    // No new run while it is busy, cannot be seen or the page moves; one
+    // under way goes on.
+    if (!_runDue || _walking || _reaction != null || _hop.isAnimating || _drop.isAnimating) return;
+    if (_reduced || !_visible || !_ready || (widget.scrolling?.value ?? false)) return;
+    _runDue = false;
+    _run(spot, food);
+  }
+
+  /// Runs to somewhere under [food], at least [PetMetrics.runMin] from where
+  /// it stands; already that close all over it, it eats where it is.
+  void _run(PerchSpot spot, Rect food) {
+    final (lo, hi) = _range(spot);
+    final from = _footX(spot);
+    final left = math.max(lo, food.left - spot.rect.left);
+    final right = math.min(hi, food.right - spot.rect.left);
+    final before = math.max(0.0, math.min(right, from - PetMetrics.runMin) - left);
+    final after = math.max(0.0, right - math.max(left, from + PetMetrics.runMin));
+    if (before + after <= 0) {
+      _armChase();
+      return;
+    }
+    final pick = PetLayer.random.nextDouble() * (before + after);
+    final to = _clear(spot, pick < before ? left + pick : right - (pick - before));
+    if ((to - from).abs() < 4) {
+      _armChase();
+      return;
+    }
+    _go(spot, from, to, PetMetrics.runSpeed, run: true);
+  }
+
+  void _armChase() {
+    _chaseTimer?.cancel();
+    final wait = PetMetrics.rerunMin + (PetMetrics.rerunMax - PetMetrics.rerunMin) * PetLayer.random.nextDouble();
+    _chaseTimer = Timer(wait, () {
+      if (!mounted || !_chasing) return;
+      _runDue = true;
+      if (_active) _syncChase();
+    });
+  }
+
+  /// Stops chasing; a run under way stops where it is.
+  void _endChase() {
+    if (!_chasing) return;
+    _chasing = false;
+    _runDue = false;
+    _chaseTimer?.cancel();
+    if (_running) {
+      _walk.stop();
+      setState(() {
+        _roamed = _walkFrom + (_walkTo - _walkFrom) * _walk.value;
+        _walking = false;
+        _running = false;
+        _fed = true;
+      });
+    }
+    if (_fed && _lastState == PetStateName.idle) _armHome();
+  }
+
+  void _armHome() {
+    _homeTimer?.cancel();
+    _homeTimer = Timer(PetMetrics.homeAfter, _goHome);
+  }
+
+  /// Idle away from home after runs: back at walking pace. Out of sight or
+  /// with animations off it is simply there.
+  void _goHome() {
+    if (!mounted || !_fed || _lastState != PetStateName.idle || _walking) return;
+    final spot = _spot;
+    if (spot == null) return;
+    if (!_active || _reaction != null || _hop.isAnimating || (widget.scrolling?.value ?? false)) {
+      _armHome();
+      return;
+    }
+    final (lo, hi) = _range(spot);
+    final endX = _clear(spot, (ref.read(petPrefsProvider).position * spot.rect.width).clamp(lo, hi));
+    final startX = _footX(spot);
+    if (_reduced || !_visible || (endX - startX).abs() < 4) {
+      setState(() {
+        _roamed = null;
+        _fed = false;
+      });
+      return;
+    }
+    _go(spot, startX, endX, PetMetrics.walkSpeed);
+  }
+
+  /// The four laugh poses, the ones the long laugh recording scores: their
+  /// pose holds for the recording. A tickle has its own clip and keeps only
+  /// that long.
+  bool _isLaugh(PetAnimation? anim) => _pack?.id == 'naiwa' && anim != null && anim.name.startsWith('laugh');
+
+  /// Whether this pack's one-off [anim] is heard: it names a cue the set has
+  /// a sound for, and the pet may sound now. Null when no sound goes with it
+  /// (silent cues, a pack without sounds) — those animate regardless.
+  bool? _heard(PetAnimation anim) {
+    final sounds = _pack?.sounds;
+    if (sounds == null) return null;
+    final prefs = ref.read(petPrefsProvider);
+    if (!prefs.sound || prefs.quiet) return false;
+    if (!_visible || !_ready || !ref.read(chatOnScreenProvider)) return false;
+    final set = ref.read(petSoundSetProvider(sounds)).value;
+    if (set == null || set.cue(anim.name).isEmpty) return null;
+    return _soundPlayer.wouldAllow(set, anim.name);
+  }
+
+  /// Plays a one-off only when its sound can go out with it: a reaction whose
+  /// cue the rate limits would drop keeps the current pose, so a silent pose
+  /// never plays (docs/design/naiwa-pet.md §6.2).
   void _play(PetAnimation? anim) {
     final pack = _pack;
     if (anim == null || pack == null) return;
-    _reactionTimer?.cancel();
+    _blocked = null;
+    // The same one-off is already showing (a state flash that re-armed): keep
+    // it, and its recording, rather than asking the limits for a second play.
+    if (_reaction == anim && _laughing == _isLaugh(anim)) return;
+    final heard = _heard(anim);
+    if (heard == false) {
+      _blocked = _whySilent(anim) ?? 'sound';
+      return;
+    }
+    _clearReaction();
+    _laughing = _isLaugh(anim);
+    if (_laughing) {
+      // Whatever was tapped before, the laugh ends the chain: a tap during
+      // or after it never pairs with an older one into another laugh.
+      _taps.clear();
+      _walk.stop();
+      _walking = false;
+      _running = false;
+      _idleTimer?.cancel();
+      _roamTimer?.cancel();
+      _homeTimer?.cancel();
+    }
+    final duration = _hold(anim, pack);
     setState(() {
       _reaction = anim;
       _variant = null;
+      _audible = heard == true;
     });
-    _reactionTimer = Timer(Duration(milliseconds: pack.playOf(anim)), () {
-      if (mounted) setState(() => _reaction = null);
+    // The pose and its recording start together, this frame: [_heard] already
+    // asked the player, so this is the one play, not a second question.
+    if (heard == true) {
+      _cued = anim.name;
+      final sounds = pack.sounds;
+      final set = sounds == null ? null : ref.read(petSoundSetProvider(sounds)).value;
+      if (set != null) unawaited(_soundPlayer.cue(set, anim.name));
+    }
+    _reactionTimer = Timer(duration, () {
+      if (!mounted) return;
+      setState(_clearReaction);
+      if (_lastState == PetStateName.idle) _armIdle();
     });
+  }
+
+  /// Why [anim]'s sound cannot go out: the pet is muted, or the player's rate
+  /// limits would drop it. Null when it is only not audible yet (hidden).
+  String? _whySilent(PetAnimation anim) {
+    final sounds = _pack?.sounds;
+    if (sounds == null) return null;
+    final prefs = ref.read(petPrefsProvider);
+    if (!prefs.sound) return 'sound-off';
+    if (prefs.quiet) return 'quiet';
+    final set = ref.read(petSoundSetProvider(sounds)).value;
+    if (set == null || set.cue(anim.name).isEmpty) return null;
+    return _soundPlayer.wouldAllow(set, anim.name) ? null : 'limit';
+  }
+
+  /// How long [anim] stays: the laugh for its whole recording, any other
+  /// reaction with a sound for that clip's length, else its own play time.
+  Duration _hold(PetAnimation anim, PetPack pack) {
+    if (_laughing) return naiwaLaughDuration;
+    final sounds = pack.sounds;
+    if (sounds == null) return Duration(milliseconds: pack.playOf(anim));
+    final prefs = ref.read(petPrefsProvider);
+    if (!prefs.sound || prefs.quiet) return Duration(milliseconds: pack.playOf(anim));
+    final set = ref.read(petSoundSetProvider(sounds)).value;
+    final clip = set?.cue(anim.name).firstOrNull;
+    if (clip?.ms case final ms?) {
+      return Duration(milliseconds: math.max(ms, pack.playOf(anim)));
+    }
+    return Duration(milliseconds: pack.playOf(anim));
   }
 
   void _clearReaction() {
     _reactionTimer?.cancel();
+    if (_audible) unawaited(_soundPlayer.stop());
+    _laughing = false;
+    _audible = false;
     _reaction = null;
   }
 
@@ -737,23 +1097,36 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       widget.onReveal?.call(pet.target!, question ? PetBubbleKind.question : PetBubbleKind.approval);
       return;
     }
-    final now = _now;
-    _taps
-      ..removeWhere((t) => now.difference(t) > PetMetrics.tickleWithin)
-      ..add(now);
-    if (_taps.length >= PetMetrics.tickleTaps) {
-      // Tapping on keeps the tickle going.
-      HapticFeedback.lightImpact();
-      _play(pack.reaction('tickle'));
+    // A tap during the recording ends it; the next tap starts a chain afresh.
+    if (_laughing) {
+      _taps.clear();
+      setState(_clearReaction);
       return;
     }
-    if (_reaction != null && _reaction == pack.reaction('tickle')) {
-      _play(_reaction);
+    final now = _now;
+    _taps
+      ..removeWhere((t) => now.difference(t) > PetMetrics.doubleTapWithin)
+      ..add(now);
+    if (_taps.length >= 2 && pack.id == 'naiwa') {
+      // The second of two quick taps laughs. The chain ends here (see
+      // [_play]), so one more tap is a lone tap again, never a third step.
+      HapticFeedback.lightImpact();
+      _play(pack.animFor(PetStateName.attention));
       return;
     }
     HapticFeedback.selectionClick();
     final left = details.localPosition.dx < pack.anchorX * _scale;
     _play(pack.reaction(left ? 'tapLeft' : 'tapRight'));
+  }
+
+  Offset _clampFree(Offset point) {
+    final pack = _pack!;
+    final bounds = pack.contentBox.expandToInclude(_anim?.box ?? pack.contentBox);
+    final left = (pack.anchorX - bounds.left) * _scale;
+    final right = _stage.width - (bounds.right - pack.anchorX) * _scale;
+    final top = (pack.baseline - bounds.top) * _scale;
+    final bottom = _stage.height - (bounds.bottom - pack.baseline) * _scale;
+    return Offset(point.dx.clamp(left, math.max(left, right)), point.dy.clamp(top, math.max(top, bottom)));
   }
 
   void _onDragStart(DragStartDetails details) {
@@ -763,40 +1136,118 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     ref.read(petInteractionProvider.notifier).touch();
     _roamTimer?.cancel();
     _idleTimer?.cancel();
+    _homeTimer?.cancel();
+    _chaseTimer?.cancel();
+    _chasing = false;
+    _runDue = false;
     _walk.stop();
+    final startX = spot.rect.left + _footX(spot);
     setState(() {
       _dragFoot = _footX(spot);
+      _dragFrom = startX;
+      _dragLeft = false;
+      if (_pack?.freeRoam == true) {
+        _freeFoot = _clampFree(_freeFoot ?? spot.rect.topLeft + Offset(_dragFoot, 0));
+        _hop.value = 1;
+      }
       _dragging = true;
       _walking = false;
+      _running = false;
+      // Where it is dropped is its spot: no way back.
+      _fed = false;
       _roamed = null;
       _variant = null;
       _clearReaction();
       _lift = -PetMetrics.dragLift;
       _drop.value = 1;
     });
+    if (_freeFoot case final point?) _eraseBetween(point, point);
   }
+
+  void _eraseBetween(Offset from, Offset to, {double radius = PetMetrics.eraseRadius}) {
+    final pack = _pack;
+    final mouth = pack?.snack?.mouthOf('prone-eat');
+    final stage = context.findRenderObject();
+    if (pack == null || mouth == null || stage is! RenderBox || !stage.attached || !stage.hasSize) return;
+    final mouthOffset = (_mouth(pack, mouth) - Offset(pack.anchorX, pack.baseline)) * _scale;
+    final erased = widget.registry.eraseAlong(stage, from + mouthOffset, to + mouthOffset, radius: radius);
+    final origin = to - Offset(pack.anchorX, pack.baseline) * _scale;
+    _snacks.currentState?.addErasedGlyphs([
+      for (final glyph in erased.glyphs) (char: glyph.char, from: glyph.from - origin),
+    ]);
+  }
+
+  /// A snack mouth in art pixels, the other way when the art is mirrored.
+  Offset _mouth(PetPack pack, Offset mouth) => _mirror ? Offset(2 * pack.anchorX - mouth.dx, mouth.dy) : mouth;
 
   void _onDragUpdate(DragUpdateDetails details) {
     final spot = _spot;
     if (spot == null || !_dragging) return;
+    final foot = _stageX;
+    if (_freeFoot case final point?) {
+      final next = _clampFree(point + details.delta);
+      setState(() => _freeFoot = next);
+      _turnDrag(foot, next.dx);
+      _eraseBetween(point, next);
+      return;
+    }
     final (lo, hi) = _range(spot);
     setState(() {
       _dragFoot = (_dragFoot + details.delta.dx).clamp(lo, hi);
       // Held up a little; pulling up lifts it further, with some give.
       _lift = (_lift + details.delta.dy * 0.4).clamp(-PetMetrics.dragLift * 4, -PetMetrics.dragLift * 0.5);
     });
+    _turnDrag(foot, _dragFoot);
+  }
+
+  /// The foot's x in the stage's coordinates.
+  double get _stageX {
+    final spot = _spot;
+    return spot == null ? 0 : spot.rect.left + _footX(spot);
+  }
+
+  /// Turns the art to the way the foot has actually gone, once it is
+  /// [PetMetrics.dragMirrorSlop] past where the drag began. It turns back only
+  /// from the other side of that mark, so small back-and-forth movements keep
+  /// one direction.
+  void _turnDrag(double from, double to) {
+    final pack = _pack;
+    final start = _dragFrom;
+    if (pack == null || !pack.dragMirror || start == null) return;
+    final left = !_dragLeft && to < start - PetMetrics.dragMirrorSlop;
+    final right = _dragLeft && to > start + PetMetrics.dragMirrorSlop;
+    if (!left && !right) return;
+    setState(() => _dragLeft = left);
   }
 
   void _onDragEnd([DragEndDetails? _]) {
     final spot = _spot;
     if (!_dragging || spot == null) return;
+    if (_freeFoot case final point?) {
+      _eraseBetween(point, point, radius: PetMetrics.eatRadius);
+      if ((point.dy - spot.rect.top).abs() > 32 || point.dx < spot.rect.left || point.dx > spot.rect.right) {
+        setState(() {
+          _dragging = false;
+          _dragLeft = false;
+          _lift = 0;
+        });
+        _cue(PetCues.drop);
+        if (_lastState == PetStateName.idle) _armIdle();
+        return;
+      }
+      _dragFoot = point.dx - spot.rect.left;
+      _freeFoot = null;
+      _lift = 0;
+    }
     // Let go: it settles on the perch, out of any area it keeps out of.
     final x = _clear(spot, _dragFoot);
     setState(() {
       _dragging = false;
+      _dragLeft = false;
       _dropFrom = _lift;
       _lift = 0;
     });
+    _cue(PetCues.drop);
     unawaited(ref.read(petPrefsProvider.notifier).setPosition(x / spot.rect.width));
     final drop = AppMotion.of(context, AppMotion.standard);
     if (drop == Duration.zero) {
@@ -806,13 +1257,38 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       unawaited(_drop.forward(from: 0));
     }
     if (_lastState == PetStateName.idle) _armIdle();
+    // Eating: it eats where it was put for a while before it runs again.
+    if (_feeding && _food != null) {
+      _chasing = true;
+      _armChase();
+    }
   }
 
   Future<void> _menu() async {
     final pack = _pack;
     if (pack == null) return;
+    setState(() {
+      _clearReaction();
+      // The menu ends a tap chain: taps after it start over.
+      _taps.clear();
+    });
     ref.read(petInteractionProvider.notifier).touch();
     await showPetMenu(context, pack: pack);
+  }
+
+  /// Sounds [key] (an animation's name, or one of [PetCues]) if the pet may be
+  /// heard: its pack has sounds, they are on, quiet mode is off, and it shows
+  /// on the chat in front (docs/design/naiwa-pet.md §6.2). The player checks
+  /// the app is in front and keeps the limits.
+  void _cue(String key) {
+    if (!mounted || !_active) return;
+    if (key == 'laugh-belly' && _pack?.id == 'naiwa' && !_laughing) return;
+    final sounds = _pack?.sounds;
+    final prefs = ref.read(petPrefsProvider);
+    if (sounds == null || !prefs.sound || prefs.quiet) return;
+    if (!_visible || !_ready || !ref.read(chatOnScreenProvider)) return;
+    final set = ref.read(petSoundSetProvider(sounds)).value;
+    if (set != null) unawaited(ref.read(petSoundPlayerProvider).cue(set, key));
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -825,10 +1301,43 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     return origin + (snapped - global);
   }
 
+  /// Where code snacks take off, in canvas coordinates ([origin] is the
+  /// canvas's offset from the perch): a band over the perch, on either side
+  /// of the body.
+  List<Rect> _snackLaunch(PerchSpot spot, PetPack pack, double s, Offset origin) {
+    final top = -PetMetrics.snackHigh - origin.dy;
+    final bottom = -PetMetrics.snackLow - origin.dy;
+    final left = -origin.dx;
+    final right = spot.rect.width - origin.dx;
+    final bodyLeft = pack.contentBox.left * s - PetMetrics.snackClear;
+    final bodyRight = pack.contentBox.right * s + PetMetrics.snackClear;
+    return [
+      if (bodyLeft > left) Rect.fromLTRB(left, top, bodyLeft, bottom),
+      if (right > bodyRight) Rect.fromLTRB(bodyRight, top, right, bottom),
+    ];
+  }
+
+  /// Where a reply's glyphs take off, in canvas coordinates: a band along
+  /// the bottom of what shows of it ([food], stage coordinates), either side
+  /// of the [mouth].
+  List<Rect> _replyLaunch(PerchSpot spot, Rect food, Offset mouth, Offset origin) {
+    final top = spot.rect.top + origin.dy;
+    return [
+      Rect.fromLTRB(
+        mouth.dx - PetMetrics.foodSpread,
+        math.max(food.top, food.bottom - PetMetrics.foodBand) - top,
+        mouth.dx + PetMetrics.foodSpread,
+        food.bottom - top,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final pack = ref.watch(currentPetPackProvider);
     final prefs = ref.watch(petPrefsProvider);
+    if (_reaction != null && (!identical(pack, _pinned) || !prefs.sound || prefs.quiet || !_visible)) _clearReaction();
+    if (!identical(pack, _pinned) || !_visible) _freeFoot = null;
     final pet = ref.watch(petScopedStateProvider(_scope));
     ref.watch(uiModeProvider.select((m) => m.web));
     // A new state (or the pack just arrived): arm what goes with it.
@@ -843,12 +1352,22 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       PetSheets.instance.pin(pack, pack.animFor(PetStateName.idle));
       _ready = false;
     }
+    // Its sounds load ahead of their first cue.
+    final sounds = prefs.sound ? pack?.sounds : null;
+    if (sounds != null) {
+      final set = ref.watch(petSoundSetProvider(sounds)).value;
+      if (set != null && !identical(set, _prepared)) {
+        _prepared = set;
+        unawaited(ref.read(petSoundPlayerProvider).prepare(set));
+      }
+    }
     _armUnhide(prefs);
     _schedulePoll();
 
     final spot = _spot;
     if (pack == null || spot == null) {
       _bodyFullyHidden = true;
+      _feeding = false;
       return const SizedBox.expand();
     }
     final s = _scale;
@@ -862,16 +1381,44 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     final hop = _hopFrom * (1 - eased) + Offset(0, t < 1 ? -PetMetrics.hopHeight * 4 * t * (1 - t) : 0);
     final lift = _dragging ? _lift : _dropFrom * (1 - Curves.easeIn.transform(_drop.value));
     var origin = Offset(footX - pack.anchorX * s, -pack.baseline * s) + hop + Offset(0, lift);
+    if (_freeFoot case final point?) {
+      _freeFoot = _clampFree(point);
+      origin = _freeFoot! - spot.rect.topLeft - Offset(pack.anchorX * s, pack.baseline * s);
+    }
     if (!_dragging && !_hop.isAnimating && !_walking && !_drop.isAnimating) origin = _snap(spot, origin);
 
-    final anim = _dragging
-        ? (pack.reaction('drag') ?? pack.animFor(pet.state, tier: pet.tier))
-        : _reaction ??
-              (_walking ? pack.roam : null) ??
-              (pet.state == PetStateName.idle || pet.state == PetStateName.attention ? _variant : null) ??
-              pack.animFor(pet.state, tier: pet.tier);
+    final snack = pack.snack;
+    final snackText = ref.watch(petSnackTextProvider);
+    final reply = snack != null && snackText.reply != null;
+    // What the state itself plays, walks and one-offs aside. A pet that eats
+    // chews on a reasoning as it streams.
+    final own =
+        (pet.state == PetStateName.idle || pet.state == PetStateName.attention ? _variant : null) ??
+        (reply && pet.state == PetStateName.thinking
+            ? pack.animFor(PetStateName.working, tier: 1)
+            : pack.animFor(pet.state, tier: pet.tier));
+    final meal = _freeFoot != null ? _meal : null;
+    final eating = meal != null ? pack.animations['prone-eat'] : null;
+    final anim =
+        (_laughing ? _reaction : null) ??
+        eating ??
+        (_dragging
+            ? (pack.reaction('drag') ?? pack.animFor(pet.state, tier: pet.tier))
+            : _reaction ?? (_walking ? pack.roam : null) ?? own);
     _anim = anim;
-    final flip = _walking && pack.mirrorWalking(right: _walkRight);
+    // Idle's extras may eat too, but only work sends it after a reasoning.
+    _feeding = snack != null && reply && pet.state != PetStateName.idle && snack.everyOf(own.name) != null;
+    // A one-off with a sound that the limits would drop never reached this
+    // frame: [_play] kept the pose, and it sounds the one it did start. Every
+    // other animation is sounded here, when it first shows.
+    if (anim.name != _cued) {
+      _cued = anim.name;
+      // The laugh and the other one-offs sound from [_play], together with the
+      // pose it starts; sounding them here first would spend the limit that
+      // pose then needs.
+      if (!_isLaugh(anim)) _cue(anim.name);
+    }
+    final flip = _mirror;
 
     // Only the body takes touches: the animation's hit box, never below the
     // foot line (the capsule under it keeps its taps).
@@ -993,7 +1540,70 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       ),
     );
 
-    return Stack(clipBehavior: Clip.none, children: [body, speech]);
+    final every = snack?.everyOf(anim.name);
+    final mouth = snack == null ? Offset.zero : _mouth(pack, snack.mouthOf(anim.name));
+    final food = _food;
+    // One glyph at a time, slowly enough to follow: a reading pace, not the
+    // animation's own snack.every (docs/design/naiwa-pet.md §7).
+    final biteEvery = every == null ? null : math.max(every, PetSnackLayer.slowestEvery);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        body,
+        if (snack != null && shown)
+          CompositedTransformFollower(
+            link: spot.link,
+            showWhenUnlinked: false,
+            offset: origin,
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                // Its own consumer: a reply grows many times a second.
+                child: Consumer(
+                  builder: (context, ref, _) => PetSnackLayer(
+                    key: _snacks,
+                    anim: anim.name,
+                    scale: s,
+                    active: (!_dragging || pack.freeRoam) && biteEvery != null,
+                    every: biteEvery ?? 0,
+                    mouth: mouth * s,
+                    launch: _dragging && pack.freeRoam
+                        ? [Rect.fromLTWH(mouth.dx * s + 8, mouth.dy * s - 18, 28, 36)]
+                        : reply && food != null
+                        ? _replyLaunch(spot, food, mouth * s, origin)
+                        : _snackLaunch(spot, pack, s, origin),
+                    // No reasoning block on screen at all: there is nothing
+                    // nearby to reach, so eat the jokes round and round.
+                    text: reply && food == null ? SnackText(petSnackJokesText) : snackText,
+                    // Nothing within reach at the mouth (the thinking has
+                    // scrolled away or run out): the built-in ASCII jokes.
+                    fallback: reply && food != null ? SnackText(petSnackJokesText) : const SnackText(''),
+                    takeGlyph: meal == null
+                        ? null
+                        : () {
+                            final stage = this.context.findRenderObject();
+                            if (stage is! RenderBox || !stage.attached || !stage.hasSize) return null;
+                            final canvasOrigin = spot.rect.topLeft + origin;
+                            final point = canvasOrigin + mouth * s;
+                            final erased = meal.eraseAlong(
+                              stage,
+                              point,
+                              point,
+                              radius: _dragging ? PetMetrics.eraseRadius : PetMetrics.eatRadius,
+                              maxParticles: 1,
+                            );
+                            final glyph = erased.glyphs.firstOrNull;
+                            return glyph == null ? null : (char: glyph.char, from: glyph.from - canvasOrigin);
+                          },
+                    onBite: () => _cue(PetCues.bite),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        speech,
+      ],
+    );
   }
 
   void _armUnhide(PetPrefs prefs) {
