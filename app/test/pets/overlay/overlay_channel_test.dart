@@ -100,20 +100,6 @@ void main() {
       expect(await channel.openAppDetails(), isFalse);
     });
 
-    test('the installed packs root goes before the first push, once', () async {
-      final native = FakeOverlayNative()..install();
-      final channel = PetOverlayChannel();
-      await channel.push(const PetState());
-      await channel.push(const PetState(state: PetStateName.working));
-      final root = native.packRoot;
-      // Whatever the platform's support directory is, the field is there and ends in /pets.
-      if (root != null) expect(root, endsWith('/pets'));
-      expect(native.methods.where((m) => m == 'setPackRoot').length, lessThanOrEqualTo(1));
-      // Ahead of the pushes when there is a root to send.
-      if (root != null) expect(native.methods.first, 'setPackRoot');
-      expect(native.methods.where((m) => m == 'push').length, 2);
-    });
-
     test('native status events and 宠物设置 requests reach Dart', () async {
       final native = FakeOverlayNative(permission: 'granted')..install();
       final channel = PetOverlayChannel();
