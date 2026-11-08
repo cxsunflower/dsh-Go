@@ -91,6 +91,7 @@ class PetPack {
     this.source,
     this.pixelArt = true,
     this.scale = 1,
+    this.sizeScale = 1,
     this.tiers = const {},
     this.minDisplay = const {},
     this.autoReturn = const {},
@@ -98,6 +99,8 @@ class PetPack {
     this.reactions = const {},
     this.roamAnim,
     this.roamFacing = PetFacing.front,
+    this.freeRoam = false,
+    this.dragMirror = false,
     this.sleepAfter = const Duration(seconds: 60),
     this.wakeMs,
     this.hitBoxes = const {},
@@ -105,6 +108,8 @@ class PetPack {
     this.idlePool = const [],
     this.idleEvery = const PetEvery(),
     this.bonus = const {},
+    this.sounds,
+    this.snack,
     this.dir,
   });
 
@@ -125,6 +130,10 @@ class PetPack {
 
   /// Sheet pixels per art pixel (Deepy keeps its 5× export).
   final int scale;
+
+  /// Its body against the size's target height: 2 draws it twice as tall
+  /// as the other pets at every size (奶蛙).
+  final double sizeScale;
 
   /// The art's canvas, in art pixels.
   final Size canvas;
@@ -161,6 +170,11 @@ class PetPack {
   /// Which way the art looks: walking the other way mirrors it; front-facing
   /// art never mirrors.
   final PetFacing roamFacing;
+  final bool freeRoam;
+
+  /// `drag.mirror`: dragged left, the art (and its mouth) mirrors; dragged
+  /// right, it keeps the drawn side. Off unless a pack asks for it (§3.2).
+  final bool dragMirror;
   final Duration sleepAfter;
 
   /// How long waking lasts; one pass of its animation when absent.
@@ -180,6 +194,13 @@ class PetPack {
 
   /// State name → an occasional alternative (attention's extras).
   final Map<String, PetBonus> bonus;
+
+  /// Its sound set, `assets/pet_sounds/<id>/` (docs/design/naiwa-pet.md §6);
+  /// null: silent.
+  final String? sounds;
+
+  /// Code glyphs it eats on the chat page; null: none.
+  final PetSnack? snack;
 
   static const schema = 1;
 
@@ -247,7 +268,8 @@ class PetPack {
   }
 
   /// Parses pack.json. A pack that fails its checks throws [FormatException]
-  /// (a broken pack is not loaded at all).
+  /// (a broken pack is not loaded at all); a bad `sounds` or `snack` only
+  /// reads as absent.
   factory PetPack.parse(Map<String, Object?> json, {String? dir}) {
     if (json['schema'] != schema) throw const FormatException('pack.json: schema');
     final id = _string(json['id']);
@@ -348,6 +370,7 @@ class PetPack {
         ], chance: (_num(_map(value)['chance']) ?? 0).clamp(0, 1).toDouble()),
     }..removeWhere((_, b) => b.anims.isEmpty || b.chance <= 0);
     final faces = _string(roam['faces']) ?? _string(roam['facing']);
+    final sounds = _string(json['sounds']);
 
     return PetPack(
       id: id,
@@ -357,6 +380,7 @@ class PetPack {
       source: _string(json['source']),
       pixelArt: json['pixelArt'] != false,
       scale: scale,
+      sizeScale: (_num(json['sizeScale']) ?? 1).clamp(0.5, 4).toDouble(),
       canvas: Size(w, h),
       anchorX: _num(anchor['x']) ?? w / 2,
       baseline: _num(anchor['baseline']) ?? h,
@@ -373,6 +397,8 @@ class PetPack {
       roamAnim: roam['anim'] == null ? null : known(roam['anim'], 'roam'),
       // An explicit `flip: false` keeps front-facing art unmirrored.
       roamFacing: roam['flip'] == false ? PetFacing.front : PetFacing.values.asNameMap()[faces] ?? PetFacing.front,
+      freeRoam: roam['free'] == true,
+      dragMirror: _map(json['drag'])['mirror'] == true,
       sleepAfter: Duration(milliseconds: (_num(sleep['afterMs']) ?? 60000).round()),
       wakeMs: _num(timings['wakeMs'])?.round(),
       hitBoxes: hitBoxes,
@@ -384,6 +410,8 @@ class PetPack {
         max: (_num(every['max']) ?? 300000).round(),
       ),
       bonus: bonus,
+      sounds: sounds != null && _soundsId.hasMatch(sounds) ? sounds : null,
+      snack: _snack(json['snack'], Size(w, h), animations),
       dir: dir,
     );
   }
@@ -406,6 +434,38 @@ class PetPack {
     final x = _num(m['x']), y = _num(m['y']), w = _num(m['w']), h = _num(m['h']);
     if (x == null || y == null || w == null || h == null || w <= 0 || h <= 0) return null;
     return Rect.fromLTWH(x, y, w, h);
+  }
+
+  static final _soundsId = RegExp(r'^[a-z0-9-]+$');
+
+  /// `snack`, or null when its mouth is off the canvas or no `every` entry
+  /// names an animation with a positive interval.
+  static PetSnack? _snack(Object? v, Size canvas, Map<String, PetAnimation> animations) {
+    final m = _map(v);
+    final mouth = _map(m['mouth']);
+    final x = _num(mouth['x']), y = _num(mouth['y']);
+    if (x == null || y == null || x < 0 || y < 0 || x > canvas.width || y > canvas.height) return null;
+    final every = <String, int>{
+      for (final MapEntry(:key, :value) in _map(m['every']).entries)
+        if (_num(value)?.round() case final ms? when ms > 0 && animations.containsKey(key)) key: ms,
+    };
+    final mouths = <String, Offset>{};
+    for (final entry in _map(m['mouths']).entries) {
+      final point = _map(entry.value);
+      final mouthX = _num(point['x']), mouthY = _num(point['y']);
+      if (every.containsKey(entry.key) &&
+          mouthX != null &&
+          mouthY != null &&
+          mouthX.isFinite &&
+          mouthY.isFinite &&
+          mouthX >= 0 &&
+          mouthX <= canvas.width &&
+          mouthY >= 0 &&
+          mouthY <= canvas.height) {
+        mouths[entry.key] = Offset(mouthX, mouthY);
+      }
+    }
+    return every.isEmpty ? null : PetSnack(mouth: Offset(x, y), every: every, mouths: mouths);
   }
 }
 
@@ -445,4 +505,21 @@ class PetEvery {
     final extra = -(mean - min) * math.log(1 - u.clamp(0.0, 0.999999));
     return Duration(milliseconds: math.min(max, min + extra.round()));
   }
+}
+
+/// Code snacks flying into the pet's mouth on the chat page (docs/design/naiwa-pet.md §7).
+@immutable
+class PetSnack {
+  const PetSnack({required this.mouth, required this.every, this.mouths = const {}});
+
+  /// Where the glyphs vanish, art pixels on the canvas.
+  final Offset mouth;
+
+  /// Animation name → ms between glyphs while it plays.
+  final Map<String, int> every;
+  final Map<String, Offset> mouths;
+
+  Offset mouthOf(String anim) => mouths[anim] ?? mouth;
+
+  int? everyOf(String anim) => every[anim];
 }
