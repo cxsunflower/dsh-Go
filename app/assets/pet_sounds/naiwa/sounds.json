@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "id": "naiwa",
+  "name": "奶蛙技能音效",
+  "author": "github.com/cxsunflower",
+  "license": "Valve《Deadlock》addon 资源，再分发许可未确认，仅本地包；见 ASSETS.md",
+  "source": "Deadlock addon nawa_pak50_dir.vpk（citadel_addons/naiwa）; 逐条来源与校验见 app/tool/pet_src/naiwa/audio/sources.json; 笑声整段 25.286531 s，为绕开 SoundPool 单段上限降到 11025 Hz，其余仍 22050 Hz",
+  "clips": {
+    "hahahahahahaha": {
+      "file": "hahahahahahaha.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 25287
+    },
+    "dajiaosei": {
+      "file": "dajiaosei.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 1071
+    },
+    "diu": {
+      "file": "diu.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 1071
+    },
+    "andi": {
+      "file": "andi.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 1306
+    },
+    "gagadilaxia": {
+      "file": "gagadilaxia.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 1384
+    },
+    "houla": {
+      "file": "houla.wav",
+      "gain": 1.0,
+      "vary": 0.0,
+      "ms": 2090
+    }
+  },
+  "cues": {
+    "laugh": [
+      "hahahahahahaha"
+    ],
+    "laugh-point": [
+      "hahahahahahaha"
+    ],
+    "laugh-roll": [
+      "hahahahahahaha"
+    ],
+    "laugh-belly": [
+      "hahahahahahaha"
+    ],
+    "poke-left": [
+      "dajiaosei"
+    ],
+    "poke-right": [
+      "diu"
+    ],
+    "wake": [
+      "andi"
+    ],
+    "prone-eat": [
+      "gagadilaxia"
+    ],
+    "alert": [
+      "houla"
+    ]
+  }
+}
