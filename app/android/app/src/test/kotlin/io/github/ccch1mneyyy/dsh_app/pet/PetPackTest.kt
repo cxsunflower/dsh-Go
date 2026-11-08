@@ -2,11 +2,14 @@ package io.github.ccch1mneyyy.dsh_app.pet
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.nio.file.Files
 
 class PetPackTest {
     private fun anim(name: String, frames: Int, box: String = """{"x": 12, "y": 12, "w": 52, "h": 49}""", loop: Boolean = true, scale: Int = 1): String {
@@ -128,6 +131,38 @@ class PetPackTest {
         // No hitBoxes at all: the body.
         val bare = PetPack.parse(json)
         assertEquals(bare.contentBox, bare.hitBoxFor(bare.animations.getValue("typing")))
+    }
+
+    /** The chat page's `sounds` and `snack` (docs/design/naiwa-pet.md §5): the overlay reads past them. */
+    @Test fun soundsAndSnackChangeNothingElse() {
+        val p = PetPack.parse(json.replace(
+            "\"reactions\":",
+            """"sounds": "naiwa",
+               "snack": {"mouth": {"x": 33, "y": 31}, "every": {"typing": 700, "building": 200, "eat-code": 380}},
+               "reactions":""",
+        ))
+        val bare = PetPack.parse(json)
+        assertEquals(bare.id, p.id)
+        assertEquals(bare.contentBox, p.contentBox)
+        assertEquals(bare.animations, p.animations)
+        assertEquals(bare.states, p.states)
+        assertEquals(bare.tiers, p.tiers)
+        assertEquals(bare.reactions, p.reactions)
+        assertEquals(bare.playMs, p.playMs)
+        assertEquals(bare.idlePool, p.idlePool)
+        assertEquals(bare.windowBox(), p.windowBox())
+    }
+
+    @Test fun sizeScaleDrawsTheBodyThatManyTimesAsTall() {
+        fun with(scale: String) = PetPack.parse(json.replace("\"reactions\":", "\"sizeScale\": $scale, \"reactions\":"))
+        val bare = PetPack.parse(json)
+        val big = with("2")
+        assertEquals(1f, bare.sizeScale)
+        assertEquals(2f, big.sizeScale)
+        assertEquals(4f, with("9").sizeScale)
+        // A 49 px body at density 3: 1 / 2 / 3 physical px per art px, then 3 / 4 / 5 (pet_pack_test.dart's rule).
+        assertEquals(listOf(1, 2, 3), PetSize.values().map { bare.devicePixels(it, 3f) })
+        assertEquals(listOf(3, 4, 5), PetSize.values().map { big.devicePixels(it, 3f) })
     }
 
     @Test fun bonusFromTheStateListAtAThird() {
@@ -270,6 +305,168 @@ class PetPackTest {
                     assertTrue("${p.id}/${a.name} r=$r $bytes", r == 1 || bytes <= PetSprites.SHEET_BYTES)
                 }
             }
+        }
+    }
+
+    // ---- installed packs (docs/design/pet-packs.md §4) -----------------------------------------
+
+    /** A one-animation pack, as `pack.json`; [name] tells the installed copy from the bundled one. */
+    private fun packJson(id: String, name: String = id): String = """
+        {"schema": 1, "id": "$id", "name": "$name", "scale": 1,
+         "canvas": {"w": 69, "h": 66}, "contentBox": {"x": 12, "y": 12, "w": 52, "h": 49},
+         "animations": {"idle": {"sheet": "idle.png", "frameW": 52, "frameH": 49, "cols": 1,
+           "box": {"x": 12, "y": 12, "w": 52, "h": 49}, "frames": [{"i": 0, "ms": 100}]}},
+         "states": {"idle": ["idle"]}}
+    """.trimIndent()
+
+    private fun tempDir(): File = Files.createTempDirectory("pet-pack").toFile().apply { deleteOnExit() }
+
+    private fun bundled(vararg files: Pair<String, String>): (String) -> java.io.InputStream? =
+        { name -> files.toMap()[name]?.toByteArray()?.let { ByteArrayInputStream(it) } }
+
+    /** [root]/<id>/pack with [manifest] and the sheet at [sheet]. */
+    private fun install(root: File, id: String, manifest: String, sheet: String? = "sheets/idle.png"): File {
+        val dir = File(root, "$id/pack").apply { mkdirs() }
+        File(dir, "pack.json").writeText(manifest)
+        if (sheet != null) {
+            File(dir, sheet).apply { parentFile!!.mkdirs() }.writeBytes(byteArrayOf(1, 2, 3))
+        }
+        return dir
+    }
+
+    private fun read(source: ((String) -> java.io.InputStream?)?): String =
+        source!!("pack.json")!!.use { it.readBytes().toString(Charsets.UTF_8) }
+
+    @Test fun theInstalledCopyComesBeforeTheBundledOne() {
+        val root = tempDir()
+        install(root, "deepy-whale", packJson("deepy-whale", "安装版"))
+        val source = PetPackFiles.source(root, "deepy-whale", bundled("pack.json" to packJson("deepy-whale", "内置版")), null)
+        assertTrue(read(source).contains("安装版"))
+        assertEquals("安装版", PetPackFiles.installed(root, "deepy-whale")?.pack?.name)
+    }
+
+    @Test fun aMissingOrEmptyRootFallsBackToTheAssets() {
+        val source = PetPackFiles.source(tempDir(), "deepy-whale", bundled("pack.json" to packJson("deepy-whale", "内置版")), null)
+        assertTrue(read(source).contains("内置版"))
+        assertNull(PetPackFiles.installed(tempDir(), "deepy-whale"))
+        assertNull(PetPackFiles.installed(null, "deepy-whale"))
+        assertNull(PetPackFiles.source(null, "deepy-whale", null, null))
+    }
+
+    @Test fun brokenAndHalfPacksFallBackWithoutThrowing() {
+        val cases = listOf(
+            "" to "sheets/idle.png",
+            "[]" to "sheets/idle.png",
+            packJson("deepy-whale").replace("\"schema\": 1", "\"schema\": 9") to "sheets/idle.png",
+            packJson("other-pet") to "sheets/idle.png",
+            packJson("deepy-whale") to null,
+        )
+        for ((manifest, sheet) in cases) {
+            val root = tempDir()
+            install(root, "deepy-whale", manifest, sheet)
+            assertNull("manifest=${manifest.take(24)} sheet=$sheet", PetPackFiles.installed(root, "deepy-whale"))
+            val source = PetPackFiles.source(root, "deepy-whale", bundled("pack.json" to packJson("deepy-whale", "内置版")), null)
+            assertTrue(read(source).contains("内置版"))
+        }
+        // A manifest that is a directory, not a file.
+        val root = tempDir()
+        val dir = File(root, "deepy-whale/pack/pack.json").apply { mkdirs() }
+        assertTrue(dir.isDirectory)
+        assertNull(PetPackFiles.installed(root, "deepy-whale"))
+    }
+
+    @Test fun aRootThatIsAFileOrASymlinkIsNoRoot() {
+        val file = File(tempDir(), "pets").apply { writeText("x") }
+        assertNull(PetPackFiles.installed(file, "deepy-whale"))
+    }
+
+    @Test fun onlyDataFilesInsideThePackAreRead() {
+        val dir = install(tempDir(), "deepy-whale", packJson("deepy-whale"))
+        File(dir, "sounds").mkdirs()
+        assertNotNull(PetPackFiles.file(dir, "pack.json"))
+        assertNotNull(PetPackFiles.file(dir, "sheets/idle.png"))
+        File(dir, "sounds/daxiao.wav").writeBytes(byteArrayOf(1))
+        assertNotNull(PetPackFiles.file(dir, "sounds/daxiao.wav"))
+        for (bad in listOf(
+            "../pack.json", "/etc/passwd", "sheets/../../idle.png", "../../../idle.png",
+            "evil.js", "evil.so", "evil.apk", "evil.dex", "evil.jar", "nested/idle.png",
+            "sheets/evil.js", ".hidden.png", "idle.PNG", "",
+        )) {
+            assertNull(bad, PetPackFiles.file(dir, bad))
+        }
+        assertNull(PetPackFiles.file(dir, "missing.png"))
+    }
+
+    @Test fun illegalIdsAreRefused() {
+        for (bad in listOf("", "..", "../x", "/abs", "A-upper", "with space", "奶蛙", "a/b", "a".repeat(65))) {
+            assertFalse(bad, PetPackFiles.idOk(bad))
+        }
+        for (good in listOf("naiwa", "deepy-whale", "whale-girl2")) assertTrue(PetPackFiles.idOk(good))
+        // Even a valid directory is not found under an illegal id.
+        val root = tempDir()
+        install(root, "deepy-whale", packJson("deepy-whale"))
+        assertNull(PetPackFiles.installed(root, "../deepy-whale"))
+    }
+
+    @Test fun symbolicLinksOutOfThePackAreRefused() {
+        val outside = tempDir()
+        File(outside, "idle.png").writeBytes(byteArrayOf(1))
+        val dir = tempDir()
+        val linkedDir = try {
+            Files.createSymbolicLink(File(dir, "sheets").toPath(), outside.toPath())
+            true
+        } catch (_: Exception) {
+            false
+        }
+        if (linkedDir) {
+            assertNull(PetPackFiles.file(dir, "sheets/idle.png"))
+            // A sheet that is a link fails the whole pack.
+            File(dir, "pack.json").writeText(packJson("deepy-whale"))
+            assertNull(PetPackFiles.installed(dir, "deepy-whale"))
+        }
+        val root = tempDir()
+        val packDir = File(root, "linked/pack").apply { mkdirs() }
+        File(packDir, "pack.json").writeText(packJson("linked"))
+        val linkedFile = try {
+            Files.createSymbolicLink(File(packDir, "idle.png").toPath(), File(outside, "idle.png").toPath())
+            true
+        } catch (_: Exception) {
+            false
+        }
+        if (linkedFile) assertNull(PetPackFiles.installed(root, "linked"))
+    }
+
+    @Test fun withoutAPushedRootBehaviourIsUnchanged() {
+        val legacy = tempDir()
+        File(legacy, "pack.json").writeText(packJson("deepy-whale", "旧目录"))
+        File(legacy, "idle.png").writeBytes(byteArrayOf(1))
+        // Assets first, as before.
+        val both = PetPackFiles.source(null, "deepy-whale", bundled("pack.json" to packJson("deepy-whale", "内置版")), legacy)
+        assertTrue(read(both).contains("内置版"))
+        // Then the flat `files/pets/<id>/` directory.
+        val legacyOnly = PetPackFiles.source(null, "deepy-whale", null, legacy)
+        assertTrue(read(legacyOnly).contains("旧目录"))
+        // And the assets still work with no directory at all.
+        val assetsOnly = PetPackFiles.source(null, "deepy-whale", bundled("pack.json" to packJson("deepy-whale", "内置版")), null)
+        assertTrue(read(assetsOnly).contains("内置版"))
+    }
+
+    @Test fun theRootSetterIsIdempotentAndIgnoresJunk() {
+        val path = tempDir().canonicalPath
+        try {
+            assertTrue(PetPackRoot.set(path))
+            assertFalse(PetPackRoot.set(path))
+            assertNotNull(PetPackRoot.current())
+            // Junk never loses a good root.
+            for (junk in listOf("relative/pets", "   ", "", "a".repeat(5000))) {
+                assertFalse(junk, PetPackRoot.set(junk))
+                assertEquals(PetPackRoot.current()?.canonicalPath, path)
+            }
+            assertTrue(PetPackRoot.set(null))
+            assertNull(PetPackRoot.current())
+            assertFalse(PetPackRoot.set(null))
+        } finally {
+            PetPackRoot.set(null)
         }
     }
 }
