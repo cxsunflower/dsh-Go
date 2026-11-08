@@ -56,6 +56,8 @@ class PetSettingsPage extends ConsumerWidget {
     final prefs = ref.watch(petPrefsProvider);
     final now = ref.watch(petClockProvider)();
     final hidden = prefs.hiddenAt(now) ? prefs.hiddenUntil : null;
+    // 「音效」 only for a pack that names a sound set (docs/design/naiwa-pet.md §8).
+    final hasSounds = ref.watch(currentPetPackProvider)?.sounds != null;
     final notifier = ref.read(petPrefsProvider.notifier);
     return AppPage.list(
       title: l10n.botsPets,
@@ -84,6 +86,13 @@ class PetSettingsPage extends ConsumerWidget {
                     value: prefs.quiet,
                     onChanged: (v) => unawaited(notifier.setQuiet(v)),
                   ),
+                  if (hasSounds)
+                    SettingsSwitchTile(
+                      spot: Spots.petSound,
+                      subtitle: l10n.botsPetSoundSubtitle,
+                      value: prefs.sound,
+                      onChanged: (v) => unawaited(notifier.setSound(v)),
+                    ),
                   if (hidden != null)
                     SettingsTile(
                       title: l10n.botsPetShowNow,
@@ -106,7 +115,7 @@ class PetSettingsPage extends ConsumerWidget {
   /// how to bring your own.
   static String _source(L10n l10n, String id, PetPack? pack) {
     final made = !isUserPet(id)
-        ? l10n.botsPetSource
+        ? (id == 'naiwa' ? l10n.botsPetSourceNaiwa : l10n.botsPetSource)
         : [?pack?.author, ?pack?.license].where((s) => s.trim().isNotEmpty).join(' · ');
     return [if (made.isNotEmpty) made, l10n.botsPetImportHint].join('\n');
   }

@@ -672,7 +672,7 @@
   "viewTipPasteImage": "输入法里的截图和贴图，可以直接贴进输入框",
   "viewTipLauncher": "长按桌面图标，可以直接语音提问或开新对话",
   "viewTipPetBubble": "宠物冒泡时点一下，就跳到等你的那个对话",
-  "viewTipPetPlay": "连点宠物三下会挠痒痒，长按可以换宠物",
+  "viewTipPetPlay": "点一下宠物会戳它，快速连点两下奶蛙会大笑，长按可以换宠物",
   "viewTipActivityStrip": "生成时点一下状态条，看这一轮的完整轨迹",
   "viewTipImageZoom": "看图时双击放大、双指缩放，长按可以保存",
   "viewTipQueuedRecall": "排队中的消息可以撤回到输入框再改",
