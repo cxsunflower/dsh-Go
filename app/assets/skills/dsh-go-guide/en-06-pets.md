@@ -9,11 +9,25 @@ Pick a pet to keep you company in chats. When a turn finishes, fails, or waits f
 
 Tap **Pets** in the Appearance group of Settings, or touch and hold the pet in a chat and choose **Pet settings**. Choose a pet first; the other settings appear below it.
 
-- Choose **Deepy**, **Whale girl** or **None**.
-- **Size**: **Small**, **Standard** or **Large**. Standard by default.
-- **Quiet mode**: animations only, no bubbles.
+- The choice cards use a compact preview, up to four per row; narrow screens and larger text wrap them. The preview size doesn't change the pet's size in a chat.
 
-The pet, size and Quiet mode apply both in and outside the app.
+- Choose **Deepy**, **Whale girl**, **Naiwa** (the pixel one) or **None**.
+- **Size**: **Small**, **Standard** or **Large**. Standard by default.
+- **Quiet mode**: animations only, no bubbles and no pet sounds.
+- **Sounds**: shown for the pixel Naiwa, on by default.
+
+The pet, size, Quiet mode and sounds apply both in and outside the app.
+
+## Pixel Naiwa
+
+The pet settings keep Deepy and Whale girl, and add Naiwa: a classic yellow pixel pet redrawn from a fan design, shipped with the APK and unoffical. The snacking and belly-laugh behaviour below is the chat page's pixel Naiwa.
+
+- When a turn finishes she laughs holding her belly, sometimes pointing at you or rolling on the floor; she holds her head in shock on errors. Tap her once to poke, twice in a row to laugh, and once more mid-laugh to stop it; tapping her while she sleeps wakes her. The belly laugh stays in step with the whole 25.3-second recording; so do the poke, wake, prone-eat and notification clips. Tapping, dragging or leaving the page cuts it short.
+- While the model streams its thinking, she runs under the thinking block and slowly eats the new characters, about one bite every 1.2 seconds with at most three in the air; Chinese and English both. She picks a new spot every few seconds and walks back when the thinking ends. She never chases the answer text. While a command runs she eats that instead, and with nothing else she eats a few built-in code jokes. Sweeping a context eats a long line of code. These glyphs are drawn on screen only: never saved, never sent, and secrets are masked first. The answer itself is left untouched.
+- The pet can be dragged anywhere on the chat page; the pixel one lies down and eats as it moves, and turns to face left when dragged left. Sweeping over thinking (the expanded text or the collapsed summary line) rubs the visible characters out at once, like an eraser: 12 dp while dragging, 20 dp while eating in place, and already-finished thinking can be eaten too. Let go near the composer and she returns to her perch; drop her elsewhere and she stays there. Reopening the app, switching pets or hiding and showing her returns her above the composer.
+- Collapsed thinking is edible too: drag the pet across the summary line. Expanding it restores the full thinking at once, and thinking erased while expanded comes back the next time it is collapsed and expanded. Eating only changes what this page shows: the conversation record, copy and export are untouched, and the answer comes back when you leave and re-enter the chat.
+- The clips play: the 25.3-second laugh, and one each for poke left, poke right, waking, prone-eat and notification. Tapping the left or right side, two quick taps, waking a sleeping pet, prone eating and reminders map to them. When taps outrun the limits she keeps her current pose, so a sound is never missing while the animation plays. Eating and landing add no sound of their own.
+- Sounds play for the pet inside the app only; the floating pet stays silent. Volume follows the media stream, so it still sounds in vibrate mode, and stays quiet in a call or in Quiet mode. Turn sounds off in the pet settings.
 
 ## In chats
 

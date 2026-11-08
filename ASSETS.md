@@ -14,12 +14,16 @@ DSH Go 的源码以 AGPL-3.0 发布（见 [LICENSE](LICENSE)），但下面这�
 
 这些鲸鱼形象是 DSH-TUI 自己的非官方形象，和 DeepSeek 没有关系，也不代表 DeepSeek。
 
+现有奶蛙像素宠物只保留经典黄款，源文件在 `app/tool/pet_src/naiwa/`，宠物包在 `app/assets/pets/naiwa/`。它参考网络二创形象「奶蛙」（见 [Orliss/nailong](https://github.com/Orliss/nailong)）用脚本重画，未收录该参考仓库的图片和视频；角色权利归原权利人，不纳入 AGPL-3.0。这是像素版的来源说明。
+
+本轮宠物设置保留原版 Deepy 小鲸鱼、鲸娘，仅新增像素奶蛙（宠物 id `naiwa`）；此前平滑帧图方案及素材移除，聊天 Live2D 与伙伴小屋那版 Live2D 奶蛙都已整体移除，仓库不再包含该模型、纹理、导入脚本或小屋角色条目，旧 `nailong` 命名仅用于迁移。
+
 go.dshtui.com 首页（`site/home/`）由社区开发者 ClayGao233 / 采云师烧饼制作，网页本身的来源和使用条件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。其中的 `dist/assets/dsh-go.svg`（`app/assets/brand/tile.svg` 的副本）、`dist/assets/dsh-go-pop.svg`（由品牌图形改出的立体版）、`dist/assets/author/share.png`（`docs/assets/social-preview.png` 的副本）和功能展示图里的品牌图形、鲸娘形象同样适用本页的条件。
 
 仓库首页 README 用到的展示素材 `docs/assets/`（首图、社交预览图、桌宠动图、社群二维码）同样适用本页的条件：可以随本仓库一起查看和转载介绍，不要用在你自己发布的产品上。
 
 宠物包由 `app/tool/make_pet_pack.py` 从 `app/tool/pet_src/` 生成，品牌图形的代码由 `app/tool/make_brand_mark.py` 从 `app/assets/brand/` 生成。工具脚本本身和其他源码一样，以 AGPL-3.0 发布。
 
-伙伴小屋的 Live2D 素材不在这个仓库和 APK 里：Cubism Core（Live2D 专有许可）、Cubism Web Framework（Live2D Open Software License）和角色模型都打成单独的素材包，用时才放进手机，见 [docs/design/companion.md](docs/design/companion.md)。模型的作者和授权写在素材包的 `character.json` 里，App 菜单底部原样显示。
+Cubism Core（Live2D 专有许可）、Cubism Web Framework（Live2D Open Software License）和角色模型使用独立素材包，不随 APK 内置；鲸娘沿用原有策略，见 [docs/design/companion.md](docs/design/companion.md)。模型的作者、来源和许可状态写在素材包的 `character.json` 里，App 菜单底部原样显示。
 
 第三方的代码、字体、图标和运行时组件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
