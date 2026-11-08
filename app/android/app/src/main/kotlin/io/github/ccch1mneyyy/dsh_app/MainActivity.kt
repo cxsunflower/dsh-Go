@@ -56,6 +56,7 @@ class MainActivity : FlutterActivity() {
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.theme.DynamicColorPlugin())
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.performance.PerformancePlugin())
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.pet.PetOverlayPlugin())
+            engine.plugins.add(io.github.ccch1mneyyy.dsh_app.pet.PetSoundPlugin())
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.islands.IslandsPlugin())
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.nativemedia.NativeMediaPlugin())
             engine.plugins.add(io.github.ccch1mneyyy.dsh_app.nativefiles.NativeFilesPlugin())
