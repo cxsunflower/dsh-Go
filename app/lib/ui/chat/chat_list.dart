@@ -28,9 +28,9 @@ import '../../state/settings_state.dart';
 import '../common/app_dialog.dart';
 import '../common/bleed.dart';
 import '../common/ui_trace.dart';
-import '../pets/pet_perch.dart';
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
+import '../pets/pet_perch.dart';
 import '../update/update_sheet.dart' show checkForUpdates;
 import 'chat_rows.dart';
 import 'chat_rows_cache.dart';
@@ -940,20 +940,22 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
     // State; only replies that carry one pay for working out whether it can
     // still be answered.
     final s = ref.read(chatProvider(widget.sessionId));
+    // No PetFood around the reply: the pet runs to the reasoning it eats,
+    // never to the answer, which stays whole (docs/design/naiwa-pet.md §7).
     return DshUiScope(
-      sessionId: widget.sessionId,
-      messageId: item.id,
-      state: !item.text.contains('dsh-ui') && !item.text.contains('{')
-          ? DshUiState.expired
-          : dshUiStateFor(
-              items: s.items,
-              messageId: item.id,
-              running: s.running,
-              pending: [for (final p in s.pending) p.text],
-            ),
-      onReply: chat.send,
-      onAskResend: chat.send,
-      child: message,
+        sessionId: widget.sessionId,
+        messageId: item.id,
+        state: !item.text.contains('dsh-ui') && !item.text.contains('{')
+            ? DshUiState.expired
+            : dshUiStateFor(
+                items: s.items,
+                messageId: item.id,
+                running: s.running,
+                pending: [for (final p in s.pending) p.text],
+              ),
+        onReply: chat.send,
+        onAskResend: chat.send,
+        child: message,
     );
   }
 
