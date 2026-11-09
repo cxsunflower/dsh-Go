@@ -20,7 +20,7 @@ concurrency:
 env:
   FLUTTER_VERSION: 3.47.7
   NODE_VERSION: 24.22.1
-  GRADLE_VERSION: 9.3.1
+  GRADLE_VERSION: 9.7.0
   TZ: Asia/Shanghai
 
 jobs:
