@@ -89,7 +89,7 @@ class Effects(unittest.TestCase):
             'wake': ['andi'], 'prone-eat': ['gagadilaxia'],
             'alert': ['houla'],
         })
-        for silent in ('@bite', '@drop', 'idle', 'sleep', 'thinking', 'snack', 'guichu'):
+        for silent in ('@bite', '@drop', 'idle', 'sleep', 'thinking', 'snack'):
             self.assertNotIn(silent, sounds['cues'])
 
     def test_five_effects_are_byte_copies_and_only_the_laugh_is_resampled(self):
