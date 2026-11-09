@@ -14,7 +14,7 @@ DSH Go 的源码以 AGPL-3.0 发布（见 [LICENSE](LICENSE)），但下面这�
 
 这些鲸鱼形象是 DSH-TUI 自己的非官方形象，和 DeepSeek 没有关系，也不代表 DeepSeek。
 
-现有奶蛙像素宠物只保留经典黄款，源文件在 `app/tool/pet_src/naiwa/`，宠物包在 `app/assets/pets/naiwa/`。它参考网络二创形象「奶蛙」（见 [Orliss/nailong](https://github.com/Orliss/nailong)）用脚本重画，未收录该参考仓库的图片和视频；角色权利归原权利人，不纳入 AGPL-3.0。这是像素版的来源说明。
+现有奶蛙像素宠物只保留经典黄款，源文件在 `app/tool/pet_src/naiwa/`，宠物包在 `app/assets/pets/naiwa/`。它来自 github.com/cxsunflower，参考网络二创形象「奶蛙」（见 [Orliss/nailong](https://github.com/Orliss/nailong)）用脚本重画，未收录该参考仓库的图片和视频；角色权利归原权利人，不纳入 AGPL-3.0。这是像素版的来源说明。
 
 本轮宠物设置保留原版 Deepy 小鲸鱼、鲸娘，仅新增像素奶蛙（宠物 id `naiwa`）；此前平滑帧图方案及素材移除，聊天 Live2D 与伙伴小屋那版 Live2D 奶蛙都已整体移除，仓库不再包含该模型、纹理、导入脚本或小屋角色条目，旧 `nailong` 命名仅用于迁移。
 

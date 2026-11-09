@@ -2730,7 +2730,8 @@ class L10nEn extends L10n {
   String get botsPetSource => 'From DSH-TUI';
 
   @override
-  String get botsPetSourceNaiwa => 'Naiwa: a pixel redraw of a fan-made meme character, unofficial';
+  String get botsPetSourceNaiwa =>
+      'Naiwa: from github.com/cxsunflower, a pixel redraw of a fan-made meme character, unofficial';
 
   @override
   String get botsPetImport => 'Import';
