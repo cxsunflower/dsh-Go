@@ -18,7 +18,7 @@
       "laugh-point": {"x": 13, "y": 24, "w": 45, "h": 36},
       "carry": {"x": 15, "y": 14, "w": 34, "h": 46},
       "wake": {"x": 16, "y": 16, "w": 32, "h": 44},
-      "prone-eat": {"x": 5, "y": 35, "w": 51, "h": 25}
+      "prone-eat": {"x": 1, "y": 33, "w": 56, "h": 27}
     },
     "wideAnims": ["dance", "eat-code-fast", "juggle", "juggle-many", "shocked", "alert"],
     "sleepingAnims": ["sleep"]
@@ -276,10 +276,10 @@
     },
     "prone-eat": {
       "sheet": "prone-eat.png",
-      "frameW": 62,
-      "frameH": 25,
+      "frameW": 63,
+      "frameH": 28,
       "cols": 12,
-      "box": {"x": 2, "y": 35, "w": 62, "h": 25},
+      "box": {"x": 1, "y": 32, "w": 63, "h": 28},
       "loop": true,
       "ms": 1360,
       "frames": [{"i": 0, "ms": 110}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 130}, {"i": 4, "ms": 120}, {"i": 5, "ms": 120}, {"i": 6, "ms": 110}, {"i": 7, "ms": 100}, {"i": 8, "ms": 100}, {"i": 9, "ms": 130}, {"i": 10, "ms": 120}, {"i": 11, "ms": 120}]
@@ -337,7 +337,7 @@
   "sounds": "naiwa",
   "snack": {
     "mouth": {"x": 32, "y": 39},
-    "mouths": {"prone-eat": {"x": 43, "y": 52}},
+    "mouths": {"prone-eat": {"x": 43, "y": 46}},
     "every": {
       "eat-code": 700,
       "eat-code-fast": 380,

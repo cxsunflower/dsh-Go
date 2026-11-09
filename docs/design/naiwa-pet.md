@@ -80,7 +80,7 @@
 | `poke-left` | `reactions.tapLeft` | 否 | 被戳左半边：往右歪、弹回来 |
 | `poke-right` | `reactions.tapRight` | 否 | 被戳右半边：往左歪、弹回来 |
 | `tickle` | `reactions.tickle` | 否 | 狂笑到抽搐，鬼畜式快速复读（点击链不再触发，数据保留） |
-| `prone-eat` | `reactions.drag` | 是 | 被拖动时趴下：肚皮贴地、身体横过来、头朝一侧，张大嘴一口口吃飞来的代码字符（嘴的位置写进 `snack.mouths`） |
+| `prone-eat` | `reactions.drag` | 是 | 被拖动时趴着往前爬：肚皮贴地、身体横过来、前爪撑起头朝一侧，后腿向后伸直，前爪轮流往前迈，张大嘴一口口吃飞来的代码字符（嘴的位置写进 `snack.mouths`） |
 
 绘制约束（打包工具会量，量不过就构建失败）：
 

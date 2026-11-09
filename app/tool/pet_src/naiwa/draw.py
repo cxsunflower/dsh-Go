@@ -531,27 +531,27 @@ def dark_rim(m):
 
 # ---------------------------------------------------------------- lying on its belly
 #
-# prone-eat, played while dragged, has a figure of its own seen from the side: flat on
-# its belly with the rump on the left and the shins up in the air, the head at the
-# right end turned to the viewer with the chin on the floor, so code flies in from the
-# right.
+# prone-eat, played while dragged, has a figure of its own seen from the side: crawling
+# on its belly with the rump on the left and the legs stretched out behind it, the head
+# at the right end held up on the forepaws and turned to the viewer, so code flies in
+# from the right.
 
-PRONE_TOP, PRONE_X = 40, 41.0    # head: top row, centre line
-# Head half-width per row from the top: the idle dome squashed onto the floor.
+PRONE_TOP, PRONE_X = 34, 41.0    # head: top row, centre line
+# Head half-width per row from the top: the idle dome squashed.
 PRONE_HEAD = [5, 7, 9, 10, 11, 11, 12, 12, 12, 13, 13, 13, 13, 13, 13, 12, 12, 11, 9]
 PRONE_FACE_U = 2.0               # the face turned a little to the right
 PRONE_EYE_DY, PRONE_MOUTH_DY = 5.5, 12.0   # below the head's top row
 # Body: a round rump and a lower chest under the head (centre, radii), cut flat by the floor.
-PRONE_BODY = (((16.0, 52.0), 8.5, 7.5), ((26.0, 54.0), 8.5, 5.5))
-PRONE_KNEES = ((11.0, 52.0), (14.0, 53.0))  # far and near shin pivots, inside the rump
-PRONE_SHIN = 13.0
-PRONE_ARM = ((31.0, 51.5), (30.0, 57.0))    # near arm: shoulder, paw flat on the floor
-PRONE_FAR_PAW = (52.5, 57.0)                # peeking out past the chin
+PRONE_BODY = (((16.0, 52.0), 8.5, 7.5), ((30.0, 53.5), 13.0, 6.0))
+PRONE_KNEES = ((11.0, 55.0), (13.0, 55.5))  # far and near shin pivots, inside the rump
+PRONE_SHIN = 6.5
+PRONE_SHOULDERS = ((48.0, 50.0), (31.0, 50.0))  # far and near, under the head
+PRONE_PAWS = ((52.5, 57.0), (30.0, 57.0))       # flat on the floor; the far one past the chin
 
 
 def prone_shin(knee, deg):
-    """A shin raised from `knee`, tilted `deg` from upright towards the head, and its
-    foot with the sole up."""
+    """A shin from `knee`, tilted `deg` from upright towards the head (-90 lies flat
+    behind), and its foot, the sole turned away from the knee."""
     a = math.radians(deg)
     dx, dy = math.sin(a), -math.cos(a)
     ank = (knee[0] + PRONE_SHIN * dx, knee[1] + PRONE_SHIN * dy)
@@ -560,6 +560,13 @@ def prone_shin(knee, deg):
     along, across = fu * dx + fv * dy, fu * dy - fv * dx
     foot = ((across / 3.8) ** 2 + (along / 3.0) ** 2 < 1) & (along < 0)
     return capsule(knee, ank, 2.3) & ~foot, foot
+
+
+def prone_arm(shoulder, paw, step):
+    """An arm down to its paw on the floor, the paw moved `step` = (dx, lift)."""
+    pc = (paw[0] + step[0], paw[1] - step[1])
+    paw = ellipse(pc, PAW_R + 0.4, PAW_R)
+    return capsule(shoulder, pc, ARM_R) & ~paw, paw
 
 
 def render_prone(p):
@@ -572,15 +579,15 @@ def render_prone(p):
     if p['cheeks']:
         hw = hw + p['cheeks'] * np.clip(1 - np.abs(CY - mouth_y) / 3.5, 0, 1)
     head = (YS >= top) & (YS < top + len(PRONE_HEAD)) & (np.abs(CX - PRONE_X) < hw) & floor
-    body = np.zeros((H, W), bool)
-    for c, rx, ry in PRONE_BODY:
-        body |= ellipse(c, rx, ry) & floor
+    (rump_c, rump_rx, rump_ry), (chest_c, chest_rx, chest_ry) = PRONE_BODY
+    rise = q.get('rise', 0)          # the rump bobs as the hind feet push
+    body = (ellipse((rump_c[0], rump_c[1] - rise / 2), rump_rx, rump_ry + rise / 2)
+            | ellipse(chest_c, chest_rx, chest_ry)) & floor
     belly = ellipse((21.0, 58.5), 12.5, 4.5) & body
-    (far_shin, far_foot), (near_shin, near_foot) = (
-        prone_shin(k, a) for k, a in zip(PRONE_KNEES, q['kick']))
-    far_paw = ellipse(PRONE_FAR_PAW, PAW_R + 0.4, PAW_R) & floor
-    near_paw = ellipse(PRONE_ARM[1], PAW_R + 0.4, PAW_R) & floor
-    near_arm = capsule(*PRONE_ARM, ARM_R) & ~near_paw
+    legs = [prone_shin(k, a) for k, a in zip(PRONE_KNEES, q['kick'])]
+    arms = [prone_arm(s, pw, st) for s, pw, st in zip(PRONE_SHOULDERS, PRONE_PAWS, q['paws'])]
+    (far_shin, far_foot), (near_shin, near_foot), (far_arm, far_paw), (near_arm, near_paw) = (
+        (limb & floor, end & floor) for limb, end in legs + arms)
 
     sil = np.zeros((H, W), bool)
 
@@ -600,7 +607,7 @@ def render_prone(p):
 
     layer((far_shin, 'body_lo', 'body_lo2'), (far_foot, 'paw_lo', 'paw_lo'))
     layer((near_shin, 'body', 'body_lo'), (near_foot, 'paw', 'paw_lo'))
-    layer((far_paw, 'paw_lo', 'paw_lo'))
+    layer((far_arm, 'body_lo', 'body_lo2'), (far_paw, 'paw_lo', 'paw_lo'))
     layer((body, 'body', 'body_lo'))
     put(body & ~shifted(body, -1, -1) & (YS < 50) & (XS < 20), 'body_hi')
     put(belly, 'belly')
@@ -1094,24 +1101,31 @@ def anim_tickle():
 
 
 def anim_prone_eat():
-    """Dragged: flat on its belly, chin on the floor, munching code that flies in from
-    the right while the feet kick in the air."""
-    kick = [(-16, 22), (-4, 10), (18, -12), (6, 0)]   # (far, near) shin tilts
+    """Dragged: crawling on its belly with the head up, a forepaw stepping out per bite
+    (the diagonal hind foot with it), munching code that flies in from the right."""
+    swing = [(-2, 1), (0, 2), (2, 0), (2, 0), (1, 0), (0, 0)]     # forepaw (dx, lift)
+    stance = [(0, 0), (0, 0), (-1, 0), (-1, 0), (-2, 0), (-2, 0)]
+    lift = [-78, -82, -90, -90, -90, -90]                         # hind shin tilts
+    press = [-90, -90, -90, -94, -94, -90]
+    rise = [0, 0, 0, 1, 1, 0]
     fr = []
     for b, (ch, c) in enumerate((('{', 'c1'), ('+', 'c2'))):
-        def lie(k, nod=0, **kw):
-            return P(prone=dict(kick=kick[(6 * b + k) % 4], nod=nod), **kw)
+        def crawl(k, nod=0, **kw):
+            paws, kick = (stance[k], swing[k]), (lift[k], press[k])   # (far, near)
+            if b:   # the far forepaw steps, with the near hind foot
+                paws, kick = paws[::-1], kick[::-1]
+            return P(prone=dict(paws=paws, kick=kick, rise=rise[k], nod=nod), **kw)
         fly = lambda x, y: (('code', ch, x, y, c),)
         crumbs = lambda i: tuple(('glyph', 'crumb', *path[i], c) for path in (
-            ((58, 46), (59, 50), (59, 54)), ((61, 49), (62, 52), (61, 56))))
+            ((58, 40), (59, 44), (59, 48)), ((61, 43), (62, 46), (61, 50))))
         fr += [
-            (lie(0, mouth='eat', look=(1, 0), props=fly(59, 39)), 110),
-            (lie(1, mouth='eat', look=(1, 0), props=fly(57, 45)), 100),
-            (lie(2, mouth='eat', look=(0, 1), props=(('code-in', ch, 42, 50, c),)), 100),
-            (lie(3, mouth='chew_a', cheeks=1.5, eyes='squeeze', blush=True, nod=1,
-                 props=crumbs(0)), 130),
-            (lie(4, mouth='chew_b', cheeks=1.5, eyes='happy', blush=True, props=crumbs(1)), 120),
-            (lie(5, mouth='chew_a', cheeks=1.0, eyes='happy', props=crumbs(2)), 120),
+            (crawl(0, mouth='eat', look=(1, 0), props=fly(59, 33)), 110),
+            (crawl(1, mouth='eat', look=(1, 0), props=fly(57, 39)), 100),
+            (crawl(2, mouth='eat', look=(0, 1), props=(('code-in', ch, 42, 44, c),)), 100),
+            (crawl(3, nod=1, mouth='chew_a', cheeks=1.5, eyes='squeeze', blush=True,
+                   props=crumbs(0)), 130),
+            (crawl(4, mouth='chew_b', cheeks=1.5, eyes='happy', blush=True, props=crumbs(1)), 120),
+            (crawl(5, mouth='chew_a', cheeks=1.0, eyes='happy', props=crumbs(2)), 120),
         ]
     return fr
 
