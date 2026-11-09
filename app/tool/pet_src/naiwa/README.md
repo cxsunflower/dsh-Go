@@ -96,9 +96,9 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `poke-left` | 8 | 900 ms | 左边被戳，往右一歪再弹回来（不循环） |
 | `poke-right` | 8 | 900 ms | 右边被戳，往左一歪再弹回来（不循环） |
 | `tickle` | 14 | 1140 ms | 被挠痒痒，挤眼乱笑、双手乱挥，鬼畜跳切后回到待机（不循环） |
-| `dangle` | 8 | 940 ms | 被拎起来悬空，手脚乱蹬，冒汗、惊叫 |
+| `prone-eat` | 12 | 1360 ms | 被拖动时趴着往前爬：前爪撑起头，后腿向后伸直，每吃一口迈一只前爪、对角的后脚跟着蹬；代码从右边飞进嘴里 |
 
-共 26 段、256 帧；`sheets/` 合计约 38.4 KB。
+共 26 段、256 帧；`sheets/` 合计约 38.6 KB。
 
 ## 状态映射
 
@@ -113,7 +113,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 
 - 待机池：`idle-look`、`idle-giggle`、`snack` 权重 2，`dance` 权重 1。
 - attention 有 0.5 的概率换成 `laugh-point`、`laugh-roll`、`laugh-belly` 之一。
-- 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `dangle`。
+- 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `prone-eat`。
 - `holds`、`faces`（`front`）、`sounds`（`naiwa`）和 `snack.every` 按设计文档第 4 节写入 `pet.json`。
 
 ## 自检
