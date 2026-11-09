@@ -88,7 +88,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `laugh-roll` | 8 | 880 ms | 笑到仰面躺倒，左右翻滚，双脚朝天乱蹬 |
 | `laugh-belly` | 8 | 780 ms | 捧着肚子笑，肚子一鼓一鼓 |
 | `alert` | 8 | 1280 ms | 叉腰挥手，头顶感叹号一跳一跳 |
-| `devour` | 12 | 1360 ms | 一行代码 `fn(x)=>{x+1};return x` 平移过来，一口吃一个字符 |
+| `devour` | 12 | 1360 ms | 一行代码 `fn(x)=>{` 平移过来，一口吃一个字符 |
 | `carry` | 8 | 1120 ms | 双手举着文件箱，小步走 |
 | `sleep` | 8 | 3040 ms | 坐着打盹，鼻涕泡随呼吸一大一小，飘 Zzz |
 | `wake` | 8 | 1720 ms | 睁眼、站起来伸懒腰打哈欠，最后回到待机第 0 帧（不循环） |
