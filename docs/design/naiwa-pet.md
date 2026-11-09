@@ -235,7 +235,7 @@ app/assets/pet_sounds/naiwa/*.wav     # PCM16 单声道；笑声 11025 Hz（25.2
 - 本套映射上面九个 cue；`@bite`、`@drop` 和其余动作均无声音映射，不生成咀嚼、弹簧、提示音或鬼畜重采样。
 - **动作与录音原子化**：一次性反应（`tapLeft`/`tapRight` 与 attention 的捧腹）先问 `PetSoundPlayer.wouldAllow`（纯查询，不占用额度）；这一声会被限流丢掉时，保持当前动画，绝不出现「无声但动作照播」。静音或关音效时同样不切这类反应。其它无音效映射的 cue 与状态动画照旧。
 
-点击反应：单击按左右播 `poke-left`（`dajiaosei`）/`poke-right`（`diu`）；1.1 秒内第 2 下进入 attention 的捧腹大笑，沿用 `_laughing` 机制与 `pack.animFor(PetStateName.attention)`，声音走 `laugh`（`hahahahahahaha`），姿势保持到整段录音结束。链只有这两步：第 2 下开始大笑时计数清空，所以大笑中或之后再点一下不会又凑成一次大笑；笑中的那一下结束录音，之后的单击重新从戳开始（没有第 3 下的挠痒）。第 2 下允许紧随上一声（不受 280 ms 的任意两声间隔限制），但同一 cue 的 1.5 秒限制和每分钟 24 声仍生效；若该声会被限流丢掉，保持当前动画，不切到无声姿势。单击/双击可被拖动、再次点击、长按菜单、切页面、关闭音效或安静模式中断。
+点击反应：单击按左右播 `poke-left`（`dajiaosei`）/`poke-right`（`diu`）；1.1 秒内第 2 下进入 attention 的捧腹大笑，沿用 `_laughing` 机制与 `pack.animFor(PetStateName.attention)`，声音走 `laugh`（`hahahahahahaha`），姿势保持到整段录音结束。链只有这两步：第 2 下开始大笑时计数清空，所以大笑中或之后再点一下不会又凑成一次大笑；笑中的那一下结束录音，之后的单击重新从戳开始（没有第 3 下的挠痒）。第 2 下允许紧随上一声（不受 280 ms 的任意两声间隔限制），但同一 cue 的 1.5 秒限制和每分钟 24 声仍生效；若该声会被限流丢掉，保持当前动画，不切到无声姿势。单击/双击可被拖动、再次点击、长按菜单、切页面、关闭音效或安静模式中断。这条链和大笑按整段录音保持，都按音效集判断：`sounds` 为 `naiwa` 的包都适用，内置奶蛙之外，也包括把同一个包导入成 `user-naiwa` 的副本。
 
 六段音效各对应一个交互：戳左 `dajiaosei`、戳右 `diu`、双击大笑 `hahahahahahaha`、把睡着的它点醒 `andi`（`wake` 状态动画）、拖动趴吃 `gagadilaxia`（`prone-eat`）、有待确认的提醒 `houla`（`alert` 状态动画）。`reactions.tickle` 仍留在包里，但不进点击链，也不再有录音。
 

@@ -976,10 +976,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     _go(spot, startX, endX, PetMetrics.walkSpeed);
   }
 
+  /// Naiwa's two-tap laugh and the long recording its laugh poses hold for
+  /// come with its sound set, not its id: a copy brought in as a zip is
+  /// `user-naiwa` and laughs the same.
+  bool get _naiwa => _pack?.sounds == 'naiwa';
+
   /// The four laugh poses, the ones the long laugh recording scores: their
-  /// pose holds for the recording. A tickle has its own clip and keeps only
-  /// that long.
-  bool _isLaugh(PetAnimation? anim) => _pack?.id == 'naiwa' && anim != null && anim.name.startsWith('laugh');
+  /// pose holds for the recording.
+  bool _isLaugh(PetAnimation? anim) => _naiwa && anim != null && anim.name.startsWith('laugh');
 
   /// Whether this pack's one-off [anim] is heard: it names a cue the set has
   /// a sound for, and the pet may sound now. Null when no sound goes with it
@@ -1107,7 +1111,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     _taps
       ..removeWhere((t) => now.difference(t) > PetMetrics.doubleTapWithin)
       ..add(now);
-    if (_taps.length >= 2 && pack.id == 'naiwa') {
+    if (_taps.length >= 2 && _naiwa) {
       // The second of two quick taps laughs. The chain ends here (see
       // [_play]), so one more tap is a lone tap again, never a third step.
       HapticFeedback.lightImpact();
@@ -1282,7 +1286,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   /// the app is in front and keeps the limits.
   void _cue(String key) {
     if (!mounted || !_active) return;
-    if (key == 'laugh-belly' && _pack?.id == 'naiwa' && !_laughing) return;
+    if (key == 'laugh-belly' && _naiwa && !_laughing) return;
     final sounds = _pack?.sounds;
     final prefs = ref.read(petPrefsProvider);
     if (sounds == null || !prefs.sound || prefs.quiet) return;

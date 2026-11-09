@@ -3,6 +3,8 @@
 // pose plays; a reaction with a recording stays until that recording ends.
 // `drag.mirror` turns the art (and its mouth) to the way a drag goes.
 
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dsh_app/pets/pet_mood.dart';
@@ -173,6 +175,20 @@ void main() {
     expect(petLayer(tester).playing!.name, 'laugh', reason: 'the pose stays for the whole recording');
     await _elapse(tester, const Duration(milliseconds: 500));
     expect(petLayer(tester).playing!.name, 'idle');
+  });
+
+  testWidgets('Naiwa brought in as a zip (user-naiwa) laughs on two taps for the whole recording too', (tester) async {
+    final native = _Native()..install();
+    final json = jsonDecode(File('assets/pets/naiwa/pack.json').readAsStringSync()) as Map<String, Object?>;
+    final copy = PetPack.parse({...json, 'id': 'user-naiwa'}, dir: 'assets/pets/naiwa');
+    final pack = await _pump(tester, sounds: _set(leftMs: 1000, rightMs: 1000), pack: copy);
+    await _tap(tester, pack, left: true);
+    clock.advance(const Duration(milliseconds: 100));
+    await _tap(tester, pack, left: true);
+    expect(petLayer(tester).playing!.name, 'laugh');
+    expect(native.assets.last, 'assets/pet_sounds/naiwa/hahahahahahaha.wav');
+    await _elapse(tester, naiwaLaughDuration - const Duration(milliseconds: 400));
+    expect(petLayer(tester).playing!.name, 'laugh', reason: 'the pose stays for the whole recording');
   });
 
   testWidgets('a tap during the quick-tap laugh ends it; the next tap pokes instead of laughing again', (tester) async {
