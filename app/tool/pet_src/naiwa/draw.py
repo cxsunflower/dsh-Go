@@ -401,7 +401,8 @@ ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for th
     'hip': ((16.0, 9.5), (11.5, 5.0)),
     'head': ((16.0, 20.5), (10.0, 25.0)),
     'point': ((15.5, 12.5), (19.5, 13.5)),
-    'chin': ((8.0, 7.0), (2.5, 11.5)),
+    'chin': ((8.0, 3.0), (3.0, 9.5)),
+    'fold': ((11.0, 5.5), (0.5, 3.5)),     # across the belly, under the other forearm
     'out': ((15.5, 13.5), (19.5, 15.5)),
     'out_up': ((15.5, 15.0), (19.0, 19.5)),
     'out_dn': ((15.5, 12.0), (19.5, 11.0)),
@@ -812,7 +813,7 @@ def anim_dance():
 
 
 def anim_thinking():
-    t = dict(arms=('chin', 'down'), look=(1, -1), mouth='line', lean=1)
+    t = dict(arms=('chin', 'fold'), look=(1, -1), mouth='line', lean=1)
     q = lambda dy: ('glyph', '?', 44, 14 + dy)
     d = lambda n: tuple(('glyph', '.', 44 + 3 * i, 22) for i in range(n))
     return [

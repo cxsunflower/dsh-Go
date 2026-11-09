@@ -60,7 +60,7 @@
 | `idle-giggle` | `idlePool` | 是 | 捂嘴偷笑，肩膀抖 |
 | `snack` | `idlePool` | 是 | 从身边抓一个 `;` 塞进嘴里，嚼完打个嗝 |
 | `dance` | `idlePool` | 是 | 张臂单脚平衡，左右摇摆 |
-| `thinking` | `states.thinking` | 是 | 托腮沉思，眼睛往上看，头顶「?」或「…」 |
+| `thinking` | `states.thinking` | 是 | 托腮沉思：一手握拳托下巴，另一只手横在肚前托着它的小臂，眼睛往上看，头顶「?」或「…」 |
 | `eat-code` | `states.working`、`tiers.working` ≥1 | 是 | 代码字符从右侧飞进张大的嘴，一口一口嚼 |
 | `eat-code-fast` | `tiers.working` ≥2 | 是 | 双手往嘴里塞代码 |
 | `feast` | `tiers.working` ≥3 | 是 | 鬼畜速吃：身体抖、碎屑四溅、冒汗 |
