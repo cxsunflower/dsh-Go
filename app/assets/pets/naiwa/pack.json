@@ -7,7 +7,6 @@
   "source": "来自 github.com/cxsunflower，参考网络二创「奶蛙」形象重画（github.com/Orliss/nailong），不含原图",
   "pixelArt": true,
   "scale": 1,
-  "sizeScale": 2,
   "canvas": {"w": 64, "h": 64},
   "anchor": {"x": 32, "baseline": 60},
   "contentBox": {"x": 16, "y": 25, "w": 32, "h": 35},

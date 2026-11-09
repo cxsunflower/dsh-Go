@@ -91,7 +91,6 @@ class PetPack {
     this.source,
     this.pixelArt = true,
     this.scale = 1,
-    this.sizeScale = 1,
     this.tiers = const {},
     this.minDisplay = const {},
     this.autoReturn = const {},
@@ -130,10 +129,6 @@ class PetPack {
 
   /// Sheet pixels per art pixel (Deepy keeps its 5× export).
   final int scale;
-
-  /// Its body against the size's target height: 2 draws it twice as tall
-  /// as the other pets at every size (奶蛙).
-  final double sizeScale;
 
   /// The art's canvas, in art pixels.
   final Size canvas;
@@ -380,7 +375,6 @@ class PetPack {
       source: _string(json['source']),
       pixelArt: json['pixelArt'] != false,
       scale: scale,
-      sizeScale: (_num(json['sizeScale']) ?? 1).clamp(0.5, 4).toDouble(),
       canvas: Size(w, h),
       anchorX: _num(anchor['x']) ?? w / 2,
       baseline: _num(anchor['baseline']) ?? h,

@@ -33,10 +33,8 @@ Three source formats, all mapped onto Clawd on Desk's states (our pet protocol):
   canvas, every entry an animation with whole ms; the optional mouths moves the mouth
   in some of those animations, each again on the canvas) and written after `sleep`; a
   sounds id without assets/pet_sounds/<id>/sounds.json is only noted. A PACKS entry's
-  size_scale goes in as `sizeScale` after `scale` (the body drawn that many times the
-  size's height; 2 for the naiwa pets), and free=True as `"free": true` at the end of
-  `roam` (dragged anywhere on the chat page, the pet stays where it is dropped; the
-  naiwa pets). The art keeps the drawing
+  free=True goes in as `"free": true` at the end of `roam` (dragged anywhere on the
+  chat page, the pet stays where it is dropped; the naiwa pets). The art keeps the drawing
   rules of naiwa-pet.md section 3: alpha 0 or 255, 4-16 frames of 60-400 ms per
   animation, at most 400 frames per pack and 256 colours (transparent included) per
   animation, and nothing detached from the body in the idle loop, whose pixels are the
@@ -169,7 +167,6 @@ NAIWA = dict(
     kind='sprite', faces='front', author='github.com/cxsunflower',
     license='像素重绘；奶龙角色形象权利归其权利人，非官方',
     source='来自 github.com/cxsunflower，参考网络二创「奶蛙」形象重画（github.com/Orliss/nailong），不含原图',
-    size_scale=2,      # sizeScale: twice as tall as the other pets at every size
     free=True,         # roam.free: dragged anywhere on the chat page, stays where it is dropped
     drag_mirror=True,  # drag.mirror: dragged left, the art and its mouth face left
     preview_zoom=3, preview_per_row=16,
@@ -985,7 +982,6 @@ def build(pack_id, src, out_root, log=print):
         'source': meta['source'],
         'pixelArt': True,
         'scale': scale,
-        **({'sizeScale': meta['size_scale']} if 'size_scale' in meta else {}),
         'canvas': {'w': cw, 'h': ch},
         'anchor': m['anchor'],
         'contentBox': m['contentBox'],

@@ -18,8 +18,7 @@ import '../theme/motion.dart';
 /// Device pixels per art pixel for [size]: whole numbers, one apart at
 /// least, so the three sizes always differ.
 int petDevicePixels(PetPack pack, PetSize size, double devicePixelRatio) {
-  int k(PetSize s) =>
-      math.max(1, (s.bodyHeight * pack.sizeScale * devicePixelRatio / pack.contentBox.height).round());
+  int k(PetSize s) => math.max(1, (s.bodyHeight * devicePixelRatio / pack.contentBox.height).round());
   final small = k(PetSize.small);
   final medium = math.max(small + 1, k(PetSize.medium));
   final large = math.max(medium + 1, k(PetSize.large));
@@ -34,7 +33,7 @@ int petDevicePixels(PetPack pack, PetSize size, double devicePixelRatio) {
 /// target body height otherwise.
 double petScale(PetPack pack, PetSize size, double devicePixelRatio) => pack.pixelArt
     ? petDevicePixels(pack, size, devicePixelRatio) / devicePixelRatio
-    : size.bodyHeight * pack.sizeScale / pack.contentBox.height;
+    : size.bodyHeight / pack.contentBox.height;
 
 /// One animation of [pack], as big as the canvas × [scale].
 ///

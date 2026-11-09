@@ -360,26 +360,13 @@ void main() {
     });
   });
 
-  group('sizeScale', () {
-    PetPack parse(Map<String, Object?> extra) => PetPack.parse({..._json('deepy-whale'), ...extra});
-
-    test('1 unless given; held to 0.5–4; the naiwa pets are 2', () {
-      expect(deepy.sizeScale, 1);
-      expect(girl.sizeScale, 1);
-      expect(parse({'sizeScale': 2}).sizeScale, 2);
-      expect(parse({'sizeScale': 9}).sizeScale, 4);
-      expect(parse({'sizeScale': 0.1}).sizeScale, 0.5);
-      expect(parse({'sizeScale': 'big'}).sizeScale, 1);
-      for (final id in ['naiwa']) {
-        expect(diskPack(id).sizeScale, 2, reason: id);
-      }
-    });
-
-    test('2 draws the body twice as tall at every size, in whole device pixels', () {
-      final big = parse({'sizeScale': 2});
-      // Deepy's 22 px body at dpr 3: 3 / 4 / 5 device px per art px, then 6 / 8 / 11.
-      expect([for (final s in PetSize.values) petDevicePixels(deepy, s, 3)], [3, 4, 5]);
-      expect([for (final s in PetSize.values) petDevicePixels(big, s, 3)], [6, 8, 11]);
-    });
+  test('a pack still carrying sizeScale reads without it; the app sizes every pet', () {
+    final plain = diskPack('naiwa');
+    final legacy = PetPack.parse({..._json('naiwa'), 'sizeScale': 2});
+    expect(legacy.contentBox, plain.contentBox);
+    expect(
+      [for (final s in PetSize.values) petDevicePixels(legacy, s, 3)],
+      [for (final s in PetSize.values) petDevicePixels(plain, s, 3)],
+    );
   });
 }

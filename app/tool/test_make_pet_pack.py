@@ -276,7 +276,7 @@ class PackFormat(unittest.TestCase):
                 self.assertEqual(p['source'], tool.PACKS[pid]['source'])
                 self.assertIn('非官方', p['license'])
                 self.assertEqual(p['sounds'], 'naiwa')
-                self.assertEqual(p['sizeScale'], 2)
+                self.assertNotIn('sizeScale', p)
                 self.assertIs(p['roam']['free'], True)
                 self.assertEqual(p['drag'], {'mirror': True}, 'Naiwa turns left when dragged left')
                 self.assertEqual(p['reactions']['drag'], 'prone-eat')

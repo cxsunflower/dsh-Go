@@ -153,16 +153,10 @@ class PetPackTest {
         assertEquals(bare.windowBox(), p.windowBox())
     }
 
-    @Test fun sizeScaleDrawsTheBodyThatManyTimesAsTall() {
-        fun with(scale: String) = PetPack.parse(json.replace("\"reactions\":", "\"sizeScale\": $scale, \"reactions\":"))
-        val bare = PetPack.parse(json)
-        val big = with("2")
-        assertEquals(1f, bare.sizeScale)
-        assertEquals(2f, big.sizeScale)
-        assertEquals(4f, with("9").sizeScale)
-        // A 49 px body at density 3: 1 / 2 / 3 physical px per art px, then 3 / 4 / 5 (pet_pack_test.dart's rule).
-        assertEquals(listOf(1, 2, 3), PetSize.values().map { bare.devicePixels(it, 3f) })
-        assertEquals(listOf(3, 4, 5), PetSize.values().map { big.devicePixels(it, 3f) })
+    @Test fun aLegacySizeScaleIsIgnored() {
+        val p = PetPack.parse(json.replace("\"reactions\":", "\"sizeScale\": 2, \"reactions\":"))
+        // A 49 px body at density 3: 1 / 2 / 3 physical px per art px, as without the key.
+        assertEquals(listOf(1, 2, 3), PetSize.values().map { p.devicePixels(it, 3f) })
     }
 
     @Test fun bonusFromTheStateListAtAThird() {

@@ -98,8 +98,6 @@ class PetPack(
     val bonus: Map<String, PetBonus>?,
     /** `hitBoxes.default`. */
     private val defaultHitBox: PetBox? = null,
-    /** `sizeScale`: its body against the size's target height (2 for 奶蛙), as `pet_pack.dart`. */
-    val sizeScale: Float = 1f,
     /** By animation: `hitBoxes.byAnim`, else `sleeping` for `sleepingAnims`, `wide` for `wideAnims`. */
     private val hitBoxByAnim: Map<String, PetBox> = emptyMap(),
 ) {
@@ -170,7 +168,7 @@ class PetPack(
      * target body height.
      */
     fun screenScale(size: PetSize, density: Float): Float =
-        if (pixelArt) devicePixels(size, density).toFloat() else size.dp * sizeScale * density / contentBox.h
+        if (pixelArt) devicePixels(size, density).toFloat() else size.dp * density / contentBox.h
 
     /**
      * Whole physical pixels per art pixel for [size]: `round(dp × density ÷ body)`, then small /
@@ -178,7 +176,7 @@ class PetPack(
      * 1/2/2, and two of the three sizes would otherwise draw alike.
      */
     fun devicePixels(size: PetSize, density: Float): Int {
-        fun at(s: PetSize): Int = (s.dp.toDouble() * sizeScale * density / contentBox.h).roundToInt().coerceAtLeast(1)
+        fun at(s: PetSize): Int = (s.dp.toDouble() * density / contentBox.h).roundToInt().coerceAtLeast(1)
         val small = at(PetSize.SMALL)
         val medium = maxOf(small + 1, at(PetSize.MEDIUM))
         val large = maxOf(medium + 1, at(PetSize.LARGE))
@@ -298,7 +296,6 @@ class PetPack(
                 bonus = bonus,
                 defaultHitBox = box(hits?.get("default")),
                 hitBoxByAnim = hitBoxByAnim,
-                sizeScale = num(root["sizeScale"])?.toFloat()?.coerceIn(0.5f, 4f) ?: 1f,
             )
         }
 

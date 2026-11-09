@@ -342,7 +342,7 @@ Rect petCanvas(WidgetTester tester) => tester.getRect(find.byKey(const ValueKey(
 /// Logical px per art px at [size] on the test view.
 double petScaleOn(WidgetTester tester, PetPack pack, [PetSize size = PetSize.medium]) {
   final dpr = tester.view.devicePixelRatio;
-  int k(PetSize s) => (s.bodyHeight * pack.sizeScale * dpr / pack.contentBox.height).round().clamp(1, 1 << 20);
+  int k(PetSize s) => (s.bodyHeight * dpr / pack.contentBox.height).round().clamp(1, 1 << 20);
   final small = k(PetSize.small);
   final medium = [small + 1, k(PetSize.medium)].reduce((a, b) => a > b ? a : b);
   final large = [medium + 1, k(PetSize.large)].reduce((a, b) => a > b ? a : b);
