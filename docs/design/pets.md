@@ -62,7 +62,7 @@
 - **换站位**：条出现或消失时，宠物播 hop 跳到新的上沿，水平位置按比例保持。hop 的时长和曲线走 `AppMotion`。
 - **默认水平位置在左边 1/4 处。** 右侧是「回到底部」按钮和待确认胶囊的位置（`chat_list.dart`，右下、输入框上方 12dp）。
 - **禁区**：「回到底部」按钮或胶囊可见时，它的矩形左右各外扩 8dp，作为禁区。宠物不站进禁区，拖进去松手会吸附到禁区外最近的位置。按钮出现时如果宠物正好在禁区里，它会走开。
-- **拖动**：拖动时播 drag 动画，松手后吸附到当前站位，位置按比例存起来。
+- **拖动**：拖动时播 drag 动画，松手后吸附到当前站位，位置按比例存起来。`roam.free` 为 true 的宠物（奶蛙）例外：拖动时整个聊天页都能去，离站位远的地方松手就待在那里，只在本次运行有效，见 [naiwa-pet.md](naiwa-pet.md) §7.1。
 - **让位**：以下几种时候宠物淡出，不占命中区：斜杠面板、@ 提及、附件面板或语音面板打开时，多选或编辑模式，只读对话。这些弹出层关闭后再淡入。
 - **不挡正文**：宠物开启时，聊天列表的底部内边距加上宠物在站位之上的高度，即 `contentBox` 顶到 `baseline` 的距离乘以缩放倍数。这样滚到底时，最后一行字不会被宠物盖住。
 - **命中区**：只算当前动画的命中框（§3.2 的 `hitBoxes`），框外的触摸全部穿透给下面的列表和按钮。
@@ -88,13 +88,13 @@
 | 手势 | 反应 |
 |---|---|
 | 单击身体左半、右半 | 分别播 `tapLeft`、`tapRight` 反应，播一遍后回到原状态 |
-| 1.1 秒内连点 3 下 | 挠痒痒（`tickle`）；连点期间继续点会延长 |
+| 1.1 秒内再点一下（奶蛙） | 捧腹大笑；大笑中再点一下结束它，之后的点击重新从戳开始 |
 | 按住并移动超过 6dp | 拖动，播 `drag`，松手后吸附 |
 | 长按 | 小菜单：换宠物、藏起来 1 小时、宠物设置 |
 | 宠物在 notification 状态时单击 | 不播戳的反应，改为执行「去看看」：当前对话就滚到待确认的卡片，别的对话就打开那个对话 |
-| 宠物在睡觉时单击 | 只叫醒，不播戳的反应 |
+| 宠物在睡觉时单击 | 只叫醒（有音效集的包会应一声，如奶蛙的 `wake`），不播戳的反应 |
 
-挠痒痒从规格的「连点 4 下」改成「1.1 秒内 3 下」，和鲸娘原页一致。手机上的目标很小，连点 4 下容易点偏。
+连点链只有单击与奶蛙的第二下大笑两步，没有第三下：第 2 下开始大笑时计数就清空，之后每一下都从头算，所以在笑中或笑后再点一下不会又凑成一次大笑。
 
 ### 2.6 气泡提醒（App 内）
 
@@ -184,7 +184,7 @@
   | 标准 | 30dp |
   | 大 | 40dp |
 
-  身体高度取 `contentBox.h`。
+  身体高度取 `contentBox.h`。三档目标高度由 App 统一管理，宠物包不参与缩放。
 - 缩放倍数 `k` 的定义是：每个美术像素占多少个**物理像素**。像素画包要求 `k` 为整数：先算 `max(1, round(目标dp × devicePixelRatio ÷ contentBox.h))`，再让小、标准、大**至少各差 1**（`medium = max(small + 1, …)`，`large = max(medium + 1, …)`）。不加这一步的话，dpr 2.75 的手机上 22/30/40dp 会同时落成 1/2/2，三档分不出大小，悬浮窗还会比 App 内小一档。
 - 非像素画包（`pixelArt: false`）的 `k` 不限整数：`k = 目标dp × devicePixelRatio ÷ contentBox.h`。
 - 宠物的左上角和脚线都对齐到物理像素。
@@ -201,7 +201,7 @@ app/assets/pets/<id>/<anim>.png     # 序列帧图，默认单行横条；帧多
 
 ### 3.2 pack.json（schema 1）
 
-下面是 `deepy-whale` 的实际内容（`animations` 只列一段，`frames` 截短）。完整格式、每个字段的解析规则以 `app/lib/pets/pet_pack.dart` 为准，生成工具是 `app/tool/make_pet_pack.py`。
+下面是 `deepy-whale` 的实际内容（`animations` 只列一段，`frames` 截短）。完整格式、每个字段的解析规则以 `app/lib/pets/pet_pack.dart` 为准，生成工具是 `app/tool/make_pet_pack.py`。奶蛙系列用工具的第三种源格式 `sprite`：`pet.json` 加每段动画一张 1 倍横条，见 [naiwa-pet.md](naiwa-pet.md) §4。
 
 ```json
 {
@@ -290,12 +290,16 @@ app/assets/pets/<id>/<anim>.png     # 序列帧图，默认单行横条；帧多
 - ★ **`roam.faces`**：美术本身朝哪边，取 `"left"`、`"right"` 或 `"front"`。它取代含义不清的 `flip`。
   - `left`、`right`：往反方向走时以 `anchor.x` 为轴镜像。Deepy 的 `roamFlipAssets: true` 表示美术朝左，所以是 `left`。
   - `front`：正面，不镜像。鲸娘是 `front`，镜像会把发花和尾巴换边。
+- ★ **`roam.free`**：可选，默认 false。为 true 时拖动不受站位限制，见 §2.2 和 [naiwa-pet.md](naiwa-pet.md) §7.1。
+- ★ **`drag`**：可选对象，默认不存在。`drag.mirror` 为 true 时，向左拖会让美术（以及 `snack.mouths` 里的嘴坐标）按 `anchor.x` 镜像；向右拖保持原朝向，以拖动起点为界、越过 2 逻辑像素才换向，避免手指抖动反复翻转。目前只有奶蛙写 `{"mirror": true}`，Deepy 与鲸娘没有该字段，行为不变。见 [naiwa-pet.md](naiwa-pet.md) §7.1。
 - **`timings`**：
   - Deepy 从 Clawd 主题照搬，只去掉 notification 的 `autoReturn`。
   - 鲸娘按原页事件表的保持遍数换算：error 1 遍，1480ms；happy 2 遍，3040ms；carrying 2 遍，2240ms；waking 1 遍，1880ms；notification 3 遍，2640ms，只作 `minDisplay`。
   - 鲸娘的压缩动画在原页里一直保持到下一个事件，没写遍数，所以 sweeping 的 `minDisplay` 取 1 遍，1740ms。
   - notification 不设 `autoReturn`，见 §4。
   - working / thinking 的 1000 是去抖，sweeping `autoReturn` 的 300000 是保险上限，两个包一样。
+- ★ **`sounds`**：可选，音效集 id，对应 `app/assets/pet_sounds/<id>/sounds.json`，见 [naiwa-pet.md](naiwa-pet.md) §5、§6。
+- ★ **`snack`**：可选，聊天页吃代码用：`mouth` 是嘴的位置（美术像素），`mouths` 按动画覆盖嘴的位置，`every` 是动画名到出字间隔（毫秒），见 [naiwa-pet.md](naiwa-pet.md) §5、§7。
 - 状态名一律用 Clawd 的。动画名用包自己的：鲸娘的反应叫 `poke-left`、`poke-right`、`tickle`、`drag`，游走叫 `swim`。
 - `author`、`license`、`source` 必须如实填写，宠物页底部原样显示，见 §9。两只都是 DSH-TUI 的吉祥物，作者与授权见仓库根目录的 `ASSETS.md`。
 

@@ -149,6 +149,8 @@ flutter:
     - assets/tiles/glassy/
     - assets/pets/deepy-whale/
     - assets/pets/whale-girl/
+    - assets/pets/naiwa/
+    - assets/pet_sounds/naiwa/
     # The star prompt's whale girl (lib/ui/star/star_prompt_dialog.dart), 576px WebP.
     - assets/star/
     - assets/islands/

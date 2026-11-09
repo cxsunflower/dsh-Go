@@ -1,0 +1,80 @@
+{
+  "hahahahahahaha": {
+    "label": "大笑",
+    "cue": ["laugh", "laugh-point", "laugh-roll", "laugh-belly"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c",
+    "sourceSha256": "0ed59c77e951934964dd799b29b6bb5481f0fdbdc41d68097b1b5869730ed67f",
+    "sourceSeconds": 25.2865306122449,
+    "resample": "Full 25.286531 s kept. 22050 Hz PCM16 is 1,115,214 bytes, over SoundPool's 1,000,000-byte per-sample limit, so this clip alone is linearly resampled to 11025 Hz mono PCM16 (557,568 bytes of PCM); the other five stay at 22050 Hz.",
+    "pcmSha256": "8639564ebc3d924d39ca6b9f2abc89a376d72f7e0233416c3cdde39adc84a5fc",
+    "bytes": 1115214,
+    "frames": 557568
+  },
+  "dajiaosei": {
+    "label": "戳左",
+    "cue": ["poke-left"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_01.vsnd_c",
+    "sourceSha256": "6e331df6d35a22cb902477a7e7eea3284c3039b03671ac14d25eca27b8f8fa10",
+    "sourceSeconds": 1.07102,
+    "resample": null,
+    "pcmSha256": "9a656b3ad0b0dd8476dd07a02bf21e3e5e841ebd91132f1d48cd259a80991354",
+    "bytes": 47310,
+    "frames": 23616
+  },
+  "diu": {
+    "label": "戳右",
+    "cue": ["poke-right"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_02.vsnd_c",
+    "sourceSha256": "164524b5b020bbb72bd8519ab579874ca8f717b483e33707a598ddc710ac6bea",
+    "sourceSeconds": 1.07102,
+    "resample": null,
+    "pcmSha256": "991030cc18cc5ee0927eb840e40f327d9ef979dc364e08f1823fe6e353bc06d6",
+    "bytes": 47310,
+    "frames": 23616
+  },
+  "andi": {
+    "label": "被叫醒",
+    "cue": ["wake"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/dyanmo_a2_quantum_cast.vsnd_c",
+    "sourceSha256": "6b2d79d52f42b13603e4f7c73b9d862c3c12d625469b2372b2f148acd4f3fdee",
+    "sourceSeconds": 1.306122,
+    "resample": null,
+    "pcmSha256": "3f871dd224be679a716b8f264fb2defe46564899d66a43a0fb4096db9ccdcede",
+    "bytes": 57678,
+    "frames": 28800
+  },
+  "gagadilaxia": {
+    "label": "趴吃",
+    "cue": ["prone-eat"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c",
+    "sourceSha256": "27f2a213cf11f32228718a8898defbeaae987a8391f6620b993bb424e924320a",
+    "sourceSeconds": 1.38449,
+    "resample": null,
+    "pcmSha256": "f5bc693fab06bff1fdf15f4c0b758fe48c33954392e2d4ba615f208a07e6a139",
+    "bytes": 61134,
+    "frames": 30528
+  },
+  "houla": {
+    "label": "通知",
+    "cue": ["alert"],
+    "pak": "nawa_pak50_dir.vpk",
+    "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
+    "pakEntry": "sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_02.vsnd_c",
+    "sourceSha256": "299883c1de3a87340ca03b487d46bf2cda1c8ded54e425daf3a99b057b4cdbaa",
+    "sourceSeconds": 2.089796,
+    "resample": null,
+    "pcmSha256": "1d13dbc6110ea951bb9bfc527a7a1d12264483b508fc8e304fcbf39f3267a4af",
+    "bytes": 92238,
+    "frames": 46080
+  }
+}

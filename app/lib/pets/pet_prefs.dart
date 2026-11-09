@@ -1,6 +1,7 @@
 // 宠物设置 (docs/design/pets.md §2.1, §7), kept in SharedPreferences like the
-// other appearance settings: which pet (or none), its size, quiet mode, where
-// it stands, and 「藏起来 1 小时」. The overlay keeps its own switches natively.
+// other appearance settings: which pet (or none), its size, quiet mode, its
+// sounds, where it stands, and 「藏起来 1 小时」. The overlay keeps its own
+// switches natively.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,16 @@ import 'pet_library.dart';
 import 'pet_state.dart';
 
 /// The pets that ship with the app, in picker order.
-const builtInPets = ['deepy-whale', 'whale-girl'];
+const builtInPets = ['deepy-whale', 'whale-girl', 'naiwa'];
 
 /// The default pet.
 const defaultPetId = 'deepy-whale';
+
+/// Retired Naiwa variants keep the pet enabled, using its pixel artwork.
+String? _migratePack(String? id) => switch (id) {
+  'nailong' || 'naiwa-galaxy' || 'naiwa-gb' || 'naiwa-live2d' => 'naiwa',
+  _ => id,
+};
 
 @immutable
 class PetPrefs {
@@ -23,6 +30,7 @@ class PetPrefs {
     this.packExplicit = true,
     this.size = PetSize.medium,
     this.quiet = false,
+    this.sound = true,
     this.position = defaultPosition,
     this.hiddenUntil,
     this.loaded = false,
@@ -40,6 +48,9 @@ class PetPrefs {
   /// 「安静模式」: moves only, no bubbles.
   final bool quiet;
 
+  /// 「音效」: the chat page's pet may make its sounds (docs/design/naiwa-pet.md §6.2).
+  final bool sound;
+
   /// Where its foot stands along its perch, as a share of the perch's width.
   final double position;
 
@@ -56,6 +67,7 @@ class PetPrefs {
     bool? packExplicit,
     PetSize? size,
     bool? quiet,
+    bool? sound,
     double? position,
     DateTime? hiddenUntil,
     bool clearHidden = false,
@@ -65,6 +77,7 @@ class PetPrefs {
     packExplicit: packExplicit ?? this.packExplicit,
     size: size ?? this.size,
     quiet: quiet ?? this.quiet,
+    sound: sound ?? this.sound,
     position: position ?? this.position,
     hiddenUntil: clearHidden ? null : (hiddenUntil ?? this.hiddenUntil),
     loaded: loaded ?? this.loaded,
@@ -77,12 +90,13 @@ class PetPrefs {
       other.packExplicit == packExplicit &&
       other.size == size &&
       other.quiet == quiet &&
+      other.sound == sound &&
       other.position == position &&
       other.hiddenUntil == hiddenUntil &&
       other.loaded == loaded;
 
   @override
-  int get hashCode => Object.hash(packId, packExplicit, size, quiet, position, hiddenUntil, loaded);
+  int get hashCode => Object.hash(packId, packExplicit, size, quiet, sound, position, hiddenUntil, loaded);
 }
 
 class PetPrefsController extends Notifier<PetPrefs> {
@@ -90,6 +104,7 @@ class PetPrefsController extends Notifier<PetPrefs> {
     pack: 'pet.pack',
     size: 'pet.size',
     quiet: 'pet.quiet',
+    sound: 'pet.sound',
     position: 'pet.position',
     hidden: 'pet.hidden_until',
   );
@@ -111,7 +126,10 @@ class PetPrefsController extends Notifier<PetPrefs> {
       if (!ref.mounted) return;
       await performanceReady(ref);
       if (!ref.mounted) return;
-      final pack = prefs.getString(keys.pack);
+      final savedPack = prefs.getString(keys.pack);
+      final pack = _migratePack(savedPack);
+      if (pack != savedPack) await prefs.setString(keys.pack, pack!);
+      if (!ref.mounted) return;
       // A brought pet stays chosen; removing it here picks the default
       // (UserPetsController.remove).
       final explicit = pack == noPetId || builtInPets.contains(pack) || (pack != null && isUserPet(pack));
@@ -125,6 +143,7 @@ class PetPrefsController extends Notifier<PetPrefs> {
         packExplicit: explicit,
         size: PetSize.fromName(prefs.getString(keys.size)),
         quiet: prefs.getBool(keys.quiet) ?? false,
+        sound: prefs.getBool(keys.sound) ?? true,
         position: (prefs.getDouble(keys.position) ?? PetPrefs.defaultPosition).clamp(0.0, 1.0),
         hiddenUntil: hidden == null ? null : DateTime.fromMillisecondsSinceEpoch(hidden),
         loaded: true,
@@ -148,11 +167,13 @@ class PetPrefsController extends Notifier<PetPrefs> {
   }
 
   /// A pet, or [noPetId]. Choosing one also brings a hidden pet back.
-  Future<void> setPack(String id) =>
-      _save((s) => s.copyWith(packId: id, packExplicit: true, clearHidden: true), (p) async {
-        await p.setString(keys.pack, id);
-        await p.remove(keys.hidden);
-      });
+  Future<void> setPack(String id) {
+    final pack = _migratePack(id)!;
+    return _save((s) => s.copyWith(packId: pack, packExplicit: true, clearHidden: true), (p) async {
+      await p.setString(keys.pack, pack);
+      await p.remove(keys.hidden);
+    });
+  }
 
   /// The pet changed for the person, not by them (theirs is being removed):
   /// unlike [setPack], 「藏起来 1 小时」 stays as it was.
@@ -170,6 +191,7 @@ class PetPrefsController extends Notifier<PetPrefs> {
 
   Future<void> setSize(PetSize v) => _save((s) => s.copyWith(size: v), (p) => p.setString(keys.size, v.name));
   Future<void> setQuiet(bool v) => _save((s) => s.copyWith(quiet: v), (p) => p.setBool(keys.quiet, v));
+  Future<void> setSound(bool v) => _save((s) => s.copyWith(sound: v), (p) => p.setBool(keys.sound, v));
   Future<void> setPosition(double v) {
     final x = v.clamp(0.0, 1.0);
     return _save((s) => s.copyWith(position: x), (p) => p.setDouble(keys.position, x));

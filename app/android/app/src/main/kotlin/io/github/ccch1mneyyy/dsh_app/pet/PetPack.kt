@@ -1,6 +1,10 @@
 package io.github.ccch1mneyyy.dsh_app.pet
 
 import io.github.ccch1mneyyy.dsh_app.phone.Json
+import java.io.File
+import java.io.IOException
+import java.io.InputStream
+import java.nio.file.Files
 import kotlin.math.roundToInt
 
 /** One frame: which cell of the sheet, and for how long. */
@@ -63,7 +67,8 @@ data class PetIdleItem(val anim: PetAnimation, val ms: Long, val weight: Int)
 data class PetBonus(val anims: List<PetAnimation>, val chance: Float)
 
 /**
- * A runtime pet pack (`assets/pets/<id>/pack.json`):
+ * A runtime pet pack (`assets/pets/<id>/pack.json`, or an installed `<root>/<id>/pack`,
+ * [PetPackFiles]):
  * Clawd on Desk state names mapped to animations, busy tiers, reactions, timings. Parsing only;
  * no Android types, so the JVM tests cover it. A pack that fails the format's checks is rejected.
  */
@@ -310,3 +315,138 @@ class PetPack(
 }
 
 class PetPackException(message: String) : Exception(message)
+
+/**
+ * An installed pack on disk: its directory and parsed manifest. Only data files are read
+ * (`pack.json`, `sounds.json`, `*.png`, `*.wav`); the pack is never executed, and a file outside
+ * the directory — `..`, an absolute path, a symbolic link — is refused.
+ */
+internal object PetPackFiles {
+    /** A pack id, as `pack.json` and its directory name: lowercase letters, digits and `-`. */
+    private val ID = Regex("^[a-z0-9-]+$")
+
+    /** One path segment: no separators, no control characters, no leading `.`. */
+    private val SEGMENT = Regex("^[A-Za-z0-9_-][A-Za-z0-9._-]*$")
+
+    /** The directories a pack may keep files in, besides its root. */
+    private val SUBDIRS = setOf("sheets", "sounds")
+
+    /** The manifest, capped: a broken pack never gets to hold the worker up on a huge file. */
+    private const val MANIFEST_BYTES = 512 * 1024L
+
+    class Installed(val dir: File, val pack: PetPack)
+
+    fun idOk(id: String): Boolean = id.length in 1..64 && ID.matches(id)
+
+    /** Whether [name] is one of a pack's data files, at its root or under `sheets`/`sounds`. */
+    fun nameOk(name: String): Boolean {
+        if (name.isEmpty() || name.length > 255 || name.contains('\\') || name.contains('\u0000')) return false
+        val parts = name.split('/')
+        if (parts.size > 2) return false
+        if (parts.size == 2 && parts[0] !in SUBDIRS) return false
+        if (parts.any { !SEGMENT.matches(it) }) return false
+        val file = parts.last()
+        if (file == "pack.json" || file == "sounds.json") return parts.size == 1
+        return file.endsWith(".png") || file.endsWith(".wav")
+    }
+
+    /**
+     * [name] inside [dir]: null when the name is not a data file, when any component is a symbolic
+     * link, or when the resolved file would leave [dir] or is not a regular file.
+     */
+    fun file(dir: File, name: String): File? {
+        if (!nameOk(name)) return null
+        return try {
+            val base = dir.canonicalFile
+            var at = base
+            for (part in name.split('/')) {
+                at = File(at, part)
+                if (Files.isSymbolicLink(at.toPath())) return null
+            }
+            val canon = at.canonicalFile
+            if (!canon.path.startsWith(base.path + File.separator)) return null
+            if (!canon.isFile) return null
+            canon
+        } catch (_: IOException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        }
+    }
+
+    /**
+     * The installed copy of [id] under [root], or null for the bundled pack: when the root or the
+     * directory is missing, the manifest is unreadable or invalid, its `id` disagrees with the
+     * directory, or a sheet it names is missing (a half-written pack).
+     */
+    fun installed(root: File?, id: String): Installed? {
+        if (root == null || !idOk(id)) return null
+        val packDir = try {
+            val base = root.canonicalFile
+            if (!base.isDirectory) return null
+            val idDir = File(base, id)
+            if (Files.isSymbolicLink(idDir.toPath())) return null
+            val dir = File(idDir, "pack")
+            if (Files.isSymbolicLink(dir.toPath())) return null
+            val canon = dir.canonicalFile
+            if (!canon.path.startsWith(base.path + File.separator)) return null
+            canon
+        } catch (_: IOException) {
+            return null
+        } catch (_: SecurityException) {
+            return null
+        }
+        if (!packDir.isDirectory) return null
+        val manifest = file(packDir, "pack.json") ?: return null
+        if (manifest.length() > MANIFEST_BYTES) return null
+        // Any failure — bad JSON, a broken manifest, an unreadable file — is a pack to skip.
+        val pack = try {
+            PetPack.parse(manifest.readText(Charsets.UTF_8))
+        } catch (_: Exception) {
+            return null
+        }
+        if (pack.id != id) return null
+        if (!complete(packDir, pack)) return null
+        return Installed(packDir, pack)
+    }
+
+    /** Every sheet [pack] names is there: a pack whose manifest arrived without its art is half a pack. */
+    fun complete(dir: File, pack: PetPack): Boolean = pack.animations.values.all { sheet(dir, it.sheet) != null }
+
+    /**
+     * A sheet of an installed pack: the design's `sheets/<name>` (docs/design/pet-packs.md §1), else
+     * `<name>` at the root as the bundled packs keep it.
+     */
+    fun sheet(dir: File, name: String): File? = file(dir, name) ?: file(dir, "sheets/$name")
+
+    /** Any data file of an installed pack, by the same rule as [sheet]. */
+    fun data(dir: File, name: String): File? =
+        if (name == "pack.json" || name == "sounds.json") file(dir, name) else sheet(dir, name)
+
+    /**
+     * Where [id]'s files come from (docs/design/pet-packs.md §4), in order:
+     * 1. `<root>/<id>/pack`, when it holds a complete, valid pack;
+     * 2. [bundled], the APK's assets;
+     * 3. the legacy flat `files/pets/<id>` — today's behaviour, unchanged.
+     *
+     * A rooted but empty, missing, half-written or broken installed pack falls through to the
+     * bundled one. Null when nothing has the pack.
+     */
+    fun source(
+        root: File?,
+        id: String,
+        bundled: ((String) -> InputStream?)?,
+        legacy: File?,
+    ): ((String) -> InputStream?)? {
+        // An id is a folder name and nothing else: `..` or a separator never reaches assets either.
+        if (!idOk(id)) return null
+        installed(root, id)?.let { found ->
+            return { name -> data(found.dir, name)?.inputStream() }
+        }
+        if (bundled != null && bundled("pack.json")?.also { it.close() } != null) return bundled
+        if (legacy != null && file(legacy, "pack.json") != null) {
+            return { name -> data(legacy, name)?.inputStream() }
+        }
+        return null
+    }
+}

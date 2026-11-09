@@ -301,7 +301,7 @@ APK 内置的 Linux 运行时由 `runtime/build-runtime.sh` 构建，以下组�
 
 | 组件 | 版本 | 来源 | 许可 |
 |---|---|---|---|
-| proot | 5.1.107.98 | Termux（源码 https://github.com/termux/proot） | GPL-2.0（`licenses/proot-COPYING.txt`） |
+| proot | 5.1.107.102 | Termux（源码 https://github.com/termux/proot） | GPL-2.0（`licenses/proot-COPYING.txt`） |
 | libtalloc | 2.5.0 | Termux | LGPL-3.0-or-later（`licenses/libtalloc-notice.txt`） |
 | libandroid-shmem | 0.7 | Termux | BSD-3-Clause（`licenses/libandroid-shmem-copyright.txt`） |
 | Ubuntu Base 与软件包（tzdata、ca-certificates、git 及依赖） | 24.04.5 | Canonical / Ubuntu | 各包自带，见 `/usr/share/doc/` |
@@ -310,7 +310,7 @@ APK 内置的 Linux 运行时由 `runtime/build-runtime.sh` 构建，以下组�
 | pnpm | 11.28.5 | npm | MIT |
 | DeepSeek Harness 主包（`@deepseek-ai/dsh`） | 0.2.1-rc.4 | npm | MIT；构建补丁集合由 `runtime/patches/pins.json` 决定 |
 
-GPL / LGPL 组件的对应源码：proot、libtalloc、libandroid-shmem 的二进制取自 Termux 官方 apt 仓库（https://packages.termux.dev/apt/termux-main ），`runtime/build-runtime.sh` 固定了每个 .deb 的 SHA-256。源码分别在 https://github.com/termux/proot （tag `v5.1.107.98`，构建时一并下载并核对哈希）、https://www.samba.org/ftp/talloc/ （2.5.0）、https://github.com/termux/libandroid-shmem （0.7）；Termux 的构建配方在 https://github.com/termux/termux-packages 。本项目对这三个二进制的修改只有上面说的 DT_NEEDED / DT_SONAME 改名。
+GPL / LGPL 组件的对应源码：proot、libtalloc、libandroid-shmem 的二进制取自 Termux 官方 apt 仓库（https://packages.termux.dev/apt/termux-main ），`runtime/build-runtime.sh` 固定了每个 .deb 的 SHA-256。源码分别在 https://github.com/termux/proot （tag `v5.1.107.102`，构建时一并下载并核对哈希）、https://www.samba.org/ftp/talloc/ （2.5.0）、https://github.com/termux/libandroid-shmem （0.7）；Termux 的构建配方在 https://github.com/termux/termux-packages 。本项目对这三个二进制的修改只有上面说的 DT_NEEDED / DT_SONAME 改名。
 
 ### npm 传递依赖与发行核验
 
@@ -865,7 +865,20 @@ for this implementation of the WebRTC code package shall terminate as
 of the date such litigation is filed.
 ```
 
-### 其他许可证
+### 奶蛙六段技能音效（Valve《Deadlock》addon，仅本地构建）
+
+- 全部来自 `nawa_pak50_dir_bf496.7z` → `nawa_pak50_dir.vpk`：1,427,634 字节，SHA-256 `093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13`（Valve VPK v2）；包内命名空间 `citadel_addons/naiwa`，即替换英雄 Dynamo 声音的 mod。
+- 包内 50 条 VO 都是空壳（每条固定 5671 字节、无真实语音）；只有 6 个技能音有内容，对应如下（左为资产/输入名，右为 pak 内条目）：
+  - `hahahahahahaha` ← `sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c`（整段 25.286531 秒；22050 Hz PCM 超单段上限，**仅此段降为 11025 Hz**）
+  - `dajiaosei` ← `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_01.vsnd_c`（1.071020 秒）
+  - `diu` ← `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_02.vsnd_c`（1.071020 秒）
+  - `andi` ← `sounds/abilities/dynamo/dyanmo_a2_quantum_cast.vsnd_c`（1.306122 秒；包内拼写即 `dyanmo`）
+  - `gagadilaxia` ← `sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c`（1.384490 秒）
+  - `houla` ← `sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_02.vsnd_c`（2.089796 秒）
+- 改动：`vsnd_c` 中的 MP3 数据段取出后解码为 PCM16 单声道 22050 Hz WAV；五段保持 22050 Hz，只有笑声用标准库线性插值降到 11025 Hz（整段时长不变）。不重新编码、不截断、不做 EQ、压限、响度归一化、变速、变调、淡入淡出或混响。播放固定 `gain=1`、`vary=0`；`@bite`、`@drop` 无声音映射。pak、包内条目、源 `vsnd_c` 与 WAV 的 SHA-256 保存在 `app/tool/pet_src/naiwa/audio/sources.json`。
+- **当前来源记录未确认上述音频的公开再分发许可。** 这些是 Valve 的游戏资源；可下载、可解包不等于授予再分发许可。录音不适用本仓库代码或原创素材的许可证。正式公开发布前须取得权利人许可或移除这些录音。
+
+### 其他许可证链接
 
 - SIL Open Font License 1.1：`app/assets/fonts/OFL.txt`
 - GNU LGPL-3.0（spake2-android、libtalloc）：https://www.gnu.org/licenses/lgpl-3.0.txt ；它以 GNU GPL-3.0 为基础，两份全文一并附在 App 内许可页的 spake2-android 条目里：https://www.gnu.org/licenses/gpl-3.0.txt

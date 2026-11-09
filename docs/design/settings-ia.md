@@ -110,7 +110,7 @@
 | 配色：6 套预设 / 自定义 / 跟随壁纸 | 4 | 同上 `:71` | `appearance.accent_source/.preset/.custom_color` | 中 | App |
 | 功能图标 | 4 | `tile_style_picker.dart` | `tile_style` | 低 | App |
 | 桌面图标 | 4 | `app_icon_picker.dart` | 原生启动器别名（`launcherIconChannelProvider`） | 低 | 系统 |
-| 宠物（主题页最底部） | 4 进页，5 改 | `ui/pets/pet_settings_page.dart` | `pet.pack/.size/.quiet/.hidden_until` | 中 | App |
+| 宠物（主题页最底部） | 4 进页，5 改 | `ui/pets/pet_settings_page.dart` | `pet.pack/.size/.quiet/.sound/.hidden_until` | 中 | App |
 | 宠物 › App 外显示、显示时机、今天不再显示 | 5 | `ui/pets/overlay_settings_tile.dart:53` | 原生悬浮窗 | 低 | 系统 |
 | 长按宠物 › 换宠物 / 藏起来 1 小时 / 宠物设置 | 2 | `ui/pets/pet_menu.dart` | 同上 | 中 | App |
 

@@ -3,13 +3,19 @@
 // line and capsule row) wrap themselves in [PetPerch]; the chat page's pet
 // layer stands on the top edge of the topmost one it can see. Each perch is a
 // layer link leader, so the pet follows its capsule in the same frame
-// (keyboard, a growing composer, the strip rising) without a frame of lag.
+// (keyboard, a growing composer, the strip rising) without a frame of lag. The
+// reasoning being written wraps itself in [PetFood]: a pet that eats runs along
+// its perch to below it.
 //
 // Outside a [PetPerchScope] (Bot chats, settings previews) the wrappers are
 // plain pass-throughs.
 
+import 'dart:math' as math;
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+
+import '../chat/secret_mask.dart';
 
 /// What a perch is.
 enum PerchKind {
@@ -42,11 +48,12 @@ class PerchSpot {
   LayerLink get link => perch.link;
 }
 
-/// The perches, avoid areas and covers under one stage.
+/// The perches, avoid areas, covers and food under one stage.
 class PerchRegistry extends ChangeNotifier {
   final List<PetPerchState> _perches = [];
   final List<PetAvoidState> _avoids = [];
   final List<PetCoverState> _covers = [];
+  final List<PetFoodState> _foods = [];
 
   /// The kind of perch the pet stands on now (null: none, or no pet). The
   /// run strip hides its whale tail while the pet stands on it.
@@ -83,6 +90,45 @@ class PerchRegistry extends ChangeNotifier {
 
   /// Something the pet hides for (the slash palette) is up.
   bool get covered => _covers.any((c) => c.widget.active);
+
+  /// What the pet runs to and eats (the reasoning being written), boxes whole:
+  /// the stage finds what of them shows.
+  List<Rect> foods(RenderBox stage) => [
+    for (final f in _foods)
+      if (f.widget.active) ?f.rectIn(stage),
+  ];
+
+  PetFoodState? mealAt(RenderBox stage, Offset mouth) {
+    PetFoodState? closest;
+    var distance = double.infinity;
+    for (final food in _foods) {
+      if (!food.widget.edible) continue;
+      final rect = food.visibleRectIn(stage);
+      if (rect == null || !rect.inflate(32).contains(mouth)) continue;
+      final next = (rect.center - mouth).distanceSquared;
+      if (next < distance) {
+        closest = food;
+        distance = next;
+      }
+    }
+    return closest;
+  }
+
+  /// Erases the whole swept area, even when a pointer jumps over several foods.
+  PetErasure eraseAlong(RenderBox stage, Offset from, Offset to, {double radius = 32, int maxParticles = 3}) {
+    var count = 0;
+    final glyphs = <PetGlyph>[];
+    final sweep = Rect.fromPoints(from, to).inflate(radius);
+    for (final food in List.of(_foods)) {
+      if (!food.widget.edible) continue;
+      final visible = food.visibleRectIn(stage);
+      if (visible == null || !sweep.overlaps(visible)) continue;
+      final erased = food.eraseAlong(stage, from, to, radius: radius, maxParticles: maxParticles - glyphs.length);
+      count += erased.count;
+      glyphs.addAll(erased.glyphs);
+    }
+    return PetErasure(count, glyphs);
+  }
 
   @override
   void dispose() {
@@ -274,6 +320,295 @@ class PetAvoidState extends State<PetAvoid> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// What the pet runs to and eats while [active]: the reasoning being written.
+class PetFood extends StatefulWidget {
+  const PetFood({super.key, this.active = true, this.edible = false, this.onErase, required this.child});
+
+  final bool active;
+  final bool edible;
+
+  /// Called after a frame that erased new, visible glyphs, once per frame.
+  /// This only affects the current UI; callers must not change chat records.
+  final VoidCallback? onErase;
+  final Widget child;
+
+  @override
+  State<PetFood> createState() => PetFoodState();
+}
+
+class PetFoodState extends State<PetFood> {
+  PerchRegistry? _registry;
+  bool _eraseQueued = false;
+
+  Rect? rectIn(RenderBox stage) => _rectOf(context, stage);
+
+  Rect? visibleRectIn(RenderBox stage) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    return _visibleRect(box, stage);
+  }
+
+  ({int char, Offset from})? takeGlyph(RenderBox stage, Offset mouth) {
+    if (!mounted || !widget.edible) return null;
+    final box = context.findRenderObject();
+    final glyph = box is _RenderPetTextMask ? box.takeGlyph(stage, mouth) : null;
+    if (glyph != null) _didErase();
+    return glyph;
+  }
+
+  PetErasure eraseAlong(RenderBox stage, Offset from, Offset to, {double radius = 32, int maxParticles = 3}) {
+    if (!mounted || !widget.edible) return const PetErasure(0, []);
+    final box = context.findRenderObject();
+    if (box is! _RenderPetTextMask) return const PetErasure(0, []);
+    final erased = box.eraseAlong(stage, from, to, radius: radius, maxParticles: maxParticles);
+    if (erased.count > 0) _didErase();
+    return erased;
+  }
+
+  void _didErase() {
+    if (_eraseQueued || widget.onErase == null) return;
+    _eraseQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _eraseQueued = false;
+      if (mounted) widget.onErase?.call();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final registry = PetPerchScope.maybeOf(context);
+    if (registry == _registry) return;
+    _registry?._foods.remove(this);
+    _registry = registry;
+    registry?._foods.add(this);
+    registry?._changed();
+  }
+
+  @override
+  void didUpdateWidget(PetFood oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active || oldWidget.edible != widget.edible) _registry?._changed();
+  }
+
+  @override
+  void dispose() {
+    _registry?._foods.remove(this);
+    _registry?._changed();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.edible ? _PetTextMask(child: widget.child) : widget.child;
+}
+
+Rect? _visibleRect(RenderBox box, RenderBox stage) {
+  var rect = MatrixUtils.transformRect(
+    box.getTransformTo(stage),
+    Offset.zero & box.size,
+  ).intersect(Offset.zero & stage.size);
+  RenderObject child = box;
+  while (child.parent != null) {
+    final parent = child.parent!;
+    if (parent is RenderOffstage && parent.offstage) return null;
+    final clip = parent.describeApproximatePaintClip(child);
+    if (clip != null) rect = rect.intersect(MatrixUtils.transformRect(parent.getTransformTo(stage), clip));
+    if (rect.isEmpty) return null;
+    child = parent;
+  }
+  return rect.isEmpty ? null : rect;
+}
+
+class _PetTextMask extends SingleChildRenderObjectWidget {
+  const _PetTextMask({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderPetTextMask();
+}
+
+typedef PetGlyph = ({int char, Offset from});
+
+/// All glyphs disappear immediately; only a few become decorative particles.
+class PetErasure {
+  const PetErasure(this.count, this.glyphs);
+
+  final int count;
+  final List<PetGlyph> glyphs;
+}
+
+class _FoodGlyph {
+  const _FoodGlyph(this.start, this.char, this.boxes);
+
+  final int start;
+  final int char;
+  final List<Rect> boxes;
+}
+
+class _ParagraphFood {
+  _ParagraphFood(this.span, this.text, this.layout, this.offsets);
+
+  final InlineSpan span;
+  final String text;
+  final int layout;
+  final Set<int> offsets;
+  final glyphs = <_FoodGlyph>[];
+  final holes = Path();
+
+  void eat(_FoodGlyph glyph) {
+    offsets.add(glyph.start);
+    for (final rect in glyph.boxes) {
+      holes.addRect(rect);
+    }
+  }
+}
+
+/// A square brush continuously interpolated along the pointer segment.
+/// Slab intersection avoids both sampling gaps and work proportional to speed.
+bool _sweeps(Rect rect, Offset from, Offset to, double radius) {
+  final target = rect.inflate(radius);
+  var enter = 0.0;
+  var leave = 1.0;
+  for (final (start, delta, low, high) in [
+    (from.dx, to.dx - from.dx, target.left, target.right),
+    (from.dy, to.dy - from.dy, target.top, target.bottom),
+  ]) {
+    if (delta.abs() < 0.000001) {
+      if (start < low || start > high) return false;
+    } else {
+      final a = (low - start) / delta;
+      final b = (high - start) / delta;
+      enter = math.max(enter, math.min(a, b));
+      leave = math.min(leave, math.max(a, b));
+      if (enter > leave) return false;
+    }
+  }
+  return true;
+}
+
+class _RenderPetTextMask extends RenderProxyBox {
+  final _eaten = <RenderParagraph, _ParagraphFood>{};
+  int _layout = 0;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _layout++;
+  }
+
+  List<RenderParagraph> _paragraphs() {
+    final result = <RenderParagraph>[];
+    void visit(RenderObject object) {
+      if (object is RenderOffstage && object.offstage) return;
+      // Nested food owns its own mask and callback.
+      if (object is _RenderPetTextMask) return;
+      if (object is RenderParagraph && object.attached && object.hasSize) result.add(object);
+      object.visitChildren(visit);
+    }
+
+    if (child case final child?) visit(child);
+    _eaten.removeWhere((paragraph, _) => !result.contains(paragraph));
+    return result;
+  }
+
+  _ParagraphFood _food(RenderParagraph paragraph) {
+    final old = _eaten[paragraph];
+    if (old != null && identical(old.span, paragraph.text) && old.layout == _layout) return old;
+    final text = paragraph.text.toPlainText();
+    final food = _ParagraphFood(
+      paragraph.text,
+      text,
+      _layout,
+      old != null && text.startsWith(old.text) ? old.offsets : <int>{},
+    );
+    final masked = maskSecrets(text);
+    var start = 0;
+    for (final glyph in text.characters) {
+      final end = start + glyph.length;
+      if (glyph.trim().isNotEmpty) {
+        final code = masked.length == text.length ? masked.codeUnitAt(start) : 0x2022;
+        final entry = _FoodGlyph(start, code >= 0xD800 && code <= 0xDFFF ? 0x2022 : code, [
+          for (final box in paragraph.getBoxesForSelection(TextSelection(baseOffset: start, extentOffset: end)))
+            box.toRect(),
+        ]);
+        food.glyphs.add(entry);
+        if (food.offsets.contains(start)) food.eat(entry);
+      }
+      start = end;
+    }
+    return _eaten[paragraph] = food;
+  }
+
+  PetGlyph? takeGlyph(RenderBox stage, Offset mouth) {
+    if (!attached || !hasSize || !stage.attached || !stage.hasSize) return null;
+    ({_ParagraphFood food, _FoodGlyph glyph, Rect rect})? picked;
+    var distance = double.infinity;
+    for (final paragraph in _paragraphs()) {
+      final visible = _visibleRect(paragraph, stage);
+      if (visible == null) continue;
+      final food = _food(paragraph);
+      final transform = paragraph.getTransformTo(stage);
+      for (final glyph in food.glyphs) {
+        if (food.offsets.contains(glyph.start)) continue;
+        for (final box in glyph.boxes) {
+          final rect = MatrixUtils.transformRect(transform, box);
+          if (!visible.contains(rect.center)) continue;
+          final next = (rect.center - mouth).distanceSquared;
+          if (next < distance) {
+            distance = next;
+            picked = (food: food, glyph: glyph, rect: rect);
+          }
+        }
+      }
+    }
+    if (picked == null) return null;
+    picked.food.eat(picked.glyph);
+    markNeedsPaint();
+    return (char: picked.glyph.char, from: picked.rect.center);
+  }
+
+  PetErasure eraseAlong(RenderBox stage, Offset from, Offset to, {required double radius, required int maxParticles}) {
+    if (!attached || !hasSize || !stage.attached || !stage.hasSize) return const PetErasure(0, []);
+    final sweep = Rect.fromPoints(from, to).inflate(radius);
+    var count = 0;
+    final particles = <PetGlyph>[];
+    for (final paragraph in _paragraphs()) {
+      final visible = _visibleRect(paragraph, stage);
+      if (visible == null || !sweep.overlaps(visible)) continue;
+      final food = _food(paragraph);
+      final transform = paragraph.getTransformTo(stage);
+      for (final glyph in food.glyphs) {
+        if (food.offsets.contains(glyph.start)) continue;
+        for (final box in glyph.boxes) {
+          final rect = MatrixUtils.transformRect(transform, box);
+          if (!visible.contains(rect.center) || !_sweeps(rect.intersect(visible), from, to, radius)) continue;
+          food.eat(glyph);
+          count++;
+          if (particles.length < maxParticles) particles.add((char: glyph.char, from: rect.center));
+          break;
+        }
+      }
+    }
+    if (count > 0) markNeedsPaint();
+    return PetErasure(count, particles);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final holes = Path();
+    for (final paragraph in _paragraphs()) {
+      if (_eaten[paragraph]?.offsets.isNotEmpty != true) continue;
+      holes.addPath(_food(paragraph).holes.transform(paragraph.getTransformTo(this).storage), Offset.zero);
+    }
+    if (holes.getBounds().isEmpty) {
+      super.paint(context, offset);
+      return;
+    }
+    final path = Path.combine(PathOperation.difference, Path()..addRect(Offset.zero & size), holes);
+    context.pushClipPath(needsCompositing, offset, Offset.zero & size, path, super.paint, clipBehavior: Clip.hardEdge);
+  }
 }
 
 /// While [active], the pet fades away (a panel opened right where it stands).

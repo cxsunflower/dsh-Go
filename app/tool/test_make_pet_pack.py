@@ -6,9 +6,12 @@ Run from app/ (Pillow and numpy; ffmpeg, if installed, decodes the APNGs indepen
     python3 -I tool/test_make_pet_pack.py
 
 The source art is in tool/pet_src (the tool's default `--src`); the source comparisons
-and the rebuild check fail, not skip, when it is missing.
+and the rebuild check fail, not skip, when it is missing. The sprite source format is
+checked on a tiny pet drawn here into a temporary directory.
 Format: docs/design/pets.md section 3.
 """
+import contextlib
+import io
 import json
 import math
 import os
@@ -20,6 +23,7 @@ import sys
 import tempfile
 import unittest
 from collections import Counter
+from unittest import mock
 
 import numpy as np
 from PIL import Image
@@ -31,12 +35,12 @@ import make_pet_pack as tool  # noqa: E402
 APP = os.path.dirname(HERE)
 PETS = os.path.join(APP, 'assets', 'pets')
 SRC = tool.DEFAULT_SRC
-IDS = ['deepy-whale', 'whale-girl']
+IDS = ['deepy-whale', 'whale-girl', 'naiwa']
 STATES = ['idle', 'thinking', 'working', 'juggling', 'error', 'attention', 'notification',
           'sweeping', 'carrying', 'sleeping', 'waking', 'roam']
 REACTIONS = ['tapLeft', 'tapRight', 'tickle', 'drag']
 # Animations that legitimately leave the baseline: lifted by the user, or in water.
-OFF_GROUND = {'deepy-whale': {'react-drag'}, 'whale-girl': {'swim'}}
+OFF_GROUND = {'deepy-whale': {'react-drag'}, 'whale-girl': {'swim'}, 'naiwa': set()}
 MAX_DIP = 2               # logical px a tilt / squash / bob may go below the baseline
 MAX_SHEET = 4096
 
@@ -216,8 +220,11 @@ class PackFormat(unittest.TestCase):
                 self.assertIn('notification', p['timings']['minDisplay'])
                 self.assertEqual(p['timings']['wakeMs'], p['animations'][p['states']['waking'][0]]['ms'])
                 self.assertEqual(sorted(p['timings']), ['autoReturn', 'minDisplay', 'wakeMs'])
-                self.assertEqual(sorted(p['roam']), ['anim', 'faces'])
+                self.assertIn(sorted(p['roam']), (['anim', 'faces'], ['anim', 'faces', 'free']))
                 self.assertIn(p['roam']['faces'], ('left', 'right', 'front'))
+                self.assertIs(p['roam'].get('free', True), True, 'roam.free is only written as true')
+                if 'drag' in p:
+                    self.assertEqual(p['drag'], {'mirror': True}, 'drag.mirror is only written as true')
                 self.assertEqual(p['sleep']['afterMs'], 60000)
                 self.assertEqual(len(p['states']['idle']), 1, 'idle fidgets live in idlePool')
                 pool = p['idlePool']
@@ -253,8 +260,29 @@ class PackFormat(unittest.TestCase):
                 self.assertEqual(p['author'], 'DSH-TUI')
                 self.assertEqual(p['license'], 'DSH-TUI 吉祥物，作者授权 dsh-go 使用')
                 self.assertEqual(p['source'], source)
+                self.assertNotIn('sizeScale', p)
+                self.assertNotIn('free', p['roam'])
                 with open(os.path.join(d, 'pack.json'), encoding='utf-8') as fh:
                     self.assertNotIn('非官方', fh.read())
+
+    def test_naiwa_metadata(self):
+        """The naiwa pets are redrawn after a fan-made character: unofficial, and they say so."""
+        for pid, name in (('naiwa', '奶蛙'),):
+            p, _ = load(pid)
+            with self.subTest(pid):
+                self.assertEqual(p['name'], name)
+                self.assertEqual(p['author'], 'github.com/cxsunflower')
+                self.assertEqual(p['license'], tool.PACKS[pid]['license'])
+                self.assertEqual(p['source'], tool.PACKS[pid]['source'])
+                self.assertIn('非官方', p['license'])
+                self.assertEqual(p['sounds'], 'naiwa')
+                self.assertNotIn('sizeScale', p)
+                self.assertIs(p['roam']['free'], True)
+                self.assertEqual(p['drag'], {'mirror': True}, 'Naiwa turns left when dragged left')
+                self.assertEqual(p['reactions']['drag'], 'prone-eat')
+                self.assertIn('prone-eat', p['snack']['every'])
+                self.assertIn('prone-eat', p['snack']['mouths'])
+                self.assertTrue(os.path.isfile(os.path.join(APP, 'assets', 'pet_sounds', 'naiwa', 'sounds.json')))
 
     def test_every_reference_exists_and_every_animation_is_used(self):
         for pid in IDS:
@@ -326,7 +354,7 @@ class PackFormat(unittest.TestCase):
                         rim = semi & neighbours(al == 255) & neighbours(al == 0)
                         pale = (rgb.min(-1) >= 235) & ~(rgb == 255).all(-1)
                         self.assertFalse((rim & pale).any(), f'frame {k}: light fringe')
-                        if pid == 'whale-girl':
+                        if pid != 'deepy-whale':    # Deepy's shadow is the one semi-transparent art
                             self.assertFalse(semi.any(), 'pixel art: alpha is 0 or 255')
 
     def test_hit_boxes(self):
@@ -542,6 +570,222 @@ class AgainstSource(unittest.TestCase):
                 for f in os.listdir(ours):
                     with open(os.path.join(ours, f), 'rb') as a, open(os.path.join(fresh, f), 'rb') as b:
                         self.assertEqual(a.read(), b.read(), f'{pid}/{f} is stale: rerun the tool')
+
+
+# A tiny sprite pet (docs/design/naiwa-pet.md section 4): a 6x8 body standing on y 14 of a
+# 16x16 canvas, one pixel of it changing per frame, props a pixel or more away from it.
+TINY = dict(kind='sprite', dir='tiny', name='Tiny', author='test', license='test', source='test',
+            faces='front', preview_zoom=2, preview_per_row=8)
+BODY, EYE, PROP = (250, 214, 92, 255), (40, 30, 30, 255), (90, 200, 120, 255)
+
+
+def tiny_pet():
+    return {
+        'id': 'tiny', 'w': 16, 'h': 16,
+        'anims': [
+            {'key': 'idle', 'durs': [100, 100, 100, 100], 'loop': True},
+            {'key': 'laugh', 'durs': [100, 150, 100, 150], 'loop': True},
+            {'key': 'busy', 'durs': [120, 120, 120, 120], 'loop': True},
+            {'key': 'wake', 'durs': [200, 100, 100, 200], 'loop': False},
+            {'key': 'poke', 'durs': [80, 80, 80, 80], 'loop': False},
+            {'key': 'fidget', 'durs': [100, 100, 100, 100], 'loop': True},
+        ],
+        'states': {'idle': ['idle'], 'thinking': ['busy'], 'working': ['busy'], 'juggling': ['busy'],
+                   'error': ['busy'], 'attention': ['laugh'], 'notification': ['busy'], 'sweeping': ['busy'],
+                   'carrying': ['busy'], 'sleeping': ['busy'], 'waking': ['wake'], 'roam': ['busy']},
+        'tiers': {'working': [{'min': 2, 'anim': 'laugh'}, {'min': 1, 'anim': 'busy'}]},
+        'idlePool': [{'anim': 'fidget', 'loops': 3, 'weight': 2}],
+        'bonus': {'attention': {'anims': ['fidget'], 'chance': 0.5}},
+        'reactions': {'tapLeft': 'poke', 'tapRight': 'poke', 'tickle': 'poke', 'drag': 'busy'},
+        'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 2, 'sweeping': 1},
+        'faces': 'front',
+        'sounds': 'tiny-test',        # no such sound set: the build only notes it
+        'snack': {'mouth': {'x': 8, 'y': 9}, 'every': {'busy': 300, 'laugh': 150}},
+    }
+
+
+def tiny_frames():
+    marks = {'idle': (8, 6), 'laugh': (11, 7), 'busy': (8, 7), 'wake': (9, 6), 'poke': (12, 6), 'fidget': (7, 9)}
+    out = {}
+    for key, (y, x) in marks.items():
+        out[key] = []
+        for k in range(4):
+            f = np.zeros((16, 16, 4), np.uint8)
+            f[6:14, 5:11] = BODY
+            f[y, x + k % 2] = EYE
+            if key in ('laugh', 'busy'):
+                f[2:4, 12 + k % 2] = PROP
+            out[key].append(f)
+    return out
+
+
+def write_sprite(d, pet, frames):
+    os.makedirs(os.path.join(d, 'sheets'))
+    with open(os.path.join(d, 'pet.json'), 'w', encoding='utf-8') as fh:
+        json.dump(pet, fh)
+    for key, fs in frames.items():
+        Image.fromarray(np.concatenate(fs, axis=1)).save(os.path.join(d, 'sheets', f'{key}.png'))
+
+
+def pet_anim(pet, key):
+    return next(a for a in pet['anims'] if a['key'] == key)
+
+
+def paint(frame, y, x, rgba):
+    frame[y, x] = rgba
+
+
+class SpriteSource(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        packs = mock.patch.dict(tool.PACKS, {'tiny': TINY})
+        packs.start()
+        self.addCleanup(packs.stop)
+
+    def build(self, edit=lambda pet, frames: None):
+        """The tiny pet, changed by edit(pet, frames), built: (pack.json, pack dir, log lines)."""
+        pet, frames = tiny_pet(), tiny_frames()
+        edit(pet, frames)
+        root = tempfile.mkdtemp(dir=self.tmp)
+        write_sprite(os.path.join(root, 'src', 'tiny'), pet, frames)
+        log = []
+        tool.build('tiny', os.path.join(root, 'src'), os.path.join(root, 'out'), log=log.append)
+        d = os.path.join(root, 'out', 'tiny')
+        with open(os.path.join(d, 'pack.json'), encoding='utf-8') as fh:
+            return json.load(fh), d, log
+
+    def test_pack(self):
+        p, d, log = self.build()
+        pet, frames = tiny_pet(), tiny_frames()
+        self.assertEqual(list(p)[-4:], ['roam', 'sleep', 'sounds', 'snack'])
+        self.assertEqual(p['sounds'], 'tiny-test')
+        self.assertEqual(p['snack'], pet['snack'])
+        self.assertTrue(any("'tiny-test'" in line and 'sounds.json' in line for line in log),
+                        'a sound set that is not there yet is noted')
+        self.assertEqual(list(p['states'].items()), [(s, pet['states'][s]) for s in STATES])
+        for k in ('tiers', 'bonus', 'reactions'):
+            self.assertEqual(p[k], pet[k], k)
+        self.assertEqual(p['roam'], {'anim': 'busy', 'faces': 'front'})
+        self.assertEqual(p['sleep'], {'afterMs': 60000})
+        self.assertEqual((p['scale'], p['canvas']), (1, {'w': 16, 'h': 16}))
+        self.assertEqual(p['anchor'], {'x': 8, 'baseline': 14})
+        self.assertEqual(p['contentBox'], {'x': 5, 'y': 6, 'w': 6, 'h': 8})
+        self.assertEqual(sorted(p['animations']), sorted(frames))
+        for a in pet['anims']:
+            with self.subTest(a['key']):
+                self.assertEqual([f['ms'] for f in p['animations'][a['key']]['frames']], a['durs'])
+                got = expand(p, d, a['key'])
+                self.assertEqual(len(got), len(frames[a['key']]))
+                for k, (x, y) in enumerate(zip(got, frames[a['key']])):
+                    self.assertTrue(np.array_equal(x, y), f'frame {k} differs from the strip')
+
+    def test_snack_mouths(self):
+        """mouths moves the mouth in animations the pet eats in; it goes between mouth and every."""
+        mouths = {'laugh': {'x': 12, 'y': 10}}
+        p, _, _ = self.build(lambda pet, f: pet['snack'].update(mouths=mouths))
+        self.assertEqual(list(p['snack']), ['mouth', 'mouths', 'every'])
+        self.assertEqual(p['snack'], dict(tiny_pet()['snack'], mouths=mouths))
+
+    def test_free_roam_comes_from_the_pack_entry(self):
+        with mock.patch.dict(tool.PACKS, {'tiny': dict(TINY, free=True)}):
+            p, _, _ = self.build()
+        self.assertEqual(list(p['roam'].items()), [('anim', 'busy'), ('faces', 'front'), ('free', True)])
+
+    def test_drag_mirror_comes_from_the_pack_entry(self):
+        p, _, _ = self.build()
+        self.assertNotIn('drag', p, 'no drag.mirror unless the pack asks for it')
+        with mock.patch.dict(tool.PACKS, {'tiny': dict(TINY, drag_mirror=True)}):
+            p, _, _ = self.build()
+        self.assertEqual(p['drag'], {'mirror': True})
+
+    def test_timings_follow_holds(self):
+        """holds x one loop of the state's animation; carrying has no hold, so one loop."""
+        p, _, _ = self.build()
+        self.assertEqual({n: a['ms'] for n, a in p['animations'].items()},
+                         {'idle': 400, 'laugh': 500, 'busy': 480, 'wake': 600, 'poke': 320, 'fidget': 400})
+        t = p['timings']
+        self.assertEqual(t['minDisplay'], {'attention': 1500, 'error': 960, 'sweeping': 480, 'notification': 960,
+                                           'carrying': 480, 'working': 1000, 'thinking': 1000})
+        self.assertEqual(t['autoReturn'], {'attention': 1500, 'error': 960, 'sweeping': 300000, 'carrying': 480})
+        self.assertEqual(t['wakeMs'], 1200)
+
+    def test_idle_pool_plays_whole_loops(self):
+        p, _, _ = self.build()
+        self.assertEqual(p['idlePool'], {'everyMs': {'mean': 120000, 'min': 45000, 'max': 300000},
+                                         'anims': [{'anim': 'fidget', 'ms': 1200, 'weight': 2}]})
+
+    def test_one_shots_play_once(self):
+        p, _, _ = self.build()
+        self.assertEqual({n: a['loop'] for n, a in p['animations'].items()},
+                         {'idle': True, 'laugh': True, 'busy': True, 'wake': False, 'poke': False, 'fidget': True})
+
+    def test_rebuild_is_byte_identical(self):
+        _, a, _ = self.build()
+        _, b, _ = self.build()
+        self.assertEqual(sorted(os.listdir(a)), sorted(os.listdir(b)))
+        for f in os.listdir(a):
+            with open(os.path.join(a, f), 'rb') as x, open(os.path.join(b, f), 'rb') as y:
+                self.assertEqual(x.read(), y.read(), f)
+        with open(os.path.join(a, 'pack.json'), 'rb') as fh:
+            self.assertNotIn(b'\r', fh.read(), 'LF line ends on every OS')
+
+    def test_rejects_broken_sources(self):
+        cases = [
+            ('mouth off the canvas', lambda p, f: p['snack']['mouth'].update(x=16), r'off the 16x16 canvas'),
+            ('mouth above the canvas', lambda p, f: p['snack']['mouth'].update(y=-1), r'off the 16x16 canvas'),
+            ('a state names a missing animation', lambda p, f: p['states'].update(thinking=['nope']),
+             r'states\.thinking: no animation nope'),
+            ('snack.every names a missing animation', lambda p, f: p['snack']['every'].update(nope=100),
+             r'snack\.every: no animation nope'),
+            ('a mouths point off the canvas', lambda p, f: p['snack'].update(mouths={'laugh': {'x': 3, 'y': 16}}),
+             r'snack\.mouths\.laugh: \(3, 16\) is off the 16x16 canvas'),
+            ('a mouths animation that eats nothing', lambda p, f: p['snack'].update(mouths={'poke': {'x': 3, 'y': 9}}),
+             r'snack\.mouths\.poke: not in snack\.every'),
+            ('mouths names a missing animation', lambda p, f: p['snack'].update(mouths={'nope': {'x': 3, 'y': 9}}),
+             r'snack\.mouths: no animation nope'),
+            ('empty mouths', lambda p, f: p['snack'].update(mouths={}), r'snack\.mouths: not a non-empty object'),
+            ('waking loops', lambda p, f: pet_anim(p, 'wake').update(loop=True), r'wake: plays once'),
+            ('a tap reaction loops', lambda p, f: pet_anim(p, 'poke').update(loop=True), r'poke: plays once'),
+            ('strip a frame short', lambda p, f: f['busy'].pop(), r'sheets/busy\.png: 48x16 for 4 frames'),
+            ('strip a pixel too wide', lambda p, f: f['busy'].append(np.zeros((16, 1, 4), np.uint8)),
+             r'sheets/busy\.png: 65x16 for 4 frames'),
+            ('too few frames', lambda p, f: (pet_anim(p, 'busy')['durs'].pop(), f['busy'].pop()),
+             r'busy: 3 frames'),
+            ('a frame too short', lambda p, f: pet_anim(p, 'busy').update(durs=[30, 120, 120, 120]),
+             r'busy: frame durations'),
+            ('semi-transparent pixel', lambda p, f: paint(f['idle'][0], 7, 7, (250, 214, 92, 128)),
+             r'semi-transparent'),
+            ('a prop in the idle loop', lambda p, f: paint(f['idle'][1], 1, 1, EYE), r'idle frame 1: 1 px apart'),
+            ('an unused animation', lambda p, f: (p['anims'].append({'key': 'spare', 'durs': [100] * 4, 'loop': True}),
+                                                  f.update(spare=f['idle'])), r'spare not used'),
+            ('a missing state', lambda p, f: p['states'].pop('roam'), r'states: no roam'),
+            ('a missing reaction', lambda p, f: p['reactions'].pop('drag'), r'reactions: no drag'),
+            ('a hold on a debounced state', lambda p, f: p['holds'].update(working=2), r"holds: \['working'\]"),
+            ('a bonus that always plays', lambda p, f: p['bonus']['attention'].update(chance=1),
+             r'chance 1 is not strictly between'),
+            ('a sounds id that is not one', lambda p, f: p.update(sounds='Tiny Test'), r"sounds 'Tiny Test'"),
+            ('a snack every 0 ms', lambda p, f: p['snack']['every'].update(busy=0), r'snack\.every\.busy'),
+            ('an unknown key', lambda p, f: p.update(hold={}), r"unknown keys \['hold'\]"),
+            ('faces against the pack', lambda p, f: p.update(faces='left'), r"faces 'left'"),
+        ]
+        for what, edit, msg in cases:
+            with self.subTest(what), self.assertRaisesRegex(tool.BuildError, msg):
+                self.build(edit)
+
+    def test_full_build_skips_a_sprite_pack_not_drawn_yet(self):
+        src, out, preview = (os.path.join(self.tmp, d) for d in ('src', 'out', 'preview'))
+        write_sprite(os.path.join(src, 'tiny'), tiny_pet(), tiny_frames())
+        with mock.patch.dict(tool.PACKS, {'tiny': TINY, 'later': dict(TINY, dir='later')}, clear=True):
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                self.assertEqual(tool.main(['--src', src, '--out', out, '--preview', preview]), 0)
+            self.assertIn('later: skipped', said.getvalue())
+            self.assertTrue(os.path.isfile(os.path.join(out, 'tiny', 'pack.json')))
+            self.assertTrue(os.path.isfile(os.path.join(preview, 'tiny.png')))
+            self.assertFalse(os.path.exists(os.path.join(out, 'later')))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(tool.main(['--src', src, '--out', out, '--only', 'later']), 1)
+            self.assertIn('pet.json is missing', err.getvalue())
 
 
 if __name__ == '__main__':

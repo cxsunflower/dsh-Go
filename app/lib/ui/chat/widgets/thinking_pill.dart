@@ -18,6 +18,7 @@ import '../../common/think_glyph.dart';
 import '../../engine_settings/engine_settings_page.dart' show openSettingsPage;
 import '../../theme/app_icons.dart';
 import '../../theme/theme.dart';
+import '../../pets/pet_perch.dart';
 import '../render/markdown_body.dart';
 import 'stream_pacer.dart';
 import 'stream_row.dart';
@@ -84,6 +85,15 @@ String _firstLine(String text) {
 
 class _ThinkingPillState extends State<ThinkingPill> {
   bool _expanded = false;
+
+  /// Opening restores the displayed text, even when the previous body is
+  /// still mounted for its closing animation. Only its glyph mask is reset.
+  int _expansion = 0;
+
+  void _toggleExpanded() => setState(() {
+    _expanded = !_expanded;
+    if (_expanded) _expansion++;
+  });
 
   /// 收起动画期间还要画的那块内容:收起时它已经不该在树上了,但高度收回
   /// 去的过程里得先留着,不能啪地消失留下一块空白。
@@ -171,19 +181,23 @@ class _ThinkingPillState extends State<ThinkingPill> {
 
     Widget reasoningBody() {
       if (!_expanded) return ThinkingTicker(text: widget.reasoning);
+      final reasoning = widget.reasoning.trim();
       // 展开后,点正文本身和点头部一样收起。只在展开态挂这层手势:实时窗口
       // 还要能长按选字/随列表滚动,不该多一个点击目标。
       void collapse() => setState(() => _expanded = false);
       return _hasProviderScope(context)
           ? _TranslatableReasoning(
-              text: widget.reasoning.trim(),
+              foodKey: ValueKey(_expansion),
+              text: reasoning,
               active: active,
               holder: _translation,
+              expansion: _expansion,
               onBodyTap: collapse,
             )
           : _CollapsibleReasoningBody(
+              foodKey: ValueKey(_expansion),
               onCollapse: collapse,
-              child: MarkdownBody(text: widget.reasoning.trim(), streaming: active, secondary: true, selectable: false),
+              child: MarkdownBody(text: reasoning, streaming: active, secondary: true, selectable: false),
             );
     }
 
@@ -201,18 +215,30 @@ class _ThinkingPillState extends State<ThinkingPill> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          button: true,
-          expanded: _expanded,
-          child: StreamRowFrame(onTap: () => setState(() => _expanded = !_expanded), child: header),
-        ),
-        // 一个槽:思考中是实时窗口,点开换成全文,一轮结束收起。
-        ExpandReveal(open: open && !_windowHeld, child: _body ?? const SizedBox.shrink()),
-      ],
+    // The whole thought (the row and the body slot) is one food: the pet runs
+    // below a reasoning that streams, then slowly eats its glyphs, while the
+    // reply's own text stays whole (docs/design/naiwa-pet.md §7).
+    // Two layers: the whole thought is what the pet runs to while it streams
+    // (the answer may already be growing below); only the thought's own text
+    // is edible, so erasing never takes the header's label with it.
+    return PetFood(
+      active: widget.streaming,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            child: PetFood(active: false, edible: !_expanded, child: StreamRowFrame(onTap: _toggleExpanded, child: header)),
+          ),
+          // 一个槽:思考中是实时窗口,点开换成全文,一轮结束收起。
+          ExpandReveal(
+            open: open && !_windowHeld,
+            child: _body ?? const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -335,8 +361,9 @@ class _ThinkingLabelState extends State<ThinkingLabel> with SingleTickerProvider
 /// 链接、代码复制按钮在更里层,仍然各自优先;长按选词、横向滑动交给选择区
 /// 和滚动自己判定。
 class _CollapsibleReasoningBody extends StatelessWidget {
-  const _CollapsibleReasoningBody({required this.onCollapse, required this.child});
+  const _CollapsibleReasoningBody({required this.foodKey, required this.onCollapse, required this.child});
 
+  final Key foodKey;
   final VoidCallback onCollapse;
   final Widget child;
 
@@ -351,7 +378,7 @@ class _CollapsibleReasoningBody extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         excludeFromSemantics: true,
         onTap: onCollapse,
-        child: child,
+        child: PetFood(key: foodKey, active: false, edible: true, child: child),
       ),
     ),
   );
@@ -662,15 +689,19 @@ class _TranslationHolder {
 /// 没连上引擎时,只有全文。
 class _TranslatableReasoning extends ConsumerStatefulWidget {
   const _TranslatableReasoning({
+    required this.foodKey,
     required this.text,
     required this.active,
     required this.holder,
+    required this.expansion,
     required this.onBodyTap,
   });
 
+  final Key foodKey;
   final String text;
   final bool active;
   final _TranslationHolder holder;
+  final int expansion;
 
   /// 点正文收起(等价于点头部);工具栏上的按钮不受这层手势影响。
   final VoidCallback onBodyTap;
@@ -741,6 +772,8 @@ class _TranslatableReasoningState extends ConsumerState<_TranslatableReasoning> 
     final failed = controller?.failed ?? false;
     final showing = holder.showTranslation && controller != null && !failed;
     final body = _CollapsibleReasoningBody(
+      // Switching the translated and the original text starts a clean mask.
+      foodKey: ValueKey((widget.foodKey, showing)),
       onCollapse: widget.onBodyTap,
       child: MarkdownBody(
         text: showing ? controller.text.trim() : widget.text,
