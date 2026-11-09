@@ -20,7 +20,7 @@
       "wake": {"x": 16, "y": 16, "w": 32, "h": 44},
       "prone-eat": {"x": 5, "y": 35, "w": 51, "h": 25}
     },
-    "wideAnims": ["guichu", "dance", "eat-code-fast", "juggle", "juggle-many", "shocked", "alert"],
+    "wideAnims": ["dance", "eat-code-fast", "juggle", "juggle-many", "shocked", "alert"],
     "sleepingAnims": ["sleep"]
   },
   "animations": {
@@ -53,16 +53,6 @@
       "loop": true,
       "ms": 1290,
       "frames": [{"i": 0, "ms": 220}, {"i": 1, "ms": 160}, {"i": 2, "ms": 120}, {"i": 3, "ms": 90}, {"i": 4, "ms": 90}, {"i": 3, "ms": 90}, {"i": 2, "ms": 120}, {"i": 3, "ms": 90}, {"i": 4, "ms": 90}, {"i": 2, "ms": 220}]
-    },
-    "guichu": {
-      "sheet": "guichu.png",
-      "frameW": 62,
-      "frameH": 55,
-      "cols": 13,
-      "box": {"x": 1, "y": 5, "w": 62, "h": 55},
-      "loop": true,
-      "ms": 1080,
-      "frames": [{"i": 0, "ms": 80}, {"i": 1, "ms": 60}, {"i": 0, "ms": 60}, {"i": 2, "ms": 60}, {"i": 3, "ms": 70}, {"i": 4, "ms": 60}, {"i": 0, "ms": 60}, {"i": 5, "ms": 60}, {"i": 6, "ms": 60}, {"i": 7, "ms": 70}, {"i": 8, "ms": 70}, {"i": 9, "ms": 60}, {"i": 10, "ms": 60}, {"i": 11, "ms": 60}, {"i": 12, "ms": 70}, {"i": 0, "ms": 120}]
     },
     "snack": {
       "sheet": "snack.png",
@@ -300,7 +290,6 @@
     "anims": [
       {"anim": "idle-look", "ms": 4520, "weight": 2},
       {"anim": "idle-giggle", "ms": 2580, "weight": 2},
-      {"anim": "guichu", "ms": 2160, "weight": 1},
       {"anim": "snack", "ms": 2010, "weight": 2},
       {"anim": "dance", "ms": 3040, "weight": 1}
     ]

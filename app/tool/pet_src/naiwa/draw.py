@@ -5,7 +5,7 @@ Run from the repository root (needs numpy and Pillow):
 
     python app/tool/pet_src/naiwa/draw.py [--check] [--preview] [--strip ANIM ...]
 
-A run redraws all 27 animations, writes sheets/<anim>.png (1x single-row strips of
+A run redraws all 26 animations, writes sheets/<anim>.png (1x single-row strips of
 64x64 cells) and pet.json next to this script, then checks them against
 docs/design/naiwa-pet.md sections 3 and 4. `--check` redraws in memory and only
 verifies, failing when the files on disk are stale. `--preview` also writes a
@@ -57,7 +57,7 @@ MAX_COLORS = 256
 
 # docs/design/naiwa-pet.md section 3, in table order.
 ANIM_NAMES = [
-    'idle', 'idle-look', 'idle-giggle', 'guichu', 'snack', 'dance', 'thinking',
+    'idle', 'idle-look', 'idle-giggle', 'snack', 'dance', 'thinking',
     'eat-code', 'eat-code-fast', 'feast', 'juggle', 'juggle-many', 'shocked', 'laugh',
     'laugh-point', 'laugh-roll', 'laugh-belly', 'alert', 'devour', 'carry', 'sleep',
     'wake', 'walk', 'poke-left', 'poke-right', 'tickle', 'prone-eat',
@@ -781,24 +781,6 @@ def ha_at(x, y):
     return ('glyph', 'ha', x, y)
 
 
-def anim_guichu():
-    base = dict(eyes='happy', mouth='laugh', blush=True, face=(0, 1.0))
-    A = dict(base, arms=('head', 'head'))
-    B = dict(base, arms=('up', 'up'), sy=1.05)
-    Cq = dict(base, arms=('head', 'head'), sy=0.94, sx=1.05)
-    h1 = (ha_at(2, 9),)
-    h2 = (ha_at(51, 6),)
-    h3 = h1 + h2
-    return [
-        (P(A), 80), (P(A, x=1), 60), (P(A), 60), (P(A, x=-1, props=h1), 60),
-        (P(B, props=h1), 70), (P(B, x=1, props=h1), 60), (P(A), 60),
-        (P(A, x=1, ghost=2, props=h2), 60), (P(A, props=h2), 60),
-        (P(Cq, props=h2), 70), (P(B, tint='pink', props=h3), 70),
-        (P(B, x=-1, props=h3), 60), (P(A, x=2), 60), (P(A, x=-2), 60),
-        (P(A, ghost=1, tint='cyan', props=h3), 70), (P(A), 120),
-    ]
-
-
 def anim_snack():
     lying = (('glyph', 'semi', 57, 35, 'c4'),)
     chew = dict(arms=('down', 'down_in'), cheeks=1.5)
@@ -1143,7 +1125,7 @@ def anim_prone_eat():
 
 ANIMS = {
     'idle': anim_idle, 'idle-look': anim_idle_look, 'idle-giggle': anim_idle_giggle,
-    'guichu': anim_guichu, 'snack': anim_snack, 'dance': anim_dance, 'thinking': anim_thinking,
+    'snack': anim_snack, 'dance': anim_dance, 'thinking': anim_thinking,
     'eat-code': anim_eat_code, 'eat-code-fast': anim_eat_code_fast, 'feast': anim_feast,
     'juggle': anim_juggle, 'juggle-many': anim_juggle_many, 'shocked': anim_shocked,
     'laugh': anim_laugh, 'laugh-point': anim_laugh_point, 'laugh-roll': anim_laugh_roll,
@@ -1176,7 +1158,6 @@ def pet_json(anims, mouth, mouths):
         'idlePool': [
             {'anim': 'idle-look', 'loops': 2, 'weight': 2},
             {'anim': 'idle-giggle', 'loops': 2, 'weight': 2},
-            {'anim': 'guichu', 'loops': 2, 'weight': 1},
             {'anim': 'snack', 'loops': 1, 'weight': 2},
             {'anim': 'dance', 'loops': 2, 'weight': 1},
         ],
@@ -1286,7 +1267,7 @@ def check(anims, files):
     bad = []
     names = list(anims)
     if names != ANIM_NAMES:
-        bad.append(f'animations {names} != the 27 of naiwa-pet.md section 3')
+        bad.append(f'animations {names} != the {len(ANIM_NAMES)} of naiwa-pet.md section 3')
     total = sum(len(a['durs']) for a in anims.values())
     if total > MAX_TOTAL_FRAMES:
         bad.append(f'{total} frames in total (max {MAX_TOTAL_FRAMES})')
