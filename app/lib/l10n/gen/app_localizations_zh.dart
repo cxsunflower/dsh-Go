@@ -2577,7 +2577,7 @@ class L10nZh extends L10n {
   String get botsPetSource => '来自 DSH-TUI';
 
   @override
-  String get botsPetSourceNaiwa => '奶蛙：照网络二创形象重画的像素版，非官方';
+  String get botsPetSourceNaiwa => '奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方';
 
   @override
   String get botsPetImport => '导入';
