@@ -89,7 +89,7 @@
   "sounds": "naiwa",
   "snack": {
     "mouth": {"x": 32, "y": 39},
-    "mouths": {"prone-eat": {"x": 43, "y": 52}},
+    "mouths": {"prone-eat": {"x": 43, "y": 46}},
     "every": {
       "eat-code": 700,
       "eat-code-fast": 380,
