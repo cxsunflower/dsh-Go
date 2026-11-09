@@ -10,7 +10,7 @@
 |---|---|
 | `draw.py` | 生成脚本，唯一的源文件 |
 | `pet.json` | 由 `draw.py` 写出：帧时长、状态映射、档位、待机池、反应、`snack` |
-| `sheets/<anim>.png` | 由 `draw.py` 写出：1 倍单行横条，每帧 64×64，共 27 段 |
+| `sheets/<anim>.png` | 由 `draw.py` 写出：1 倍单行横条，每帧 64×64，共 26 段 |
 
 `pet.json` 和 `sheets/` 是生成物，不要手改，改 `draw.py` 后重新生成。
 
@@ -74,7 +74,6 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `idle` | 12 | 2540 ms | 原地呼吸，身体一伸一缩，偶尔眨眼 |
 | `idle-look` | 10 | 2260 ms | 身体歪向左边张望，再歪向右边，小爪跟着摆 |
 | `idle-giggle` | 10 | 1290 ms | 想到什么，捂嘴偷笑，肩膀一抖一抖 |
-| `guichu` | 16 | 1080 ms | 鬼畜大笑：60–80 ms 跳切、左右抖 1–2 像素、残影、单帧粉/青换色、两边蹦「哈」 |
 | `snack` | 10 | 2010 ms | 瞄到右边飘着一个分号，伸手抓来塞进嘴里，嚼几下，打个小嗝 |
 | `dance` | 10 | 1520 ms | 张开双臂左右摇摆，轮流抬脚 |
 | `thinking` | 8 | 2060 ms | 托下巴往上看，旁边的点点变成问号 |
@@ -99,7 +98,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `tickle` | 14 | 1140 ms | 被挠痒痒，挤眼乱笑、双手乱挥，鬼畜跳切后回到待机（不循环） |
 | `dangle` | 8 | 940 ms | 被拎起来悬空，手脚乱蹬，冒汗、惊叫 |
 
-共 27 段、268 帧；`sheets/` 合计约 41 KB。
+共 26 段、256 帧；`sheets/` 合计约 38.4 KB。
 
 ## 状态映射
 
@@ -112,7 +111,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | sweeping / carrying | `devour` / `carry` |
 | sleeping / waking | `sleep` / `wake` |
 
-- 待机池：`idle-look`、`idle-giggle`、`snack` 权重 2，`guichu`、`dance` 权重 1。
+- 待机池：`idle-look`、`idle-giggle`、`snack` 权重 2，`dance` 权重 1。
 - attention 有 0.5 的概率换成 `laugh-point`、`laugh-roll`、`laugh-belly` 之一。
 - 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `dangle`。
 - `holds`、`faces`（`front`）、`sounds`（`naiwa`）和 `snack.every` 按设计文档第 4 节写入 `pet.json`。
@@ -121,7 +120,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 
 `draw.py` 每次运行都会检查下面这些，`--check` 还会核对磁盘上的文件是否最新：
 
-- 27 段名字齐全；每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色；alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`；PNG 读回来和画出来的逐像素相同。
+- 26 段名字齐全；每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色；alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`；PNG 读回来和画出来的逐像素相同。
 - 待机各帧脚底线都是 y = 60，只有一个连通块，没有离体道具。
 - 离体道具离身体（含手持道具）至少 1 个透明像素；每帧最大的 8 连通块正好是身体。
 - `wake`、`poke-left`、`poke-right`、`tickle` 不循环，最后一帧和待机第 0 帧的重合度（IoU）不低于 0.9。

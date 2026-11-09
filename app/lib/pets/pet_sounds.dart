@@ -300,7 +300,7 @@ class PetSoundPlayer {
     final lastSound = _lastSound;
     // A quick tap chain deliberately changes the poke into a laugh; same-cue
     // and per-minute limits still apply.
-    if (key != 'guichu' && key != 'laugh-belly' && !PetCues.tapChain.contains(key) &&
+    if (key != 'laugh-belly' && !PetCues.tapChain.contains(key) &&
         lastSound != null && now.difference(lastSound) < minGap) {
       return false;
     }
