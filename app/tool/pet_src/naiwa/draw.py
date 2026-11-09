@@ -285,10 +285,8 @@ CODE_FONT = {
     '<': ["..X", ".X.", "X..", ".X.", "..X"], '>': ["X..", ".X.", "..X", ".X.", "X.."],
     ';': ["...", ".X.", "...", ".X.", "X.."], '=': ["...", "XXX", "...", "XXX", "..."],
     '+': ["...", ".X.", "XXX", ".X.", "..."], '0': ["XXX", "X.X", "X.X", "X.X", "XXX"],
-    '1': [".X.", "XX.", ".X.", ".X.", "XXX"], 'f': [".XX", ".X.", "XXX", ".X.", ".X."],
-    'n': ["...", "XX.", "X.X", "X.X", "X.X"], 'r': ["...", "X.X", "XX.", "X..", "X.."],
-    't': [".X.", "XXX", ".X.", ".X.", ".XX"], 'x': ["...", "...", "X.X", ".X.", "X.X"],
-    'e': ["...", ".X.", "XXX", "X..", ".XX"], 'u': ["...", "X.X", "X.X", "X.X", "XXX"],
+    'f': [".XX", ".X.", "XXX", ".X.", ".X."], 'n': ["...", "XX.", "X.X", "X.X", "X.X"],
+    'x': ["...", "...", "X.X", ".X.", "X.X"],
 }
 BOX = ["oooooooooooooooo",
        "ohhhhhhhhhhhhhho",
@@ -402,13 +400,11 @@ ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for th
     'down_out': ((13.0, 9.5), (14.0, 5.5)),
     'hip': ((16.0, 9.5), (11.5, 5.0)),
     'head': ((16.0, 20.5), (10.0, 25.0)),
-    'head_up': ((16.5, 22.0), (10.5, 26.5)),
     'point': ((15.5, 12.5), (19.5, 13.5)),
     'chin': ((8.0, 7.0), (2.5, 11.5)),
     'out': ((15.5, 13.5), (19.5, 15.5)),
     'out_up': ((15.5, 15.0), (19.0, 19.5)),
     'out_dn': ((15.5, 12.0), (19.5, 11.0)),
-    'up': ((14.0, 20.0), (12.5, 27.5)),
     'belly': ((13.0, 8.0), (6.0, 6.0)),
     'belly_up': ((13.0, 8.5), (6.5, 7.5)),
     'cover': ((9.5, 8.5), (2.5, 14.0)),
@@ -1000,18 +996,14 @@ def anim_alert():
     ]
 
 
-DEVOUR_LINE = 'fn(x)=>{x+1};return x'
+DEVOUR_LINE = 'fn(x)=>{'    # four bites, four characters showing on the ribbon
 
 
 def anim_devour():
     """A line of code rides in on a ribbon at mouth height; one character per bite."""
     def ribbon(start):
-        out = []
-        for i in range(4):
-            ch = DEVOUR_LINE[(start + i) % len(DEVOUR_LINE)]
-            if ch != ' ':
-                out.append(('code', ch, 48 + 4 * i, 34 - (2 * i) // 3, CODE_COLORS[(start + i) % 6]))
-        return tuple(out)
+        return tuple(('code', ch, 48 + 4 * i, 34 - (2 * i) // 3, CODE_COLORS[(start + i) % 6])
+                     for i, ch in enumerate(DEVOUR_LINE[start:start + 4]))
 
     fr = []
     for b in range(4):
