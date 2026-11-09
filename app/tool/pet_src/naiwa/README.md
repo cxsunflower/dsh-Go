@@ -76,7 +76,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `idle-giggle` | 10 | 1290 ms | 想到什么，捂嘴偷笑，肩膀一抖一抖 |
 | `snack` | 10 | 2010 ms | 瞄到右边飘着一个分号，伸手抓来塞进嘴里，嚼几下，打个小嗝 |
 | `dance` | 10 | 1520 ms | 张开双臂左右摇摆，轮流抬脚 |
-| `thinking` | 8 | 2060 ms | 托下巴往上看，旁边的点点变成问号 |
+| `thinking` | 8 | 2060 ms | 一只爪握拳托下巴，另一只手横在肚子前托着它的小臂，往上看，旁边的点点变成问号 |
 | `eat-code` | 12 | 1340 ms | 代码字符从右边飞进张大的嘴，嚼两口 |
 | `eat-code-fast` | 10 | 850 ms | 两只爪轮流往嘴里塞代码，一只喂一只抓下一个 |
 | `feast` | 14 | 880 ms | 狼吞虎咽：两边飞来代码，嚼得碎屑四溅、冒汗，带残影和换色 |
