@@ -417,8 +417,6 @@ ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for th
     'toss': ((15.0, 14.5), (15.5, 21.0)),
     'hold': ((14.5, 21.0), (7.0, 28.5)),
     'stretch': ((12.5, 22.0), (10.5, 30.5)),
-    'flail_a': ((16.0, 17.0), (19.0, 22.0)),
-    'flail_b': ((16.0, 13.0), (20.0, 15.5)),
     'lap': ((12.0, 7.0), (9.0, 3.5)),
 }
 PAWS = {'point': 'point', 'wave': 'open', 'wave_b': 'open'}
@@ -1088,16 +1086,9 @@ def anim_poke(direction):
 
 
 def anim_tickle():
-    T = dict(eyes='squeeze', mouth='laugh', arms=('belly', 'belly'), blush=True, face=(0, 1.0))
-    U = dict(eyes='happy', mouth='laugh', arms=('flail_a', 'flail_b'), blush=True, face=(0, 1.0))
-    return [
-        (P(T, x=1), 70), (P(T, x=-1), 60), (P(U, sy=1.06, y=-1, props=(ha_at(50, 8),)), 60),
-        (P(T, x=1), 60), (P(T, x=-1, ghost=2), 60), (P(U, sy=1.06, y=-1, props=(ha_at(3, 10),)), 60),
-        (P(T, x=2, tint='pink'), 60), (P(T, x=-2), 60),
-        (P(U, arms=('flail_b', 'flail_a'), sy=1.06, y=-1, props=(ha_at(50, 6), ha_at(3, 11))), 70),
-        (P(T, x=1), 60), (P(T, x=-1), 60), (P(T, sy=0.95, sx=1.04), 100),
-        (P(eyes='happy', mouth='smile', blush=True), 160), (P(), 200),
-    ]
+    """The laugh, then back to idle: apps from before the two-tap laugh play this for a
+    quick run of taps."""
+    return anim_laugh() + [(P(eyes='happy', mouth='smile', blush=True), 160), (P(), 200)]
 
 
 def anim_prone_eat():
