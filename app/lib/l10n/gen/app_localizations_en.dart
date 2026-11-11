@@ -1632,7 +1632,275 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get activityQuotaTitle => 'Subscription usage';
+
+  @override
+  String get activityQuotaRefresh => 'Refresh usage';
+
+  @override
+  String get activityQuotaPermissionDenied => 'This subscription does not have permission to access usage.';
+
+  @override
+  String get activityQuotaAuthError => 'Sign-in expired or access denied. Check your subscription sign-in.';
+
+  @override
+  String get activityQuotaNetworkError => 'Network error. Try again later.';
+
+  @override
+  String get activityQuotaRateLimited => 'Too many requests. Try again later.';
+
+  @override
+  String get activityQuotaLoading => 'Loading subscription usage…';
+
+  @override
+  String get activityQuotaUnavailable => 'Can\'t load subscription usage right now. Try again later.';
+
+  @override
+  String get activityQuotaUnsupported => 'This host does not support subscription usage';
+
+  @override
+  String get activityQuotaSignedOut => 'Subscription is signed out';
+
+  @override
+  String get activityQuotaPrimary => 'Primary limit';
+
+  @override
+  String get activityQuotaSecondary => 'Secondary limit';
+
+  @override
+  String get activityQuotaFiveHour => '5 hours';
+
+  @override
+  String get activityQuotaSevenDay => '7 days';
+
+  @override
+  String get activityQuotaSevenDaySonnet => '7 days · Sonnet';
+
+  @override
+  String get activityQuotaSevenDayOpus => '7 days · Opus';
+
+  @override
+  String activityQuotaUsed(String value) {
+    return '$value used';
+  }
+
+  @override
+  String activityQuotaReset(String time) {
+    return 'Resets: $time';
+  }
+
+  @override
   String get activityToolListSeparator => ', ';
+
+  @override
+  String get androidShellTitle => 'Android Shell';
+
+  @override
+  String get androidShellEntryHint => 'Separate system-command channel, off by default';
+
+  @override
+  String get androidShellSubtitle =>
+      'Run Android system commands on this phone through Shizuku or self-ADB, not bash inside Ubuntu.';
+
+  @override
+  String get androidShellEnable => 'Allow Android Shell';
+
+  @override
+  String get androidShellEnableHint =>
+      'A separate switch, independent of non-disruptive mode and screen confirmation settings.';
+
+  @override
+  String get androidShellConfirmationNote =>
+      'Every command needs native confirmation on the phone. Screen-control confirmation exemptions do not apply. Shell permissions differ from screen control; app rules cannot block every command.';
+
+  @override
+  String get androidShellMasterOff =>
+      'Turn on Phone control on the previous page before enabling Android Shell. Authorization and pairing guidance remain available here.';
+
+  @override
+  String get androidShellRiskTitle => 'Allow Android system commands?';
+
+  @override
+  String get androidShellRiskBody =>
+      'Commands use the selected channel\'s actual UID and may change apps, system settings, and shared files. Screen app rules cannot fully protect against them. Every command still requires separate native confirmation. Only allow commands you understand and trust.';
+
+  @override
+  String get androidShellRiskAction => 'Allow Android Shell';
+
+  @override
+  String get androidShellBackend => 'Execution channel';
+
+  @override
+  String get androidShellShizukuHint =>
+      'Use an installed, running Shizuku with explicit authorization. Android 14, accessibility, and non-disruptive mode are not required.';
+
+  @override
+  String get androidShellAdb => 'Self-ADB';
+
+  @override
+  String get androidShellAdbHint =>
+      'Connect to this phone\'s wireless debugging with the app\'s private ADB identity. Other devices are not contacted.';
+
+  @override
+  String get androidShellInstalled => 'Shizuku installed';
+
+  @override
+  String get androidShellRunning => 'Shizuku running';
+
+  @override
+  String get androidShellGranted => 'Shizuku authorized';
+
+  @override
+  String get androidShellPaired => 'ADB paired';
+
+  @override
+  String get androidShellConnected => 'ADB connected';
+
+  @override
+  String get androidShellAuthorize => 'Request Shizuku authorization';
+
+  @override
+  String get androidShellAuthorizeHint =>
+      'Install and start Shizuku, then press this button to authorize dsh-Go. Opening or refreshing this page never requests permission.';
+
+  @override
+  String get androidShellStatus => 'Execution status';
+
+  @override
+  String get androidShellUid => 'Actual UID';
+
+  @override
+  String get androidShellUidUnknown => 'Not reported yet';
+
+  @override
+  String get androidShellRefresh => 'Refresh status';
+
+  @override
+  String get androidShellStop => 'Stop Android Shell';
+
+  @override
+  String get androidShellStopHint =>
+      'Cancel current commands and stop separate Shell execution without turning off screen control.';
+
+  @override
+  String get androidShellPairingGuide =>
+      'In Developer options, enable Wireless debugging and choose Pair device with pairing code. The code is used only for this pairing and is not saved or logged.';
+
+  @override
+  String get androidShellStartPairing => 'Open pairing guidance';
+
+  @override
+  String get androidShellPair => 'Enter pairing code';
+
+  @override
+  String get androidShellPairSubmit => 'Pair';
+
+  @override
+  String get androidShellPairCode => 'Six-digit pairing code';
+
+  @override
+  String get androidShellPairPort => 'Pairing port (optional)';
+
+  @override
+  String get androidShellPairPortHint =>
+      'Use the port in the pairing dialog, not the connection port on the main Wireless debugging page. Leave blank for discovery.';
+
+  @override
+  String get androidShellConnect => 'Connect ADB';
+
+  @override
+  String get androidShellConnectChannel => 'Connect selected channel';
+
+  @override
+  String get androidShellConnectPort => 'Connection port (optional)';
+
+  @override
+  String get androidShellConnectPortHint =>
+      'Use the port under IP address & port on the main Wireless debugging page, not the pairing port. Only this phone is contacted. Leave blank for discovery.';
+
+  @override
+  String androidShellErrorCode(String code) {
+    return 'Error code: $code';
+  }
+
+  @override
+  String androidShellLimits(int seconds, int bytes) {
+    return 'Up to $seconds seconds and $bytes output bytes per command';
+  }
+
+  @override
+  String get androidShellErrorDisabled => 'Android Shell is off.';
+
+  @override
+  String get androidShellErrorNotConnected => 'The selected channel is not connected.';
+
+  @override
+  String get androidShellErrorShizukuMissing => 'Install Shizuku first.';
+
+  @override
+  String get androidShellErrorShizukuStopped => 'Start Shizuku, then refresh the status.';
+
+  @override
+  String get androidShellErrorPermissionRequired => 'Explicit authorization in Shizuku is required.';
+
+  @override
+  String get androidShellErrorAdbNotPaired => 'Pair this phone with wireless debugging, then connect ADB.';
+
+  @override
+  String get androidShellErrorConnectFailed =>
+      'Connection failed. Check the selected channel and current wireless-debugging connection port, then retry.';
+
+  @override
+  String get androidShellErrorIdentityChanged => 'The channel identity changed. Stop, then authorize or connect again.';
+
+  @override
+  String get androidShellErrorBusy => 'Another operation is still pending. Retry later or stop Android Shell first.';
+
+  @override
+  String get androidShellErrorInvalidArguments =>
+      'Invalid input. Use a six-digit pairing code and a port from 1 to 65535.';
+
+  @override
+  String get androidShellErrorCancelled => 'The operation was cancelled.';
+
+  @override
+  String get androidShellErrorTimeout =>
+      'The operation timed out. Verify its outcome first; never automatically retry a dispatched command.';
+
+  @override
+  String get androidShellErrorConfirmationDenied => 'The command was not approved.';
+
+  @override
+  String get androidShellErrorCleanupFailed =>
+      'Stop cleanup did not finish. Retry stopping before running new commands.';
+
+  @override
+  String get androidShellErrorLocked => 'The phone is locked. Unlock it and retry.';
+
+  @override
+  String get androidShellErrorConfirmationUnavailable =>
+      'Native confirmation cannot be shown. Return to the app and check notification permission.';
+
+  @override
+  String get androidShellErrorTransportLost =>
+      'The channel disconnected. Verify the outcome first; never automatically retry a dispatched command. Reconnect if needed.';
+
+  @override
+  String get androidShellErrorProtocolMismatch =>
+      'The native module does not support this Shell protocol. Update the app.';
+
+  @override
+  String get androidShellErrorNativeUnavailable => 'The Android Shell native module is unavailable in this build.';
+
+  @override
+  String get androidShellErrorInvalidResponse => 'No valid native status was received. Refresh or update the app.';
+
+  @override
+  String get androidShellErrorStopFailed => 'Stopping was not confirmed. Refresh the status and retry stopping.';
+
+  @override
+  String get androidShellErrorUnknown =>
+      'The outcome could not be confirmed. Verify it first; never automatically retry a dispatched command.';
 
   @override
   String get botsFolderGone => 'This folder is gone';
@@ -4379,7 +4647,7 @@ class L10nEn extends L10n {
   String get chatBranchHint => 'Continue in a new chat. The original stays as is.';
 
   @override
-  String get chatEditResendHint => 'Rewrite in a new chat. The original stays as is.';
+  String get chatEditResendHint => 'Rewrite in a new chat. Reattach images and files; the original stays as is.';
 
   @override
   String get chatSaveToPhotos => 'Save to Photos';
@@ -11593,6 +11861,14 @@ class L10nEn extends L10n {
   String get phonePreviewOpen => 'View background screen';
 
   @override
+  String phonePreviewTask(String taskId) {
+    return 'Preview task $taskId';
+  }
+
+  @override
+  String get phonePreviewInUse => 'Another task is being previewed';
+
+  @override
   String get phonePreviewOff => 'The task ended or preview is off';
 
   @override
@@ -11769,7 +12045,7 @@ class L10nEn extends L10n {
           'MAIN samples changed; this may include user actions. Complete cleanup. This does not establish the cause.',
       'main_unchanged': 'No change was seen at these finite sampling points. Disturbance between them remains unknown.',
       'main_incomplete': 'MAIN samples are incomplete. They cannot establish absence of disturbance.',
-      'not_installed': 'No local OCR recognizer is installed. OCR was not tested.',
+      'not_installed': 'This self-check does not include OCR. OCR was not tested.',
       'other': 'An unrecognized result was received.',
     });
     return '$_temp0';
@@ -11806,7 +12082,7 @@ class L10nEn extends L10n {
 
   @override
   String get phoneSelfCheckTargetC2Scope =>
-      'Uses a fixed local target for launch, tree reading, one button tap, ASCII and Chinese ACTION_SET_TEXT replacement/readback, local pattern capture and limited controlled refresh. This does not measure FPS or smoothness. Finite MAIN samples cannot prove there was no disturbance between samples. OCR is not installed; touch receiver, scrolling and back are not tested. Cleanup alone does not prove a display was created.';
+      'Uses a fixed local target for launch, tree reading, one button tap, ASCII and Chinese ACTION_SET_TEXT replacement/readback, local pattern capture and limited controlled refresh. This does not measure FPS or smoothness. Finite MAIN samples cannot prove there was no disturbance between samples. OCR, touch reception, scrolling and back are not tested. Cleanup alone does not prove a display was created.';
 
   @override
   String phoneTaskWaiting(int taskId) {
@@ -11857,6 +12133,108 @@ class L10nEn extends L10n {
 
   @override
   String get phoneInterruptionActionFailed => 'Task records are not confirmed yet. Please retry.';
+
+  @override
+  String get phoneLocalOcrTitle => 'On-device text recognition (ML Kit)';
+
+  @override
+  String get phoneLocalOcrUnknown => 'This setting could not be read. Refresh and try again.';
+
+  @override
+  String get phoneLocalOcrDisclosure =>
+      'Recognition runs on this device. Screenshots and text are not sent to Google; Google’s SDK collects usage statistics such as device model, app version and processing time.';
+
+  @override
+  String get phoneLocalOcrDetails =>
+      'Enabled by default. While off, text recognition requests do not trigger SDK loading or initialization. Remote pairing initializes the shared SDK separately when its scanner opens; it does not enable text recognition. Screenshots and recognized text may be sent to your configured model. Turning this off prevents new local recognition; work already started may still finish. It does not uninstall the SDK or promise to clear or stop sending previously accumulated SDK statistics.';
+
+  @override
+  String get phoneBackgroundParallelTitle => 'Background task limit';
+
+  @override
+  String phoneBackgroundParallelStatus(int configured, int effective, int held) {
+    return 'Configured: $configured · Available limit: $effective · Occupied: $held';
+  }
+
+  @override
+  String get phoneBackgroundParallelDescription =>
+      'A lower limit keeps existing tasks. New tasks still wait for apps and the main screen to become available.';
+
+  @override
+  String phoneBackgroundParallelChoice(int limit) {
+    return '$limit background task slots';
+  }
+
+  @override
+  String get phoneBackgroundParallelOff => 'The background channel is off. Saving this preference does not turn it on.';
+
+  @override
+  String get phoneBackgroundParallelUnsupported => 'Background operation is unavailable on this device.';
+
+  @override
+  String get phoneBackgroundParallelConnection => 'A connection is required before a new background task can start.';
+
+  @override
+  String get phoneBackgroundParallelBusy =>
+      'The background channel is being prepared or maintained. New tasks cannot start yet.';
+
+  @override
+  String get phoneBackgroundParallelRecovery =>
+      'Resolve unfinished background resource recovery before starting new tasks.';
+
+  @override
+  String get phoneBackgroundParallelPeer =>
+      'The connected service does not support the required background capabilities.';
+
+  @override
+  String get phoneBackgroundParallelSerial =>
+      'This connection supports one background slot. Your preference remains saved.';
+
+  @override
+  String get phoneSkillBundlePublishedUnverified =>
+      'The files were published, but full verification has not succeeded. Do not save again.';
+
+  @override
+  String get phoneSkillBundleUnknown =>
+      'The save result is not confirmed. Files may already have been written. Do not save again.';
+
+  @override
+  String phoneSkillBundleRevision(String revision) {
+    return 'Route revision: $revision';
+  }
+
+  @override
+  String get phoneSkillReplayReview => 'Review phone route';
+
+  @override
+  String get phoneSkillReplaySourceChanged =>
+      'The local session or connection changed. Select the route again from the current local conversation.';
+
+  @override
+  String get phoneSkillReplayUnavailable =>
+      'This route is not available for controlled execution on this phone. The ordinary skill template remains available.';
+
+  @override
+  String get phoneSkillReplayConfirm => 'I have reviewed this route and the app selected for this use.';
+
+  @override
+  String get phoneSkillReplayToComposer => 'Insert into this conversation';
+
+  @override
+  String phoneSkillReplayStartText(String request) {
+    return 'A phone route has been selected and reviewed locally. Call only mcp__phone__replay with $request. If unavailable or refused, hand back to the user/model; do not replay it as ordinary actions.';
+  }
+
+  @override
+  String get phoneSkillReplayQueue => 'Send route (queue)';
+
+  @override
+  String get phoneSkillReplayQueued =>
+      'The route message was accepted or queued. This does not mean the route has executed successfully.';
+
+  @override
+  String get phoneSkillReplaySendUncertain =>
+      'Delivery of the route message was not confirmed. It has not been prepared or replayed again. Check the original conversation.';
 
   @override
   String get phoneTaskResultReady => 'Task complete · View result';
@@ -15883,6 +16261,9 @@ class L10nEn extends L10n {
   String get remotePairPasteEmpty => 'No pairing link on the clipboard';
 
   @override
+  String get remotePairScannerFailed => 'The QR reader is unavailable. Paste the pairing link to continue pairing.';
+
+  @override
   String get remotePairFromImage => 'From photos';
 
   @override
@@ -16130,6 +16511,26 @@ class L10nEn extends L10n {
   @override
   String get askAiQuestionRemote =>
       'How do I connect my own computer or server, and how is that different from this phone?';
+
+  @override
+  String get phoneRuntimeUpgradeBase =>
+      'The new engine cannot be confirmed compatible with your Linux environment, so the update stopped. Your environment and installed tools were not deleted. Make a full backup and contact the maintainer for migration; do not reset or uninstall the app.';
+
+  @override
+  String get phoneRuntimeUpgradeManifest =>
+      'The runtime update manifest could not be safely identified. The update stopped and your environment was kept. Check the APK and contact the maintainer; do not reset the environment.';
+
+  @override
+  String get phoneRuntimeUpgradeInterrupted =>
+      'The runtime upgrade is incomplete. Your data and recovery state were kept. Retry installation. If it still fails, export diagnostics and contact the maintainer; do not reset or delete recovery directories.';
+
+  @override
+  String get phoneRuntimeUpgradeSymlink =>
+      'A system path was replaced by a custom link, so the environment cannot be updated safely. Your environment was kept. Back it up and contact the maintainer.';
+
+  @override
+  String get phoneRuntimeUpgradeRunning =>
+      'The engine or a leftover process has not been confirmed stopped. The update has not started. Stop the local engine and wait for cleanup before retrying; do not reset the environment.';
 
   @override
   String get schemaDocumentationTitle => 'Field descriptions';
@@ -16493,6 +16894,104 @@ class L10nEn extends L10n {
 
   @override
   String get searchKwQuickPanel => 'swipe,left swipe,shortcuts,gesture,quick panel,quick access';
+
+  @override
+  String get selfUpdateTransport => 'Installation route';
+
+  @override
+  String get selfUpdateSystem => 'Normal installation (default)';
+
+  @override
+  String get selfUpdateShizuku => 'Shizuku';
+
+  @override
+  String get selfUpdateAdb => 'Local ADB';
+
+  @override
+  String get selfUpdateSecurityNote =>
+      'Every route remains subject to APK signatures and Android/vendor security policies. Skipping scans is not guaranteed. Root is unsupported; routes never switch automatically after a failure.';
+
+  @override
+  String get selfUpdateNativeConfirm =>
+      'Only a verified update for this app is installed, with native confirmation still required. Authorizing Shizuku does not approve installation. Phone control and AI Shell can remain off.';
+
+  @override
+  String get selfUpdateAuthorize => 'Request Shizuku authorization for updates';
+
+  @override
+  String get selfUpdateRefresh => 'Refresh transport status';
+
+  @override
+  String selfUpdateShizukuStatus(String status) {
+    return 'Shizuku: $status';
+  }
+
+  @override
+  String get selfUpdateReady => 'Authorized';
+
+  @override
+  String get selfUpdatePermissionRequired => 'Install, start, and authorize Shizuku first';
+
+  @override
+  String get selfUpdateUnsupportedIdentity =>
+      'Only shell UID 2000 is supported; root and other identities are unsupported';
+
+  @override
+  String get selfUpdateAdbHint =>
+      'Use this phone\'s paired wireless-debugging identity; connection starts only when you press Install. If unpaired, open the existing Android Shell pairing page without enabling Phone control or AI Shell. Pairing codes and ports are not saved or logged.';
+
+  @override
+  String get selfUpdatePairing => 'Open Android Shell pairing guidance';
+
+  @override
+  String get selfUpdateAdbPaired => 'Local ADB paired';
+
+  @override
+  String get selfUpdateAdbNotPaired => 'Local ADB not paired';
+
+  @override
+  String get selfUpdatePendingTitle => 'Verifying installation outcome';
+
+  @override
+  String get selfUpdatePendingMessage =>
+      'The installation may still be running. There is no automatic retry or route switch. Check system prompts, then read the actual installed state.';
+
+  @override
+  String get selfUpdateUnknownTitle => 'Installation outcome unknown';
+
+  @override
+  String get selfUpdateUnknownMessage =>
+      'A timeout, lost connection, or exited process does not prove failure. There is no automatic retry or route switch. Read the actual installed state first.';
+
+  @override
+  String get selfUpdateReadResult => 'Read actual installed state';
+
+  @override
+  String get selfUpdateVerifiedTitle => 'Installed version verified';
+
+  @override
+  String selfUpdateVerifiedVersion(String version, int code) {
+    return 'Current version $version (build $code), verified by the native layer.';
+  }
+
+  @override
+  String get selfUpdateFailedTitle => 'Installation did not complete';
+
+  @override
+  String get selfUpdateFailedMessage =>
+      'The native layer reported this installation failed. Check system prompts and the error code, then explicitly choose an installation route.';
+
+  @override
+  String selfUpdateErrorCode(String code) {
+    return 'Error code: $code';
+  }
+
+  @override
+  String get selfUpdateEndWaiting => 'End this wait';
+
+  @override
+  String get selfUpdateEndWaitingNote =>
+      'End this wait only after confirming the system is no longer installing. Clearing the record does not cancel a system installation or retry/switch routes. Native confirmation is required again.';
 
   @override
   String get shellDeletePermanently => 'Delete permanently';
@@ -19228,7 +19727,8 @@ class L10nEn extends L10n {
   String get usageStatsSection => 'Improve DSH Go';
 
   @override
-  String get usageStatsFooter => 'Only usage counts, versions and the phone’s maker. Never chats, files or accounts.';
+  String get usageStatsFooter =>
+      'This switch controls dsh-go’s own usage counts, versions, phone maker and model, and system version statistics. It includes no chats, files or accounts, and does not control Google ML Kit SDK statistics.';
 
   @override
   String get usageNoticeBody => 'No chats or personal info.\nTurn off anytime.';
