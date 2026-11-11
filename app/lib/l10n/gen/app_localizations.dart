@@ -5213,7 +5213,7 @@ abstract class L10n {
   /// No description provided for @botsPetNaiwa.
   ///
   /// In zh, this message translates to:
-  /// **'奶蛙'**
+  /// **'像素奶蛙'**
   String get botsPetNaiwa;
 
   /// No description provided for @botsPetNone.
@@ -5237,7 +5237,7 @@ abstract class L10n {
   /// No description provided for @botsPetSourceNaiwa.
   ///
   /// In zh, this message translates to:
-  /// **'奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方'**
+  /// **'像素奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方'**
   String get botsPetSourceNaiwa;
 
   /// No description provided for @botsPetImport.

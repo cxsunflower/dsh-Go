@@ -191,7 +191,7 @@ PACKS = {
         faces='front',     # she faces the viewer: never mirrored
         preview_zoom=3, preview_per_row=12,
     ),
-    'naiwa': dict(NAIWA, dir='naiwa', name='奶蛙'),
+    'naiwa': dict(NAIWA, dir='naiwa', name='像素奶蛙'),
 }
 
 # Whale-girl: Clawd mapping from the page's event table (index.html, AGENT / MOUSE).

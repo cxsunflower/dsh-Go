@@ -11,7 +11,7 @@ Tap **Pets** in the Appearance group of Settings, or touch and hold the pet in a
 
 - The choice cards use a compact preview, up to four per row; narrow screens and larger text wrap them. The preview size doesn't change the pet's size in a chat.
 
-- Choose **Deepy**, **Whale girl**, **Naiwa** (the pixel one) or **None**.
+- Choose **Deepy**, **Whale girl**, **Pixel Naiwa** or **None**.
 - **Size**: **Small**, **Standard** or **Large**. Standard by default.
 - **Quiet mode**: animations only, no bubbles and no pet sounds.
 - **Sounds**: shown for the pixel Naiwa, on by default.

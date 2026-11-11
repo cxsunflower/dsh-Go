@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "naiwa",
-  "name": "奶蛙",
+  "name": "像素奶蛙",
   "author": "github.com/cxsunflower",
   "license": "像素重绘；奶龙角色形象权利归其权利人，非官方",
   "source": "来自 github.com/cxsunflower，参考网络二创「奶蛙」形象重画（github.com/Orliss/nailong），不含原图",
@@ -18,7 +18,7 @@
       "laugh-point": {"x": 13, "y": 24, "w": 45, "h": 36},
       "carry": {"x": 15, "y": 14, "w": 34, "h": 46},
       "wake": {"x": 16, "y": 16, "w": 32, "h": 44},
-      "prone-eat": {"x": 1, "y": 33, "w": 56, "h": 27}
+      "prone-eat": {"x": 2, "y": 32, "w": 54, "h": 28}
     },
     "wideAnims": ["dance", "eat-code-fast", "juggle", "juggle-many", "shocked", "alert"],
     "sleepingAnims": ["sleep"]
@@ -78,11 +78,11 @@
       "sheet": "thinking.png",
       "frameW": 35,
       "frameH": 48,
-      "cols": 8,
+      "cols": 11,
       "box": {"x": 17, "y": 12, "w": 35, "h": 48},
       "loop": true,
-      "ms": 2060,
-      "frames": [{"i": 0, "ms": 300}, {"i": 1, "ms": 300}, {"i": 2, "ms": 300}, {"i": 3, "ms": 300}, {"i": 4, "ms": 220}, {"i": 5, "ms": 220}, {"i": 6, "ms": 300}, {"i": 7, "ms": 120}]
+      "ms": 2840,
+      "frames": [{"i": 0, "ms": 260}, {"i": 1, "ms": 220}, {"i": 2, "ms": 280}, {"i": 3, "ms": 300}, {"i": 4, "ms": 200}, {"i": 5, "ms": 120}, {"i": 6, "ms": 280}, {"i": 7, "ms": 300}, {"i": 8, "ms": 280}, {"i": 9, "ms": 220}, {"i": 10, "ms": 200}, {"i": 0, "ms": 180}]
     },
     "eat-code": {
       "sheet": "eat-code.png",
@@ -278,11 +278,11 @@
       "sheet": "prone-eat.png",
       "frameW": 63,
       "frameH": 28,
-      "cols": 12,
+      "cols": 16,
       "box": {"x": 1, "y": 32, "w": 63, "h": 28},
       "loop": true,
-      "ms": 1360,
-      "frames": [{"i": 0, "ms": 110}, {"i": 1, "ms": 100}, {"i": 2, "ms": 100}, {"i": 3, "ms": 130}, {"i": 4, "ms": 120}, {"i": 5, "ms": 120}, {"i": 6, "ms": 110}, {"i": 7, "ms": 100}, {"i": 8, "ms": 100}, {"i": 9, "ms": 130}, {"i": 10, "ms": 120}, {"i": 11, "ms": 120}]
+      "ms": 1720,
+      "frames": [{"i": 0, "ms": 110}, {"i": 1, "ms": 90}, {"i": 2, "ms": 90}, {"i": 3, "ms": 100}, {"i": 4, "ms": 110}, {"i": 5, "ms": 120}, {"i": 6, "ms": 120}, {"i": 7, "ms": 120}, {"i": 8, "ms": 110}, {"i": 9, "ms": 90}, {"i": 10, "ms": 90}, {"i": 11, "ms": 100}, {"i": 12, "ms": 110}, {"i": 13, "ms": 120}, {"i": 14, "ms": 120}, {"i": 15, "ms": 120}]
     }
   },
   "idlePool": {
