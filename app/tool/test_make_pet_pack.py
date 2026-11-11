@@ -267,7 +267,7 @@ class PackFormat(unittest.TestCase):
 
     def test_naiwa_metadata(self):
         """The naiwa pets are redrawn after a fan-made character: unofficial, and they say so."""
-        for pid, name in (('naiwa', '奶蛙'),):
+        for pid, name in (('naiwa', '像素奶蛙'),):
             p, _ = load(pid)
             with self.subTest(pid):
                 self.assertEqual(p['name'], name)

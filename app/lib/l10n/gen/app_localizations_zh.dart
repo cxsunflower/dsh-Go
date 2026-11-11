@@ -2813,7 +2813,7 @@ class L10nZh extends L10n {
   String get botsPetWhaleGirl => '鲸娘';
 
   @override
-  String get botsPetNaiwa => '奶蛙';
+  String get botsPetNaiwa => '像素奶蛙';
 
   @override
   String get botsPetNone => '不显示';
@@ -2825,7 +2825,7 @@ class L10nZh extends L10n {
   String get botsPetSource => '来自 DSH-TUI';
 
   @override
-  String get botsPetSourceNaiwa => '奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方';
+  String get botsPetSourceNaiwa => '像素奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方';
 
   @override
   String get botsPetImport => '导入';

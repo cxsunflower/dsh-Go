@@ -2986,7 +2986,7 @@ class L10nEn extends L10n {
   String get botsPetWhaleGirl => 'Whale girl';
 
   @override
-  String get botsPetNaiwa => 'Naiwa';
+  String get botsPetNaiwa => 'Pixel Naiwa';
 
   @override
   String get botsPetNone => 'None';
@@ -2999,7 +2999,7 @@ class L10nEn extends L10n {
 
   @override
   String get botsPetSourceNaiwa =>
-      'Naiwa: from github.com/cxsunflower, a pixel redraw of a fan-made meme character, unofficial';
+      'Pixel Naiwa: from github.com/cxsunflower, a pixel redraw of a fan-made meme character, unofficial';
 
   @override
   String get botsPetImport => 'Import';

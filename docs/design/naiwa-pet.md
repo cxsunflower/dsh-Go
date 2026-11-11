@@ -60,7 +60,7 @@
 | `idle-giggle` | `idlePool` | 是 | 捂嘴偷笑，肩膀抖 |
 | `snack` | `idlePool` | 是 | 从身边抓一个 `;` 塞进嘴里，嚼完打个嗝 |
 | `dance` | `idlePool` | 是 | 张臂单脚平衡，左右摇摆 |
-| `thinking` | `states.thinking` | 是 | 托腮沉思：一手握拳托下巴，另一只手横在肚前托着它的小臂，眼睛往上看，头顶「?」或「…」 |
+| `thinking` | `states.thinking` | 是 | 12 帧托腮沉思：短爪轻托下巴侧面，另一爪放在肚前，五官完整露出；沿用正视图的短臂比例，脚底不动，随呼吸轻倾，抬眼、眨眼，「…」变「?」再收回 |
 | `eat-code` | `states.working`、`tiers.working` ≥1 | 是 | 代码字符从右侧飞进张大的嘴，一口一口嚼 |
 | `eat-code-fast` | `tiers.working` ≥2 | 是 | 双手往嘴里塞代码 |
 | `feast` | `tiers.working` ≥3 | 是 | 鬼畜速吃：身体抖、碎屑四溅、冒汗 |
@@ -80,7 +80,7 @@
 | `poke-left` | `reactions.tapLeft` | 否 | 被戳左半边：往右歪、弹回来 |
 | `poke-right` | `reactions.tapRight` | 否 | 被戳右半边：往左歪、弹回来 |
 | `tickle` | `reactions.tickle` | 否 | 和 `laugh` 同样的捧腹大笑，末帧回到待机；现版点击链不触发，只有旧版 App（连点三下播 `reactions.tickle`）用到 |
-| `prone-eat` | `reactions.drag` | 是 | 被拖动时趴着往前爬：肚皮贴地、身体横过来、前爪撑起头朝一侧，后腿向后伸直，前爪轮流往前迈，张大嘴一口口吃飞来的代码字符（嘴的位置写进 `snack.mouths`） |
+| `prone-eat` | `reactions.drag` | 是 | 16 帧趴爬：肚皮贴地，沿用正视图的短臂比例，上臂与前臂长度固定；近侧臂在脸下方弯肘支撑，远侧臂藏在身体后，只露小爪；前爪交替抬起、前伸、落地、拉身，对角后脚蹬地，吃代码时轻轻点头（张嘴中心保持在 `snack.mouths`） |
 
 绘制约束（打包工具会量，量不过就构建失败）：
 
@@ -130,7 +130,7 @@ app/tool/pet_src/<id>/README.md      # 方案说明、调色板、重新生成�
   "sounds": "naiwa",
   "snack": {
     "mouth": {"x": 33, "y": 31},
-    "mouths": {"prone-eat": {"x": 50, "y": 52}},
+    "mouths": {"prone-eat": {"x": 43, "y": 46}},
     "every": {"eat-code": 700, "eat-code-fast": 380, "feast": 200, "devour": 260, "snack": 1500, "prone-eat": 260}
   }
 }
@@ -355,7 +355,7 @@ final petSoundPlayerProvider = Provider<PetSoundPlayer>(...);   // ref.onDispose
 
 ## 8. 设置与文案
 
-- 宠物设置的选择卡片缩小：每行最多 4 个，容器最大宽度 400；窄屏和大字体减少列数，名字允许两行。预览尺寸独立于聊天页的实际大小，避免大宠物把设置卡片撑大。保留原版「Deepy 小鲸鱼」「鲸娘」，仅新增像素「奶蛙」，另有「不显示」；不新增设置页小屋入口。小屋继续从聊天顶部主机栏 → 切换主机面板 → 伙伴小屋进入。
+- 宠物设置的选择卡片缩小：每行最多 4 个，容器最大宽度 400；窄屏和大字体减少列数，名字允许两行。预览尺寸独立于聊天页的实际大小，避免大宠物把设置卡片撑大。保留原版「Deepy 小鲸鱼」「鲸娘」，仅新增「像素奶蛙」（英文 Pixel Naiwa），另有「不显示」；不新增设置页小屋入口。小屋继续从聊天顶部主机栏 → 切换主机面板 → 伙伴小屋进入。
 - 宠物页在当前宠物包有 `sounds` 时多一行「音效」开关（设置搜索可搜到），副标题一行。
 - 选中奶蛙系列时，宠物页页底写明形象来源和「非官方」，不再写「来自 DSH-TUI」。
 - 文案守 pets.md §8 的规矩：不写解释段落，不加感叹号，不用表情符号。

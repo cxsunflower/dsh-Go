@@ -202,8 +202,12 @@ def eye_rows(kind, look=(0, 0), side=-1):
                 y, x = c0 + j + look[1], c0 + i + look[0]
                 if rows[y][x] == 'g':
                     rows[y][x] = 'k'
-        if rows[c0 + look[1]][c0 + look[0]] == 'k':
-            rows[c0 + look[1]][c0 + look[0]] = 'w'
+        # At diagonal extremes the pupil's upper-left corner falls on the rim.
+        # Keep one highlight on the nearest visible pupil pixel instead.
+        hy, hx = c0 + look[1], c0 + look[0]
+        py, px = min(((y, x) for y in range(n) for x in range(n) if rows[y][x] == 'k'),
+                     key=lambda pt: (pt[0] - hy) ** 2 + (pt[1] - hx) ** 2)
+        rows[py][px] = 'w'
         return [''.join(r_) for r_ in rows]
     if kind == 'closed':      # a blink
         return [".......", ".......", ".......", ".ooooo.", ".......", ".......", "......."]
@@ -401,8 +405,8 @@ ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for th
     'hip': ((16.0, 9.5), (11.5, 5.0)),
     'head': ((16.0, 20.5), (10.0, 25.0)),
     'point': ((15.5, 12.5), (19.5, 13.5)),
-    'chin': ((8.0, 3.0), (3.0, 9.5)),
-    'fold': ((11.0, 5.5), (0.5, 3.5)),     # across the belly, under the other forearm
+    'chin': ((9.0, 8.0), (5.0, 10.5)),
+    'fold': ((10.0, 8.5), (5.5, 6.5)),
     'out': ((15.5, 13.5), (19.5, 15.5)),
     'out_up': ((15.5, 15.0), (19.0, 19.5)),
     'out_dn': ((15.5, 12.0), (19.5, 11.0)),
@@ -541,10 +545,11 @@ PRONE_FACE_U = 2.0               # the face turned a little to the right
 PRONE_EYE_DY, PRONE_MOUTH_DY = 5.5, 12.0   # below the head's top row
 # Body: a round rump and a lower chest under the head (centre, radii), cut flat by the floor.
 PRONE_BODY = (((16.0, 52.0), 8.5, 7.5), ((30.0, 53.5), 13.0, 6.0))
-PRONE_KNEES = ((11.0, 55.0), (13.0, 55.5))  # far and near shin pivots, inside the rump
+PRONE_KNEES = ((12.0, 55.0), (13.0, 55.5))  # far and near shin pivots, inside the rump
 PRONE_SHIN = 6.5
-PRONE_SHOULDERS = ((48.0, 50.0), (31.0, 50.0))  # far and near, under the head
-PRONE_PAWS = ((52.5, 57.0), (30.0, 57.0))       # flat on the floor; the far one past the chin
+PRONE_SHOULDERS = ((43.0, 52.0), (30.5, 51.0))  # far side hidden by chest; near side below face
+PRONE_PAWS = ((46.0, 57.0), (32.0, 57.0))
+PRONE_UPPER_ARM, PRONE_FOREARM = 4.5, 4.5     # the same short reach as the front-view arms
 
 
 def prone_shin(knee, deg):
@@ -561,10 +566,19 @@ def prone_shin(knee, deg):
 
 
 def prone_arm(shoulder, paw, step):
-    """An arm down to its paw on the floor, the paw moved `step` = (dx, lift)."""
+    """Bend two fixed-length arm segments to reach the paw, with the elbow behind it."""
     pc = (paw[0] + step[0], paw[1] - step[1])
-    paw = ellipse(pc, PAW_R + 0.4, PAW_R)
-    return capsule(shoulder, pc, ARM_R) & ~paw, paw
+    dx, dy = pc[0] - shoulder[0], pc[1] - shoulder[1]
+    distance = math.hypot(dx, dy)
+    if not 0 < distance < PRONE_UPPER_ARM + PRONE_FOREARM:
+        raise ValueError(f'prone paw outside short-arm reach: {distance}')
+    along = (PRONE_UPPER_ARM ** 2 - PRONE_FOREARM ** 2 + distance ** 2) / (2 * distance)
+    bend = math.sqrt(PRONE_UPPER_ARM ** 2 - along ** 2)
+    elbow = (shoulder[0] + (along * dx - bend * dy) / distance,
+             shoulder[1] + (along * dy + bend * dx) / distance)
+    paw = ellipse(pc, PAW_R, PAW_R)
+    arm = capsule(shoulder, elbow, ARM_R) | capsule(elbow, pc, ARM_R)
+    return arm & ~paw, paw
 
 
 def render_prone(p):
@@ -818,14 +832,24 @@ def anim_dance():
 
 
 def anim_thinking():
-    t = dict(arms=('chin', 'fold'), look=(1, -1), mouth='line', lean=1)
+    # Short arms stay below the mouth: one paw touches the side of the chin,
+    # the other rests on the belly. The feet stay planted during the lean.
+    t = dict(arms=('chin', 'fold'), look=(1, -1), mouth='line')
     q = lambda dy: ('glyph', '?', 44, 14 + dy)
     d = lambda n: tuple(('glyph', '.', 44 + 3 * i, 22) for i in range(n))
     return [
-        (P(t, props=d(1)), 300), (P(t, props=d(2)), 300), (P(t, props=d(3)), 300),
-        (P(t, look=(0, -1), props=d(3)), 300), (P(t, props=(q(0),)), 220),
-        (P(t, props=(q(-1),)), 220), (P(t, look=(0, -1), props=(q(0),)), 300),
-        (P(t, eyes='closed', props=(q(0),)), 120),
+        (P(t, lean=0, props=d(1)), 260),
+        (P(t, lean=1, sy=1.02, props=d(1)), 220),
+        (P(t, lean=1, sy=1.04, props=d(2)), 280),
+        (P(t, lean=1, sy=1.04, look=(0, -1), props=d(3)), 300),
+        (P(t, lean=1, sy=1.02, look=(0, -1), props=d(3)), 200),
+        (P(t, lean=0, eyes='closed', props=d(3)), 120),
+        (P(t, lean=-1, sy=0.98, look=(-1, -1), props=(q(0),)), 280),
+        (P(t, lean=-1, sy=0.98, look=(-1, -1), props=(q(-1),)), 300),
+        (P(t, lean=-1, look=(0, -1), props=(q(0),)), 280),
+        (P(t, lean=0, look=(0, -1), props=(q(0),)), 220),
+        (P(t, lean=0, look=(0, -1), props=d(2)), 200),
+        (P(t, lean=0, props=d(1)), 180),
     ]
 
 
@@ -1094,11 +1118,13 @@ def anim_tickle():
 def anim_prone_eat():
     """Dragged: crawling on its belly with the head up, a forepaw stepping out per bite
     (the diagonal hind foot with it), munching code that flies in from the right."""
-    swing = [(-2, 1), (0, 2), (2, 0), (2, 0), (1, 0), (0, 0)]     # forepaw (dx, lift)
-    stance = [(0, 0), (0, 0), (-1, 0), (-1, 0), (-2, 0), (-2, 0)]
-    lift = [-78, -82, -90, -90, -90, -90]                         # hind shin tilts
-    press = [-90, -90, -90, -94, -94, -90]
-    rise = [0, 0, 0, 1, 1, 0]
+    # Lift, reach, plant, pull. The planted paw travels back relative to the body;
+    # the last pose joins the opposite half-cycle within one pixel of paw travel.
+    swing = [(-2, 0), (-2, 1), (0, 2), (2, 1), (3, 0), (2, 0), (1, 0), (0, 0)]
+    stance = [(0, 0), (0, 0), (-1, 0), (-1, 0), (-2, 0), (-2, 0), (-2, 0), (-2, 0)]
+    lift = [-90, -68, -46, -58, -78, -90, -94, -90]
+    press = [-90, -90, -92, -94, -96, -94, -92, -90]
+    rise = [0, 0.5, 1, 1, 0.5, 0, 0, 0]
     fr = []
     for b, (ch, c) in enumerate((('{', 'c1'), ('+', 'c2'))):
         def crawl(k, nod=0, **kw):
@@ -1110,13 +1136,16 @@ def anim_prone_eat():
         crumbs = lambda i: tuple(('glyph', 'crumb', *path[i], c) for path in (
             ((58, 40), (59, 44), (59, 48)), ((61, 43), (62, 46), (61, 50))))
         fr += [
-            (crawl(0, mouth='eat', look=(1, 0), props=fly(59, 33)), 110),
-            (crawl(1, mouth='eat', look=(1, 0), props=fly(57, 39)), 100),
-            (crawl(2, mouth='eat', look=(0, 1), props=(('code-in', ch, 42, 44, c),)), 100),
-            (crawl(3, nod=1, mouth='chew_a', cheeks=1.5, eyes='squeeze', blush=True,
-                   props=crumbs(0)), 130),
-            (crawl(4, mouth='chew_b', cheeks=1.5, eyes='happy', blush=True, props=crumbs(1)), 120),
-            (crawl(5, mouth='chew_a', cheeks=1.0, eyes='happy', props=crumbs(2)), 120),
+            (crawl(0, nod=-1, mouth='line', look=(1, 0), props=fly(59, 33)), 110),
+            (crawl(1, mouth='eat', look=(1, 0), props=fly(58, 35)), 90),
+            (crawl(2, mouth='eat', look=(1, 0), props=fly(57, 39)), 90),
+            (crawl(3, mouth='eat', look=(0, 1), props=(('code-in', ch, 42, 44, c),)), 100),
+            (crawl(4, nod=1, mouth='chew_a', cheeks=1.5, eyes='squeeze', blush=True,
+                   props=crumbs(0)), 110),
+            (crawl(5, nod=1, mouth='chew_b', cheeks=1.5, eyes='happy', blush=True,
+                   props=crumbs(1)), 120),
+            (crawl(6, mouth='chew_a', cheeks=1.0, eyes='happy', props=crumbs(2)), 120),
+            (crawl(7, nod=-1, mouth='smile', look=(1, 0)), 120),
         ]
     return fr
 
@@ -1263,6 +1292,13 @@ def blobs8(mask):
 def check(anims, files):
     """Problems as a list of strings (empty when everything holds)."""
     bad = []
+    for kind in ('open', 'wide'):
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for side in (-1, 1):
+                    rows = eye_rows(kind, (dx, dy), side)
+                    if sum(row.count('w') for row in rows) != 1:
+                        bad.append(f'{kind} eye looking {(dx, dy)}: missing single white highlight')
     names = list(anims)
     if names != ANIM_NAMES:
         bad.append(f'animations {names} != the {len(ANIM_NAMES)} of naiwa-pet.md section 3')
@@ -1325,6 +1361,31 @@ def check(anims, files):
         line = int(np.nonzero(m['body'].any(axis=1))[0][-1]) + 1
         if not GROUND <= line <= GROUND + 2:
             bad.append(f'prone-eat frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
+    # These poses keep the whole expression visible: a hand must not erase part
+    # of an eye or mouth when the renderer clips facial pixels behind limbs.
+    for n in ('thinking', 'prone-eat'):
+        for i, (p, m) in enumerate(zip(anims[n]['poses'], anims[n]['meta'])):
+            expected = np.zeros((H, W), np.uint8)
+            if p['prone']:
+                axis = PRONE_X + PRONE_FACE_U
+                top = PRONE_TOP + p['prone'].get('nod', 0)
+                eyes = [(axis + side * EYE_U, top + PRONE_EYE_DY) for side in (-1, 1)]
+                mouth = (axis, top + PRONE_MOUTH_DY)
+            else:
+                rig = Rig(p)
+                axis = rig.ox
+                fu, fv = p['face']
+                eyes = [rig.trunk_pt(side * EYE_U + fu, EYE_V + fv) for side in (-1, 1)]
+                mouth = rig.trunk_pt(fu, MOUTH_V + fv)
+            parts = [(eye_rows(p['eyes'], p['look'], side), pt) for side, pt in zip((-1, 1), eyes)]
+            parts.append((MOUTHS[p['mouth']], mouth))
+            for rows, (x, y) in parts:
+                stamp(expected, rows, *corner(rows, x, y, axis), FACE)
+            visible = expected != 0
+            # Code intentionally enters an open mouth, after the face is drawn.
+            if not any(prop[0] == 'code-in' for prop in p['props']):
+                if not np.array_equal(m['lab'][visible], expected[visible]):
+                    bad.append(f'{n} frame {i}: an eye or mouth is obscured')
     spec = json.loads(files['pet.json'])
     snack = spec['snack']
     for n in sorted(set(snack['mouths']) - set(snack['every'])):
