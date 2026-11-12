@@ -225,8 +225,8 @@ void main() {
       tester,
       SettingsPageId.pets,
       () => _app(tester, const PetSettingsPage(), _running()),
-      // Once 「App 外显示」 is on; with a pack that has sounds.
-      absent: {'pet-display-when', 'pet-sound'},
+      // Once 「App 外显示」 is on; 「音效」 also needs a pack that has sounds.
+      absent: {'pet-display-when', 'pet-sound', 'pet-overlay-shows', 'pet-overlay-framing'},
     );
   });
 
