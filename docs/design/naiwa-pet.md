@@ -5,7 +5,7 @@
 ## 0. 结论
 
 - **只加像素奶蛙。** 聊天宠物保留 Deepy 小鲸鱼、鲸娘，仅新增经典黄款像素奶蛙，随 APK 提供；不接入外部模型，也不新增设置页入口。
-- **状态协议不改。** `PetMood` 的 12 个 Clawd 状态不动。像素版沿用 26 段动画。
+- 像素版有 25 段动画，共 254 帧，通过现有宠物状态、档位和交互入口播放。
 - **只吃思考，不吃输出。** 像素奶蛙精灵帧里画进代码字符飞进嘴里；聊天页再加字符粒子：模型正在流出思考内容时，把新写出来的字（打码后）一个个吃掉；在跑工具时吃运行条上的命令，都没有时吃内置段子。回复正文完整保留，既不吃也不擦。
 - **拖到哪擦到哪（只限思考）。** 拖动扫过思考时像橡皮一样立即擦掉路径覆盖的字，拖动半径 12 dp、静止半径 20 dp；收起的思考也能吃，展开时立即恢复思考显示。回复正文不擦。只改当前页面显示，不改对话记录（§7.2）。像素版拖动时趴下，向左拖时整体镜像朝左，松手可留在聊天页，拖回输入框附近恢复站位。
 - **六段技能音效。** 全部取自 Valve《Deadlock》的 addon 资源包 `nawa_pak50_dir.vpk`（`citadel_addons/naiwa`），按用户给的名字命名：`hahahahahahaha`（笑声，整段 25.286531 秒）、`gagadilaxia`、`dajiaosei`、`diu`、`andi`、`houla`。五段仍是 PCM16 单声道 22050 Hz；只有笑声因整段 22050 Hz PCM 有 1,115,214 字节、超过 SoundPool 单段 1,000,000 字节上限，由脚本线性插值降到 11025 Hz（557,646 字节），其余不改。不做 EQ、压限、变调或淡入淡出，`@bite`、`@drop` 静音。前台、音效开关、安静模式与通话限制见 §6。
@@ -49,7 +49,7 @@
 
 ## 3. 动画与状态（契约）
 
-现有像素版使用下表 26 段，名字一字不差。`loop` 为否的是一次性动画。
+现有像素版使用下表 25 段。`loop` 为否的是一次性动画。`main` 的 `carrying` 目前仅预留在信号模型中，`petSignalsProvider` 尚未产生上传或导入信号，因此本包省略 `carry`、`states.carrying` 及相应计时。
 
 触发完整笑声时，正面捧腹大笑动作与该次录音同步保持 25.286531 秒（`ms` 取整为 25287），按需重复动作帧，不重复启动音频；普通状态刷新不能提前替换该动作。拖动、点击或切页面等操作可中断，不要求用户等待笑声结束。
 
@@ -66,20 +66,19 @@
 | `feast` | `tiers.working` ≥3 | 是 | 鬼畜速吃：身体抖、碎屑四溅、冒汗 |
 | `juggle` | `states.juggling`、`tiers.juggling` ≥1 | 是 | 抛接两个代码块 `{}` `[]` |
 | `juggle-many` | `tiers.juggling` ≥2 | 是 | 抛接三四个，边抛边扭 |
-| `shocked` | `states.error` | 是 | 抱头震惊：绿眼瞪圆、O 嘴、抖、冒汗、「!?」 |
+| `shocked` | `states.error` | 是 | 抬爪震惊，绿眼瞪圆、O 嘴、抖、冒汗、「!?」 |
 | `laugh` | `states.attention` | 是 | 正面捧腹大笑，双手抱肚、身体颤动；触发原版笑声时动作持续到录音结束或用户中断 |
 | `laugh-point` | `bonus.attention` | 是 | 叉腰指点，指你大笑 |
 | `laugh-roll` | `bonus.attention` | 是 | 笑趴：四肢着地或倒地打滚 |
 | `laugh-belly` | `bonus.attention` | 是 | 捧腹大笑，肚子一颤一颤 |
 | `alert` | `states.notification` | 是 | 叉腰挥手，头顶「!」闪 |
 | `devour` | `states.sweeping` | 是 | 一长条代码卷进来，被一口口吃掉（压缩上下文） |
-| `carry` | `states.carrying` | 是 | 头顶举着文件箱 |
 | `sleep` | `states.sleeping` | 是 | 坐着打瞌睡、鼻涕泡、「Z」 |
 | `wake` | `states.waking` | 否 | 伸懒腰、打哈欠 |
 | `walk` | `states.roam`、`roam.anim` | 是 | 正面摇摆走路，不镜像 |
 | `poke-left` | `reactions.tapLeft` | 否 | 被戳左半边：往右歪、弹回来 |
 | `poke-right` | `reactions.tapRight` | 否 | 被戳右半边：往左歪、弹回来 |
-| `tickle` | `reactions.tickle` | 否 | 和 `laugh` 同样的捧腹大笑，末帧回到待机；现版点击链不触发，只有旧版 App（连点三下播 `reactions.tickle`）用到 |
+| `tickle` | `reactions.tickle` | 否 | 和 `laugh` 同样的捧腹大笑，末帧回到待机，由主线 App 的连续三次点按入口播放 |
 | `prone-eat` | `reactions.drag` | 是 | 16 帧趴爬：肚皮贴地，沿用正视图的短臂比例，上臂与前臂长度固定；近侧臂在脸下方弯肘支撑，远侧臂藏在身体后，只露小爪；前爪交替抬起、前伸、落地、拉身，对角后脚蹬地，吃代码时轻轻点头（张嘴中心保持在 `snack.mouths`） |
 
 绘制约束（打包工具会量，量不过就构建失败）：
@@ -89,6 +88,7 @@
 - 道具（「哈」「Z」「!」、代码字符、碎屑）和身体之间至少隔 1 个透明像素，不并进身体连通块。长时间停留的状态（三档 working、两档 juggling、thinking、alert、sleep）的道具贴近身体，悬浮窗播这些动画时窗口会长到整段的帧格，帧格越大挡住下面 App 的范围越大（pets.md §6.1）。
 - 每段 4～16 帧，每帧 60～400 ms，每套总帧数不超过 400；每段颜色不超过 256 种。
 - 一次性动画（`wake`、`poke-left`、`poke-right`、`tickle`）末帧回到接近 `idle` 首帧的姿势。
+- 所有动作以正视待机为比例基准，上臂长约 4.61 像素、前臂长 4 像素、爪半径 1.75 像素。趴爬使用相同臂长。逐帧检查眼睛与嘴型的完整性，嘴部允许捂嘴、吞字符和睡眠气泡造成的有意遮挡。
 
 ## 4. 源文件格式（契约）
 
@@ -112,7 +112,7 @@ app/tool/pet_src/<id>/README.md      # 方案说明、调色板、重新生成�
   "states": {
     "idle": ["idle"], "thinking": ["thinking"], "working": ["eat-code"], "juggling": ["juggle"],
     "error": ["shocked"], "attention": ["laugh"], "notification": ["alert"], "sweeping": ["devour"],
-    "carrying": ["carry"], "sleeping": ["sleep"], "waking": ["wake"], "roam": ["walk"]
+    "sleeping": ["sleep"], "waking": ["wake"], "roam": ["walk"]
   },
   "tiers": {
     "working": [{"min": 3, "anim": "feast"}, {"min": 2, "anim": "eat-code-fast"}, {"min": 1, "anim": "eat-code"}],
@@ -125,7 +125,7 @@ app/tool/pet_src/<id>/README.md      # 方案说明、调色板、重新生成�
   ],
   "bonus": {"attention": {"anims": ["laugh-point", "laugh-roll", "laugh-belly"], "chance": 0.5}},
   "reactions": {"tapLeft": "poke-left", "tapRight": "poke-right", "tickle": "tickle", "drag": "prone-eat"},
-  "holds": {"attention": 3, "error": 2, "notification": 2, "carrying": 2, "waking": 1, "sweeping": 1},
+  "holds": {"attention": 3, "error": 2, "notification": 2, "waking": 1, "sweeping": 1},
   "faces": "front",
   "sounds": "naiwa",
   "snack": {
@@ -138,8 +138,8 @@ app/tool/pet_src/<id>/README.md      # 方案说明、调色板、重新生成�
 
 - `anims[].durs` 的个数等于横条的帧数；横条宽 `w × 帧数`，高 `h`。
 - `states`、`tiers`、`bonus`、`reactions` 原样进 `pack.json`，名字必须是 §3 的动画。
-- `holds`：一次性或需要停留的状态显示几遍主动画。工具换算成 `timings`：`minDisplay[s] = holds[s] × 主动画一遍时长`；attention、error、carrying 的 `autoReturn` 同值；sweeping 的 `autoReturn` 固定 300000，notification 没有 `autoReturn`；working、thinking 的 `minDisplay` 固定 1000（去抖）；`wakeMs = holds.waking × wake 一遍`。
-- `idlePool[].loops`：插播几遍，工具换算成 `ms`。
+- `holds` 指定一次性或需要停留的状态显示几遍主动画。工具换算成 `timings`，`minDisplay[s] = holds[s] × 主动画一遍时长`，attention、error 的 `autoReturn` 同值。sweeping 的 `autoReturn` 固定 300000，notification 持续到处理完成，working、thinking 的 `minDisplay` 固定 1000，`wakeMs = holds.waking × wake 一遍`。源格式允许省略预留状态 carrying，计时仅为已声明的状态生成。
+- `idlePool[].loops`：插播几遍，工具换算成 `ms`。`make_pet_pack.py` 的 `NAIWA.idle_every` 写入 `idlePool.everyMs`，为 `min: 10000`、`mean: 18000`、`max: 25000`；聊天页每次正常待机等待 10–25 秒后插播，避免原来 45–300 秒的等待通常被 60 秒休眠提前取消。插播不延长清醒时间。
 - `faces` 固定 `front`；`sleep.afterMs` 由工具写 60000。
 - `sounds`、`snack` 见 §5，工具校验后原样写进 `pack.json`。
 

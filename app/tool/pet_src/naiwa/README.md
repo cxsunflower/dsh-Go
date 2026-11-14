@@ -10,7 +10,8 @@
 |---|---|
 | `draw.py` | 生成脚本，唯一的源文件 |
 | `pet.json` | 由 `draw.py` 写出：帧时长、状态映射、档位、待机池、反应、`snack` |
-| `sheets/<anim>.png` | 由 `draw.py` 写出：1 倍单行横条，每帧 64×64，共 26 段 |
+| `sheets/<anim>.png` | 由 `draw.py` 写出，1 倍单行横条，每帧 64×64，共 25 段 |
+| `docs/assets/naiwa-frames.png` | README 展示的全部 254 帧大图，由 `draw.py --preview` 生成 |
 
 `pet.json` 和 `sheets/` 是生成物，不要手改，改 `draw.py` 后重新生成。
 
@@ -22,6 +23,7 @@
 python app/tool/pet_src/naiwa/draw.py              # 重画并写出 sheets/ 和 pet.json，然后自检
 python app/tool/pet_src/naiwa/draw.py --check      # 只在内存里重画并自检；磁盘上的文件过期也算失败
 python app/tool/pet_src/naiwa/draw.py --preview    # 另写全帧总览 app/build/pet_src_preview/naiwa.png
+python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png  # 更新 README 全帧大图
 python app/tool/pet_src/naiwa/draw.py --strip laugh feast   # 另写单段放大图 app/build/pet_src_preview/naiwa/<anim>.png
 ```
 
@@ -54,7 +56,6 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `sweat` / `snot` | `#8ED8FF` / `#CFF4FF` | 汗滴 / 鼻涕泡 |
 | `code_line` / `tile` | `#282C34` / `#3E4451` | 代码字符和代码方块的描边 / 代码方块底色 |
 | `c1`–`c6` | `#C678DD` `#98C379` `#D19A66` `#61AFEF` `#E5C07B` `#ABB2BF` | 代码字符的语法高亮色 |
-| `box` / `box_lo` / `box_hi` / `paper` | `#D9A05B` / `#B07A3A` / `#F0C987` / `#FFF8E6` | 搬运的文件箱和纸 |
 | `ghost_r` / `ghost_c` | `#FF3D6E` / `#2EE6FF` | 鬼畜残影 |
 
 鬼畜段落的单帧换色另有两套身体色：粉 `#FF8FC8` 系、青 `#6FE0F0` 系（见 `draw.py` 的 `TINTS`）。每段动画实际用到 12–36 种颜色。
@@ -62,10 +63,10 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 ## 画法
 
 - 躯干是绕 x = 32 的逐行半宽轮廓：圆顶、两侧向下变宽、低处的肚子、圆底。姿势在这个轮廓上做挤压/拉伸、斜切（身体倾斜）、平移和旋转。
-- 肚皮是躯干内的椭圆；手臂是两段胶囊加一个小圆爪；腿是短胶囊加半椭圆脚。
+- 肚皮是躯干内的椭圆，手臂是两段胶囊加一个小圆爪，腿是短胶囊加半椭圆脚。所有动作按正视待机统一上臂约 4.61 像素、前臂 4 像素、爪半径 1.75 像素，趴爬共用这组尺寸。抬手、挥手和伸懒腰通过转动关节完成。
 - 光从左上来：右下边缘两级暗部，头顶一块高光。描边是所有部件的 4 邻域膨胀减去部件本身；挡在躯干前面的手臂在重叠处也有自己的描边。
 - 眼睛、嘴、道具是手绘的小位图，按骨架锚点盖上去；左右对称的五官按中轴对称取整，落在镜像的像素上。
-- 离体道具（哈、Z、!、?、代码字符和方块、碎屑、汗滴）带 8 邻域描边，并和身体至少隔 1 个透明像素，打包工具按「最大连通块」找身体时不会把它们算进去。爪里拿着的道具、搬运的箱子和鼻涕泡故意贴着身体。
+- 离体道具（哈、Z、!、?、代码字符和方块、碎屑、汗滴）带 8 邻域描边，并和身体至少隔 1 个透明像素，打包工具按「最大连通块」找身体。爪里拿着的道具和鼻涕泡贴着身体。
 
 ## 动画
 
@@ -82,23 +83,22 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `feast` | 14 | 880 ms | 狼吞虎咽：两边飞来代码，嚼得碎屑四溅、冒汗，带残影和换色 |
 | `juggle` | 8 | 1040 ms | 两只爪各抛一块代码方块，此起彼落 |
 | `juggle-many` | 12 | 1200 ms | 四块代码方块轮流抛接，边抛边扭边笑 |
-| `shocked` | 12 | 1090 ms | 抱头大惊，头上冒「!?」，身体乱抖，冒冷汗 |
-| `laugh` | 10 | 1060 ms | 抱头大笑，嘴张到半张脸，「哈」字左右轮流冒出 |
+| `shocked` | 12 | 1090 ms | 抬爪大惊，头上冒「!?」，身体乱抖，冒冷汗 |
+| `laugh` | 10 | 1060 ms | 捧腹大笑，嘴张到半张脸，「哈」字左右轮流冒出 |
 | `laugh-point` | 8 | 860 ms | 一手叉腰一手指着你笑 |
 | `laugh-roll` | 8 | 880 ms | 笑到仰面躺倒，左右翻滚，双脚朝天乱蹬 |
 | `laugh-belly` | 8 | 780 ms | 捧着肚子笑，肚子一鼓一鼓 |
 | `alert` | 8 | 1280 ms | 叉腰挥手，头顶感叹号一跳一跳 |
 | `devour` | 12 | 1360 ms | 一行代码 `fn(x)=>{` 平移过来，一口吃一个字符 |
-| `carry` | 8 | 1120 ms | 双手举着文件箱，小步走 |
 | `sleep` | 8 | 3040 ms | 坐着打盹，鼻涕泡随呼吸一大一小，飘 Zzz |
 | `wake` | 8 | 1720 ms | 睁眼、站起来伸懒腰打哈欠，最后回到待机第 0 帧（不循环） |
 | `walk` | 8 | 1000 ms | 左右脚交替迈步，身体跟着倾斜 |
 | `poke-left` | 8 | 900 ms | 左边被戳，往右一歪再弹回来（不循环） |
 | `poke-right` | 8 | 900 ms | 右边被戳，往左一歪再弹回来（不循环） |
-| `tickle` | 12 | 1420 ms | 和 `laugh` 一样捧腹大笑，最后回到待机（不循环）；旧版 App 连点三下时播它 |
+| `tickle` | 12 | 1420 ms | 和 `laugh` 一样捧腹大笑，最后回到待机（不循环），主线 App 连点三下时播放 |
 | `prone-eat` | 16 | 1720 ms | 趴着交替抬爪、前伸、落爪、拉身，对角后脚抬起再蹬地；手臂沿用正视图的短臂比例，固定上臂与前臂长度，近臂位于脸部下方、远臂藏在身体后，随吃字轻轻点头 |
 
-共 26 段、262 帧；`sheets/` 合计约 38.9 KB。
+共 25 段、254 帧，`sheets/` 合计约 37.3 KB。全部帧见[大图](../../../../docs/assets/naiwa-frames.png)。
 
 ## 状态映射
 
@@ -108,24 +108,27 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | working | 1 个会话 `eat-code`，2 个 `eat-code-fast`，3 个及以上 `feast` |
 | juggling | 1 个子代理 `juggle`，2 个及以上 `juggle-many` |
 | error / attention / notification | `shocked` / `laugh` / `alert` |
-| sweeping / carrying | `devour` / `carry` |
+| sweeping | `devour` |
 | sleeping / waking | `sleep` / `wake` |
 
 - 待机池：`idle-look`、`idle-giggle`、`snack` 权重 2，`dance` 权重 1。
+- 聊天页正常待机时每隔 10–25 秒随机插播一次，间隔参数由 `make_pet_pack.py` 的 `NAIWA.idle_every` 写入 `idlePool.everyMs`。无任务且 60 秒没有交互后休眠；待机动作不延后休眠。
 - attention 有 0.5 的概率换成 `laugh-point`、`laugh-roll`、`laugh-belly` 之一。
 - 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `prone-eat`。
 - `holds`、`faces`（`front`）、`sounds`（`naiwa`）和 `snack.every` 按设计文档第 4 节写入 `pet.json`。
+
+`main` 中的 `carrying` 是上传与导入的预留状态，`petSignalsProvider` 尚未产生该信号。此包省略该状态及其计时，动画清单已移除 `carry`。其余 25 段分别由状态、档位、待机池、完成变体和交互入口触发。
 
 ## 自检
 
 `draw.py` 每次运行都会检查下面这些，`--check` 还会核对磁盘上的文件是否最新：
 
-- 26 段名字齐全；每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色；alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`；PNG 读回来和画出来的逐像素相同。
+- 25 段名字齐全，每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色。alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`，PNG 读回来和画出来的逐像素相同。
 - 待机各帧脚底线都是 y = 60，只有一个连通块，没有离体道具。
 - 离体道具离身体（含手持道具）至少 1 个透明像素；每帧最大的 8 连通块正好是身体。
 - `wake`、`poke-left`、`poke-right`、`tickle` 不循环，最后一帧和待机第 0 帧的重合度（IoU）不低于 0.9。
 - 进食动画张嘴帧的嘴中心在 `snack.mouth` ±1 像素以内。
-- 思考与趴爬的眼睛、嘴型完整可见，不被手臂遮掉；趴爬的爪点必须在短臂的固定长度内。
+- 全部帧的上臂、前臂长度与正视待机一致，趴爬的爪点落在相同的短臂范围内。逐帧核对完整五官位图，嘴部允许捂嘴、吃进字符和睡眠气泡的有意遮挡。
 - 睁眼和瞪眼在九个注视方向都保留一个白色高光；瞳孔移到眼圈边缘时，高光落在仍可见的瞳孔像素内。
 - `pet.json` 引用的动画都存在，每段动画都被用到。
 - 能导入 `app/tool/make_pet_pack.py` 时，按它的规则预算点击框并打印出来。

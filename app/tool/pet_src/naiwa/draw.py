@@ -3,14 +3,14 @@
 
 Run from the repository root (needs numpy and Pillow):
 
-    python app/tool/pet_src/naiwa/draw.py [--check] [--preview] [--strip ANIM ...]
+    python app/tool/pet_src/naiwa/draw.py [--check] [--preview [PATH]] [--strip ANIM ...]
 
-A run redraws all 26 animations, writes sheets/<anim>.png (1x single-row strips of
+A run redraws all 25 animations, writes sheets/<anim>.png (1x single-row strips of
 64x64 cells) and pet.json next to this script, then checks them against
 docs/design/naiwa-pet.md sections 3 and 4. `--check` redraws in memory and only
 verifies, failing when the files on disk are stale. `--preview` also writes a
 contact sheet of every frame (4x on a checkerboard) to
-app/build/pet_src_preview/naiwa.png; `--strip ANIM` writes a 4x grid of each named
+app/build/pet_src_preview/naiwa.png (or PATH); `--strip ANIM` writes a 4x grid of each named
 animation to app/build/pet_src_preview/naiwa/ANIM.png. No clock and no randomness:
 two runs give byte-identical files.
 
@@ -29,8 +29,8 @@ How the art is made: a small rig on integer pixels, no anti-aliasing.
 * Eyes, mouths and props are hand-drawn bitmaps stamped at rig anchors. Detached
   props (哈, Z, !, ?, code glyphs and tiles, crumbs, sweat) get an 8-neighbour
   outline and keep at least one clear pixel from the body, so the pack builder's
-  largest-blob rule never counts them as body. Props held in a paw, the carried
-  file box and the snot bubble touch the body on purpose.
+  largest-blob rule never counts them as body. Props held in a paw and the
+  snot bubble touch the body on purpose.
 """
 import argparse
 import hashlib
@@ -59,7 +59,7 @@ MAX_COLORS = 256
 ANIM_NAMES = [
     'idle', 'idle-look', 'idle-giggle', 'snack', 'dance', 'thinking',
     'eat-code', 'eat-code-fast', 'feast', 'juggle', 'juggle-many', 'shocked', 'laugh',
-    'laugh-point', 'laugh-roll', 'laugh-belly', 'alert', 'devour', 'carry', 'sleep',
+    'laugh-point', 'laugh-roll', 'laugh-belly', 'alert', 'devour', 'sleep',
     'wake', 'walk', 'poke-left', 'poke-right', 'tickle', 'prone-eat',
 ]
 ONE_SHOT = {'wake', 'poke-left', 'poke-right', 'tickle'}
@@ -79,7 +79,6 @@ PALETTE = {
     'code_line': '#282C34', 'tile': '#3E4451',
     'c1': '#C678DD', 'c2': '#98C379', 'c3': '#D19A66', 'c4': '#61AFEF', 'c5': '#E5C07B',
     'c6': '#ABB2BF',
-    'box': '#D9A05B', 'box_lo': '#B07A3A', 'box_hi': '#F0C987', 'paper': '#FFF8E6',
     'ghost_r': '#FF3D6E', 'ghost_c': '#2EE6FF',
 }
 NAMES = list(PALETTE)
@@ -292,18 +291,6 @@ CODE_FONT = {
     'f': [".XX", ".X.", "XXX", ".X.", ".X."], 'n': ["...", "XX.", "X.X", "X.X", "X.X"],
     'x': ["...", "...", "X.X", ".X.", "X.X"],
 }
-BOX = ["oooooooooooooooo",
-       "ohhhhhhhhhhhhhho",
-       "oooooooooooooooo",
-       "obbbbbbbbbbbbblo",
-       "obbpppppppppbblo",
-       "obbpaaapcccpbblo",
-       "obbpppppppppbblo",
-       "obbbbbbbbbbbbblo",
-       "obbbbbbbbbbbbllo",
-       "oooooooooooooooo"]
-BOX_COLORS = {'o': 'line', 'h': 'box_hi', 'b': 'box', 'l': 'box_lo', 'p': 'paper',
-              'a': 'c1', 'c': 'c4'}
 
 
 def glyph_cells(kind, *args):
@@ -330,17 +317,13 @@ def draw_props(lab, props):
     with an outline; a '-held' suffix ('glyph-held', 'code-held') marks one held in a
     paw, and '-in' ('code-in') one inside the open mouth, drawn without outline;
     ('block', text, x, y[, colours]) is a juggled code tile, (x, y) its top-left;
-    ('box', x, y) is carried and ('bubble', x, y, size) hangs from the face. Held,
-    carried and hanging props may touch the body; the others must not.
+    ('bubble', x, y, size) hangs from the face. Held and hanging props may touch
+    the body; the others must not.
     """
     free = np.zeros((H, W), bool)
     held = np.zeros((H, W), bool)
     for pr in props:
         kind = pr[0]
-        if kind == 'box':
-            stamp(lab, BOX, pr[1], pr[2], BOX_COLORS)
-            held |= bitmap_mask(BOX, pr[1], pr[2])
-            continue
         if kind == 'bubble':
             x, y, n = pr[1:]
             rows = disc_rows(n, 'o', 's', 1.0)
@@ -392,18 +375,20 @@ PROFILE = [10, 12, 13, 14, 14, 14, 14, 14, 13, 13, 13, 13, 12, 12, 12, 12,
 assert len(PROFILE) == HB
 EYE_U, EYE_V = 6.5, 20.5
 MOUTH_V = 14.5
-SHOULDER_V = 12.5
+SHOULDER_U, SHOULDER_V = 9.5, 12.5
 BELLY_V, BELLY_RX, BELLY_RY = 5.0, 9.0, 7.0
 ARM_R, PAW_R = 1.9, 1.75
+# Segment lengths measured from the front idle pose, shared with the crawl.
+UPPER_ARM, FOREARM = math.hypot(3.0, 3.5), 4.0
 GROUND = 60                # idle foot line: the bottom edge of the lowest opaque row
 SIT = ((-8.0, -1.5), (8.0, -1.5))   # sole centres when sitting
 
-ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for the left
+ARMS = {   # elbow/hand direction targets; lengths come from the front idle pose
     'down': ((12.5, 9.0), (12.5, 5.0)),
     'down_in': ((12.0, 9.0), (11.0, 5.5)),
     'down_out': ((13.0, 9.5), (14.0, 5.5)),
     'hip': ((16.0, 9.5), (11.5, 5.0)),
-    'head': ((16.0, 20.5), (10.0, 25.0)),
+    'head': ((14.0, 14.0), (15.5, 19.0)),
     'point': ((15.5, 12.5), (19.5, 13.5)),
     'chin': ((9.0, 8.0), (5.0, 10.5)),
     'fold': ((10.0, 8.5), (5.5, 6.5)),
@@ -412,15 +397,14 @@ ARMS = {   # (elbow, hand) of the right arm in trunk space; u is mirrored for th
     'out_dn': ((15.5, 12.0), (19.5, 11.0)),
     'belly': ((13.0, 8.0), (6.0, 6.0)),
     'belly_up': ((13.0, 8.5), (6.5, 7.5)),
-    'cover': ((9.5, 8.5), (2.5, 14.0)),
+    'cover': ((5.5, 11.0), (2.5, 14.0)),
     'feed': ((12.5, 8.5), (7.0, 13.0)),
     'reach': ((15.5, 12.0), (19.5, 12.0)),
     'wave': ((16.0, 16.0), (17.5, 22.0)),
     'wave_b': ((16.5, 15.5), (20.0, 20.5)),
     'catch': ((15.5, 11.5), (17.0, 16.5)),
     'toss': ((15.0, 14.5), (15.5, 21.0)),
-    'hold': ((14.5, 21.0), (7.0, 28.5)),
-    'stretch': ((12.5, 22.0), (10.5, 30.5)),
+    'stretch': ((12.5, 16.5), (15.0, 21.5)),
     'lap': ((12.0, 7.0), (9.0, 3.5)),
 }
 PAWS = {'point': 'point', 'wave': 'open', 'wave_b': 'open'}
@@ -483,20 +467,31 @@ class Rig:
         rx = BELLY_RX + self.p['belly']
         return (u / rx) ** 2 + ((v - BELLY_V) / BELLY_RY) ** 2 < 1
 
-    def arm(self, side, spec):
+    def arm_joints(self, side, spec):
+        """Keep the pose's joint directions at the front-view segment lengths."""
         name = spec if isinstance(spec, str) else None
         (eu, ev), (hu, hv) = ARMS[spec] if name else spec
-        sh = self.trunk_pt(side * (float(self.hw(SHOULDER_V)) - 2.5), SHOULDER_V)
-        el = self.trunk_pt(side * eu, ev)
-        ha = self.trunk_pt(side * hu, hv)
+        sh = self.trunk_pt(side * SHOULDER_U, SHOULDER_V)
+        target_el = self.trunk_pt(side * eu, ev)
+        target_ha = self.trunk_pt(side * hu, hv)
+        dx, dy = target_el[0] - sh[0], target_el[1] - sh[1]
+        upper = math.hypot(dx, dy)
+        el = (sh[0] + UPPER_ARM * dx / upper, sh[1] + UPPER_ARM * dy / upper)
+        dx, dy = target_ha[0] - target_el[0], target_ha[1] - target_el[1]
+        fore = math.hypot(dx, dy)
+        ha = (el[0] + FOREARM * dx / fore, el[1] + FOREARM * dy / fore)
+        return sh, el, ha
+
+    def arm(self, side, spec):
+        sh, el, ha = self.arm_joints(side, spec)
         arm = capsule(sh, el, ARM_R) | capsule(el, ha, ARM_R)
         pc = (iround_from(ha[0], self.ox), iround(ha[1]))
         paw = ellipse(pc, PAW_R, PAW_R)
-        style = PAWS.get(name)
+        style = PAWS.get(spec) if isinstance(spec, str) else None
         if style == 'point':
             dx, dy = ha[0] - el[0], ha[1] - el[1]
             n = math.hypot(dx, dy) or 1
-            paw |= capsule(pc, (pc[0] + 4.2 * dx / n, pc[1] + 4.2 * dy / n - 0.5), 0.75)
+            paw |= capsule(pc, (pc[0] + 2.5 * dx / n, pc[1] + 2.5 * dy / n - 0.5), 0.75)
         elif style == 'open':
             paw = ellipse(pc, 2.0, 1.9)
         return arm & ~paw, paw
@@ -549,7 +544,6 @@ PRONE_KNEES = ((12.0, 55.0), (13.0, 55.5))  # far and near shin pivots, inside t
 PRONE_SHIN = 6.5
 PRONE_SHOULDERS = ((43.0, 52.0), (30.5, 51.0))  # far side hidden by chest; near side below face
 PRONE_PAWS = ((46.0, 57.0), (32.0, 57.0))
-PRONE_UPPER_ARM, PRONE_FOREARM = 4.5, 4.5     # the same short reach as the front-view arms
 
 
 def prone_shin(knee, deg):
@@ -570,10 +564,10 @@ def prone_arm(shoulder, paw, step):
     pc = (paw[0] + step[0], paw[1] - step[1])
     dx, dy = pc[0] - shoulder[0], pc[1] - shoulder[1]
     distance = math.hypot(dx, dy)
-    if not 0 < distance < PRONE_UPPER_ARM + PRONE_FOREARM:
+    if not abs(UPPER_ARM - FOREARM) < distance < UPPER_ARM + FOREARM:
         raise ValueError(f'prone paw outside short-arm reach: {distance}')
-    along = (PRONE_UPPER_ARM ** 2 - PRONE_FOREARM ** 2 + distance ** 2) / (2 * distance)
-    bend = math.sqrt(PRONE_UPPER_ARM ** 2 - along ** 2)
+    along = (UPPER_ARM ** 2 - FOREARM ** 2 + distance ** 2) / (2 * distance)
+    bend = math.sqrt(UPPER_ARM ** 2 - along ** 2)
     elbow = (shoulder[0] + (along * dx - bend * dy) / distance,
              shoulder[1] + (along * dy + bend * dx) / distance)
     paw = ellipse(pc, PAW_R, PAW_R)
@@ -731,11 +725,7 @@ def render(p):
         lab[shifted(body, 0, -g) & ~body & (lab == 0)] = IDX['ghost_c']
         body = body | shifted(body, 0, g) | shifted(body, 0, -g)
 
-    # ('box',) with no position rests on the paws, centred on the figure.
-    paw_top = int(np.argmax(np.any([pw for _, pw in arms], axis=0).any(axis=1)))
-    props = tuple(('box', iround(rig.ox) - len(BOX[0]) // 2, paw_top + 2 - len(BOX))
-                  if pr == ('box',) else pr for pr in p['props'])
-    free, held = draw_props(lab, props)
+    free, held = draw_props(lab, p['props'])
     return dict(lab=lab, body=body, free=free, held=held, mouth=mouth, tint=p['tint'])
 
 
@@ -1045,14 +1035,6 @@ def anim_devour():
     return fr
 
 
-def anim_carry():
-    c = dict(arms=('hold', 'hold'), mouth='grin', look=(0, -1), props=(('box',),))
-    return [
-        (P(c), 140), (P(c, legs='step_l', y=-1), 140), (P(c), 140), (P(c, sy=0.97), 140),
-        (P(c), 140), (P(c, legs='step_r', y=-1), 140), (P(c), 140), (P(c, sy=0.97), 140),
-    ]
-
-
 def anim_sleep():
     """Dozing while sitting: the snot bubble swells and shrinks with each breath."""
     s = dict(sit=True, y=2, eyes='shut', mouth='line', arms=('lap', 'lap'))
@@ -1110,8 +1092,7 @@ def anim_poke(direction):
 
 
 def anim_tickle():
-    """The laugh, then back to idle: apps from before the two-tap laugh play this for a
-    quick run of taps."""
+    """Repeated taps: laugh once, then return to the front idle pose."""
     return anim_laugh() + [(P(eyes='happy', mouth='smile', blush=True), 160), (P(), 200)]
 
 
@@ -1157,7 +1138,7 @@ ANIMS = {
     'juggle': anim_juggle, 'juggle-many': anim_juggle_many, 'shocked': anim_shocked,
     'laugh': anim_laugh, 'laugh-point': anim_laugh_point, 'laugh-roll': anim_laugh_roll,
     'laugh-belly': anim_laugh_belly, 'alert': anim_alert, 'devour': anim_devour,
-    'carry': anim_carry, 'sleep': anim_sleep, 'wake': anim_wake, 'walk': anim_walk,
+    'sleep': anim_sleep, 'wake': anim_wake, 'walk': anim_walk,
     'poke-left': lambda: anim_poke(1), 'poke-right': lambda: anim_poke(-1),
     'tickle': anim_tickle, 'prone-eat': anim_prone_eat,
 }
@@ -1174,7 +1155,7 @@ def pet_json(anims, mouth, mouths):
         'states': {
             'idle': ['idle'], 'thinking': ['thinking'], 'working': ['eat-code'],
             'juggling': ['juggle'], 'error': ['shocked'], 'attention': ['laugh'],
-            'notification': ['alert'], 'sweeping': ['devour'], 'carrying': ['carry'],
+            'notification': ['alert'], 'sweeping': ['devour'],
             'sleeping': ['sleep'], 'waking': ['wake'], 'roam': ['walk'],
         },
         'tiers': {
@@ -1192,7 +1173,7 @@ def pet_json(anims, mouth, mouths):
                                 'chance': 0.5}},
         'reactions': {'tapLeft': 'poke-left', 'tapRight': 'poke-right', 'tickle': 'tickle',
                       'drag': 'prone-eat'},
-        'holds': {'attention': 3, 'error': 2, 'notification': 2, 'carrying': 2, 'waking': 1,
+        'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 1,
                   'sweeping': 1},
         'faces': 'front',
         'sounds': 'naiwa',
@@ -1338,6 +1319,18 @@ def check(anims, files):
             if not np.array_equal(big, opaque & body):
                 bad.append(f'{n} frame {i}: the largest 8-connected blob is not the body')
     idle = anims['idle']
+    reference = Rig(idle['poses'][0]).arm_joints(1, 'down')
+    arm_lengths = [math.dist(a, b) for a, b in zip(reference, reference[1:])]
+    for n, anim in anims.items():
+        for i, p in enumerate(anim['poses']):
+            if p['prone']:
+                continue  # The crawl solves the same two fixed segment lengths.
+            rig = Rig(p)
+            for side, spec in zip((-1, 1), p['arms']):
+                joints = rig.arm_joints(side, spec)
+                lengths = [math.dist(a, b) for a, b in zip(joints, joints[1:])]
+                if not np.allclose(lengths, arm_lengths, atol=1e-6):
+                    bad.append(f'{n} frame {i}: arm lengths {lengths} differ from front idle {arm_lengths}')
     grounds = {int(np.nonzero(f[..., 3].any(axis=1))[0][-1]) + 1 for f in idle['frames']}
     if grounds != {GROUND}:
         bad.append(f'idle: feet on lines {sorted(grounds)}, want {GROUND}')
@@ -1361,10 +1354,10 @@ def check(anims, files):
         line = int(np.nonzero(m['body'].any(axis=1))[0][-1]) + 1
         if not GROUND <= line <= GROUND + 2:
             bad.append(f'prone-eat frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
-    # These poses keep the whole expression visible: a hand must not erase part
-    # of an eye or mouth when the renderer clips facial pixels behind limbs.
-    for n in ('thinking', 'prone-eat'):
-        for i, (p, m) in enumerate(zip(anims[n]['poses'], anims[n]['meta'])):
+    # Check every expression against its complete facial bitmaps. Covering the
+    # mouth while giggling, chewing a glyph and the sleep bubble are intentional.
+    for n, anim in anims.items():
+        for i, (p, m) in enumerate(zip(anim['poses'], anim['meta'])):
             expected = np.zeros((H, W), np.uint8)
             if p['prone']:
                 axis = PRONE_X + PRONE_FACE_U
@@ -1378,14 +1371,13 @@ def check(anims, files):
                 eyes = [rig.trunk_pt(side * EYE_U + fu, EYE_V + fv) for side in (-1, 1)]
                 mouth = rig.trunk_pt(fu, MOUTH_V + fv)
             parts = [(eye_rows(p['eyes'], p['look'], side), pt) for side, pt in zip((-1, 1), eyes)]
-            parts.append((MOUTHS[p['mouth']], mouth))
+            if 'cover' not in p['arms'] and not any(pr[0] in ('code-in', 'bubble') for pr in p['props']):
+                parts.append((MOUTHS[p['mouth']], mouth))
             for rows, (x, y) in parts:
                 stamp(expected, rows, *corner(rows, x, y, axis), FACE)
             visible = expected != 0
-            # Code intentionally enters an open mouth, after the face is drawn.
-            if not any(prop[0] == 'code-in' for prop in p['props']):
-                if not np.array_equal(m['lab'][visible], expected[visible]):
-                    bad.append(f'{n} frame {i}: an eye or mouth is obscured')
+            if not np.array_equal(m['lab'][visible], expected[visible]):
+                bad.append(f'{n} frame {i}: an eye or mouth is obscured')
     spec = json.loads(files['pet.json'])
     snack = spec['snack']
     for n in sorted(set(snack['mouths']) - set(snack['every'])):
@@ -1454,7 +1446,7 @@ def preview(anims, path, zoom=4, per_row=8):
             img.paste(t, (x0, y0))
             d.text((x0 + 2, y0 + fw + 1), f'{k}  {a["durs"][k]}ms', fill=(70, 74, 100))
         y += r * (fw + cap + gap)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     img.convert('RGB').save(path)
     return path
 
@@ -1479,7 +1471,8 @@ def strip(anims, name, path, zoom=4, per_row=4):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--check', action='store_true', help='verify the files on disk, write nothing')
-    ap.add_argument('--preview', action='store_true', help='contact sheet in app/build/pet_src_preview')
+    ap.add_argument('--preview', nargs='?', const=os.path.join(PREVIEW_DIR, f'{PACK_ID}.png'),
+                    metavar='PATH', help='all frames, defaults to app/build/pet_src_preview/naiwa.png')
     ap.add_argument('--strip', nargs='*', default=[], metavar='ANIM', help='4x grid per animation')
     args = ap.parse_args(argv)
 
@@ -1509,7 +1502,7 @@ def main(argv=None):
     for line in info:
         print('  ' + line)
     if args.preview:
-        print('  preview ' + preview(anims, os.path.join(PREVIEW_DIR, f'{PACK_ID}.png')))
+        print('  preview ' + preview(anims, args.preview))
     for n in args.strip:
         if n not in anims:
             problems.append(f'--strip: unknown animation {n}')

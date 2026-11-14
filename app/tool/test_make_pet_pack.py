@@ -204,7 +204,8 @@ class PackFormat(unittest.TestCase):
                 self.assertGreaterEqual(p['scale'], 1)
                 cw, ch = p['canvas']['w'], p['canvas']['h']
                 self.assertTrue(isinstance(cw, int) and isinstance(ch, int))
-                self.assertEqual(list(p['states']), STATES)
+                expected_states = [s for s in STATES if pid != 'naiwa' or s != 'carrying']
+                self.assertEqual(list(p['states']), expected_states)
                 self.assertEqual(sorted(p['reactions']), sorted(REACTIONS))
                 for s, ts in p['tiers'].items():
                     self.assertIn(s, STATES)
@@ -228,7 +229,9 @@ class PackFormat(unittest.TestCase):
                 self.assertEqual(p['sleep']['afterMs'], 60000)
                 self.assertEqual(len(p['states']['idle']), 1, 'idle fidgets live in idlePool')
                 pool = p['idlePool']
-                self.assertEqual(pool['everyMs'], {'mean': 120000, 'min': 45000, 'max': 300000})
+                expected_every = ({'mean': 18000, 'min': 10000, 'max': 25000} if pid == 'naiwa'
+                                  else {'mean': 120000, 'min': 45000, 'max': 300000})
+                self.assertEqual(pool['everyMs'], expected_every)
                 self.assertTrue(pool['anims'])
                 for x in pool['anims']:
                     self.assertEqual(sorted(x), ['anim', 'ms', 'weight'])
@@ -291,7 +294,7 @@ class PackFormat(unittest.TestCase):
                 refs = referenced(p)
                 self.assertEqual(refs - set(p['animations']), set(), 'missing animations')
                 self.assertEqual(set(p['animations']) - refs, set(), 'unused animations')
-                for s in STATES:
+                for s in p['states']:
                     self.assertTrue(p['states'][s], s)
                 sheets = {a['sheet'] for a in p['animations'].values()}
                 for f in sheets:
@@ -686,6 +689,14 @@ class SpriteSource(unittest.TestCase):
         p, _, _ = self.build(lambda pet, f: pet['snack'].update(mouths=mouths))
         self.assertEqual(list(p['snack']), ['mouth', 'mouths', 'every'])
         self.assertEqual(p['snack'], dict(tiny_pet()['snack'], mouths=mouths))
+
+    def test_carrying_can_be_omitted(self):
+        p, _, _ = self.build(lambda pet, frames: pet['states'].pop('carrying'))
+        self.assertNotIn('carrying', p['states'])
+        self.assertNotIn('carrying', p['timings']['minDisplay'])
+        self.assertNotIn('carrying', p['timings']['autoReturn'])
+        self.assertEqual(p['states']['idle'], ['idle'])
+        self.assertEqual(p['reactions'], tiny_pet()['reactions'])
 
     def test_free_roam_comes_from_the_pack_entry(self):
         with mock.patch.dict(tool.PACKS, {'tiny': dict(TINY, free=True)}):

@@ -36,6 +36,7 @@ Future<void> pumpPet(
   HarnessConfig config = const HarnessConfig(),
   double position = PetPrefs.defaultPosition,
   PetSize size = PetSize.medium,
+  bool sound = true,
   ValueChanged<Offset>? onListTap,
   VoidCallback? onComposerTap,
   Iterable<String> warm = const [],
@@ -48,7 +49,7 @@ Future<void> pumpPet(
     testApp(
       ChatBottomHarness(onListTap: onListTap, onComposerTap: onComposerTap),
       overrides: [
-        ...petOverrides(pack: p, clock: clock, position: position, size: size),
+        ...petOverrides(pack: p, clock: clock, position: position, size: size, sound: sound),
         harnessConfigProvider.overrideWith(() => HarnessConfigController(config)),
       ],
     ),
@@ -353,6 +354,34 @@ void main() {
   });
 
   group('moods on the page', () {
+    for (final (name, pick) in [('idle-look', 0.1), ('idle-giggle', 0.4), ('snack', 0.7), ('dance', 0.95)]) {
+      testWidgets('Naiwa plays $name before sleeping without needing a touch', (tester) async {
+        final pack = diskPack('naiwa');
+        PetLayer.random = _FixedRandom(pick);
+        await pumpPet(tester, pack: pack, sound: false, warm: [name, 'sleep']);
+        final started = clock.now;
+        for (var i = 0; i < 300 && petLayer(tester).playing?.name != name; i++) {
+          clock.advance(const Duration(milliseconds: 100));
+          container.read(petMoodProvider(PetScope.global).notifier).refresh();
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(petLayer(tester).playing?.name, name, reason: 'an idle action starts within 30 s');
+        expect(tester.state<PetSpriteState>(find.byType(PetSprite)).shown?.name, name);
+
+        final duration = Duration(milliseconds: pack.idles.singleWhere((e) => e.anim == name).ms + 100);
+        clock.advance(duration);
+        await tester.pump(duration);
+        expect(petLayer(tester).playing?.name, 'idle', reason: 'the action finishes and returns to idle');
+
+        final untilSleep = started.add(const Duration(seconds: 61)).difference(clock.now);
+        clock.advance(untilSleep);
+        container.read(petMoodProvider(PetScope.global).notifier).refresh();
+        await tester.pump(untilSleep);
+        await tester.pump();
+        expect(petLayer(tester).playing?.name, 'sleep', reason: 'idle actions do not postpone sleep');
+      });
+    }
+
     testWidgets('left alone for a minute: it sleeps; a touch wakes it', (tester) async {
       await pumpPet(tester, warm: ['sleeping', 'waking']);
       clock.advance(const Duration(seconds: 61));
@@ -517,4 +546,19 @@ void main() {
       expect(container.read(currentSessionProvider), isNull);
     });
   });
+}
+
+class _FixedRandom implements math.Random {
+  _FixedRandom(this.value);
+
+  final double value;
+
+  @override
+  double nextDouble() => value;
+
+  @override
+  bool nextBool() => value < 0.5;
+
+  @override
+  int nextInt(int max) => (value * max).floor();
 }
