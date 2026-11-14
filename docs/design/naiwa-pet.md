@@ -49,7 +49,7 @@
 
 ## 3. 动画与状态（契约）
 
-现有像素版使用下表 25 段。`loop` 为否的是一次性动画。`main` 的 `carrying` 目前仅预留在信号模型中，`petSignalsProvider` 尚未产生上传或导入信号，因此本包省略 `carry`、`states.carrying` 及相应计时。
+现有像素版使用下表 25 段。`loop` 为否的是一次性动画。新版 `main` 已在导入宠物包期间产生 `carrying` 信号，并在结束或失败后清除。本包省略 `carry`、`states.carrying` 及相应计时，导入期间按协议回退到 `idle`。
 
 触发完整笑声时，正面捧腹大笑动作与该次录音同步保持 25.286531 秒（`ms` 取整为 25287），按需重复动作帧，不重复启动音频；普通状态刷新不能提前替换该动作。拖动、点击或切页面等操作可中断，不要求用户等待笑声结束。
 
@@ -138,7 +138,7 @@ app/tool/pet_src/<id>/README.md      # 方案说明、调色板、重新生成�
 
 - `anims[].durs` 的个数等于横条的帧数；横条宽 `w × 帧数`，高 `h`。
 - `states`、`tiers`、`bonus`、`reactions` 原样进 `pack.json`，名字必须是 §3 的动画。
-- `holds` 指定一次性或需要停留的状态显示几遍主动画。工具换算成 `timings`，`minDisplay[s] = holds[s] × 主动画一遍时长`，attention、error 的 `autoReturn` 同值。sweeping 的 `autoReturn` 固定 300000，notification 持续到处理完成，working、thinking 的 `minDisplay` 固定 1000，`wakeMs = holds.waking × wake 一遍`。源格式允许省略预留状态 carrying，计时仅为已声明的状态生成。
+- `holds` 指定一次性或需要停留的状态显示几遍主动画。工具换算成 `timings`，`minDisplay[s] = holds[s] × 主动画一遍时长`，attention、error 的 `autoReturn` 同值。sweeping 的 `autoReturn` 固定 300000，notification 持续到处理完成，working、thinking 的 `minDisplay` 固定 1000，`wakeMs = holds.waking × wake 一遍`。源格式允许省略 carrying，计时仅为已声明的状态生成。
 - `idlePool[].loops`：插播几遍，工具换算成 `ms`。`make_pet_pack.py` 的 `NAIWA.idle_every` 写入 `idlePool.everyMs`，为 `min: 10000`、`mean: 18000`、`max: 25000`；聊天页每次正常待机等待 10–25 秒后插播，避免原来 45–300 秒的等待通常被 60 秒休眠提前取消。插播不延长清醒时间。
 - `faces` 固定 `front`；`sleep.afterMs` 由工具写 60000。
 - `sounds`、`snack` 见 §5，工具校验后原样写进 `pack.json`。

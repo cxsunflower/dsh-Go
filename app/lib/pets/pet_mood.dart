@@ -17,7 +17,7 @@
 // | notification | an approval or a question waits — until handled | level |
 // | attention | a turn finished, and no new round started within 1.5 s | one-off |
 // | error | a turn failed (an engine restart is not one) | one-off |
-// | carrying | reserved: a file upload / import | level |
+// | carrying | importing a pet pack | level |
 // | sleeping | idle and untouched for sleepAfter | level |
 // | waking | touched or spoken to while asleep | one-off, wakeMs |
 //

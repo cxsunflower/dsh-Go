@@ -110,6 +110,14 @@ abstract final class PetMetrics {
   /// Mouth reach in logical pixels, independent of the pet's art scale.
   static const eraseRadius = 12.0;
   static const eatRadius = 20.0;
+
+  /// A tickle: this many taps within [tickleWithin].
+  static const tickleTaps = 3;
+  static const tickleWithin = Duration(milliseconds: 1100);
+
+  /// Tapping on through a tickle into this many taps annoys it, when the pack
+  /// has an `annoyed` reaction.
+  static const annoyedTaps = 6;
 }
 
 /// The pet over the chat page. Wrap the page body; capsules inside report
@@ -401,6 +409,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   late final PetSoundPlayer _soundPlayer;
   Timer? _reactionTimer;
   PetAnimation? _variant;
+  Timer? _variantTimer;
   Timer? _idleTimer;
   Timer? _roamTimer;
   Timer? _unhideTimer;
@@ -449,7 +458,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   @visibleForTesting
   bool get dragMirrored => _mirror;
   bool get _mirror =>
-      (_dragging && _pack?.dragMirror == true && _dragLeft) || (_walking && (_pack?.mirrorWalking(right: _walkRight) ?? false));
+      (_dragging && _pack?.dragMirror == true && _dragLeft) ||
+      (_walking && (_pack?.mirrorWalking(right: _walkRight) ?? false));
 
   /// In the tree (not parked by a moving global key or a closing route).
   bool _active = true;
@@ -498,6 +508,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     widget.registry.removeListener(_schedulePoll);
     widget.registry.occupied.value = null;
     _reactionTimer?.cancel();
+    _variantTimer?.cancel();
     _idleTimer?.cancel();
     _roamTimer?.cancel();
     _unhideTimer?.cancel();
@@ -647,7 +658,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
   double get _scale {
     final pack = _pack;
     if (pack == null) return 1;
-    return petScale(pack, ref.read(petPrefsProvider).size, _dpr);
+    final prefs = ref.read(petPrefsProvider);
+    return petScale(pack, prefs.size, _dpr, customHeight: prefs.customHeight);
   }
 
   /// Body extents left and right of the foot point, logical px.
@@ -720,6 +732,8 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (!mounted || !_active) return;
     final pack = _pack;
     if (pack == null) return;
+    _variantTimer?.cancel();
+    _variant = null;
     if (next != PetStateName.idle) {
       _idleTimer?.cancel();
       _roamTimer?.cancel();
@@ -730,14 +744,14 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
         _walk.stop();
         _walking = false;
       }
-      _variant = null;
     }
-    // A celebration now and then plays one of its extras.
+    // Now and then a state plays one of its extras: a celebration's confetti,
+    // ultrathink while thinking, one of the working-day scenes.
+    final bonus = next == PetStateName.idle ? null : pack.bonusOf(next);
+    if (bonus != null && PetLayer.random.nextDouble() < bonus.chance) {
+      _startVariant(pack.animations[bonus.anims[PetLayer.random.nextInt(bonus.anims.length)]]);
+    }
     if (next == PetStateName.attention) {
-      final bonus = pack.bonusOf(PetStateName.attention);
-      if (bonus != null && PetLayer.random.nextDouble() < bonus.chance) {
-        _variant = pack.animations[bonus.anims[PetLayer.random.nextInt(bonus.anims.length)]];
-      }
       final celebration = _variant ?? pack.animFor(next);
       if (!_laughing && _isLaugh(celebration)) _play(celebration);
     }
@@ -745,6 +759,17 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     if (next == PetStateName.sleeping || next == PetStateName.waking) _clearReaction();
     if (next == PetStateName.idle) _armIdle();
     setState(() {});
+  }
+
+  /// Plays [anim] over the state's own animation for one pass, then back.
+  void _startVariant(PetAnimation? anim) {
+    if (anim == null) return;
+    final pack = _pack;
+    _variant = anim;
+    _variantTimer?.cancel();
+    _variantTimer = Timer(Duration(milliseconds: pack?.playOf(anim) ?? anim.durationMs), () {
+      if (mounted) setState(() => _variant = null);
+    });
   }
 
   bool get _reduced => AppMotion.reduced(context);
@@ -1118,9 +1143,27 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
       _play(pack.animFor(PetStateName.attention));
       return;
     }
+    if (_taps.length >= PetMetrics.annoyedTaps && pack.reactions.containsKey('annoyed')) {
+      // Tapped through a whole tickle and on: that is enough.
+      _taps.clear();
+      HapticFeedback.heavyImpact();
+      _play(pack.reactionOutOf('annoyed', PetLayer.random));
+      return;
+    }
+    if (_taps.length >= PetMetrics.tickleTaps) {
+      // Tapping on keeps the tickle going.
+      HapticFeedback.lightImpact();
+      _play(pack.reactionOutOf('tickle', PetLayer.random));
+      return;
+    }
+    final tickling = _reaction;
+    if (tickling != null && (pack.reactions['tickle']?.contains(tickling.name) ?? false)) {
+      _play(pack.reactionOutOf('tickle', PetLayer.random));
+      return;
+    }
     HapticFeedback.selectionClick();
     final left = details.localPosition.dx < pack.anchorX * _scale;
-    _play(pack.reaction(left ? 'tapLeft' : 'tapRight'));
+    _play(pack.reactionOutOf(left ? 'tapLeft' : 'tapRight', PetLayer.random));
   }
 
   Offset _clampFree(Offset point) {
@@ -1397,7 +1440,7 @@ class PetLayerState extends ConsumerState<PetLayer> with TickerProviderStateMixi
     // What the state itself plays, walks and one-offs aside. A pet that eats
     // chews on a reasoning as it streams.
     final own =
-        (pet.state == PetStateName.idle || pet.state == PetStateName.attention ? _variant : null) ??
+        _variant ??
         (reply && pet.state == PetStateName.thinking
             ? pack.animFor(PetStateName.working, tier: 1)
             : pack.animFor(pet.state, tier: pet.tier));

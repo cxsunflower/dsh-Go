@@ -9,6 +9,7 @@ plugin-manager-active-run-guard.diff
 plugin-manager-cancel-tree-confirmation.diff
 preset-legacy-delegation.diff
 route-guard.diff
+client-hmr-closed-response.diff
 schemastery-json-context.diff
 session-title-word-prefix.diff
 str-editor-view-prefix.diff
@@ -106,6 +107,7 @@ zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-workspace-capture-recovery.diff
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-fs-parent-kind.diff
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-fs-line-style.diff
 fs-create-link-denial.diff
+fs-publication-short-names.diff
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-fs-patch-equal-width.diff
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-instruction-encoding-reuse.diff
 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-str-editor-bom.diff
@@ -135,3 +137,14 @@ terminal-job-cancel.diff
 provider-discovery-headers.diff
 session-format-error.diff
 session-queue-steer-deletion.diff
+webserver-resource-abort.diff
+rrule-negative-position-range.diff
+rrule-weekly-first-period.diff
+rrule-mixed-byday.diff
+input-trigger-source-recovery.diff
+web-preset-save-freshness.diff
+web-search-key-write-result.diff
+deepseek-attachment-error.diff
+fork-default-effort.diff
+config-editor-lock-order.diff
+piai-overflow-output-limit.diff

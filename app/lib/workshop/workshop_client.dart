@@ -12,16 +12,16 @@ import 'workshop_http.dart';
 import 'workshop_models.dart';
 
 /// This does not obtain consent. The UI constructs it only after explaining
-/// which Worker will receive this account's key and obtaining confirmation.
-/// Neither this class nor WorkshopClient serializes or stores the credential.
+/// which Worker will receive this account's GitHub token and obtaining
+/// confirmation. Neither this class nor WorkshopClient serializes or stores it.
 class WorkshopCredential {
-  WorkshopCredential.forConsentedWorker({required Uri worker, required Uri forum, required String userApiKey, required bool disclosureAccepted})
-    : worker = workshopOrigin(worker), forum = workshopOrigin(forum), _key = userApiKey {
+  WorkshopCredential.forConsentedWorker({required Uri worker, required Uri account, required String token, required bool disclosureAccepted})
+    : worker = workshopOrigin(worker), account = workshopOrigin(account), _token = token {
     if (!disclosureAccepted) workshopInvalid('workshop_consent_required');
-    if (!RegExp(r'^[!-~]{1,512}$').hasMatch(userApiKey)) workshopInvalid('workshop_forum_auth_required');
+    if (!RegExp(r'^[A-Za-z0-9_]{1,255}$').hasMatch(token)) workshopInvalid('workshop_account_auth_required');
   }
-  final Uri worker, forum;
-  final String _key;
+  final Uri worker, account;
+  final String _token;
   @override
   String toString() => 'WorkshopCredential(redacted)';
 }
@@ -57,6 +57,9 @@ class WorkshopClient {
     : origin = workshopOrigin(origin), http = http ?? IoWorkshopHttp(origin), _clock = clock ?? DateTime.now;
   final Uri origin;
   final File cacheFile;
+  /// No request or credential is involved. Entry parsing already checked the
+  /// exact path; the same normalized origin is used for package downloads.
+  Uri? publicPreviewUri(WorkshopEntry entry) => entry.preview == null ? null : origin.resolve(entry.preview!.path);
   final WorkshopHttp http;
   final DateTime Function() _clock;
   // Provider replacement does not make the previous client's pending disk
@@ -123,7 +126,10 @@ class WorkshopClient {
           (map['etag'] is! String || (map['etag'] as String).length > 512 || RegExp(r'[\r\n]').hasMatch(map['etag'] as String))) {
         workshopInvalid('workshop_cache_invalid');
       }
-      state.copy = _CatalogCopy(WorkshopCatalog.fromJson(map['catalog']), workshopTime(map['fetchedAt']), map['etag'] as String?);
+      // Older writers dropped unknown preview fields but kept the new ETag.
+      // Retain their text for offline browsing, then require a complete 200.
+      final etag = map['previewSchema'] == 1 ? map['etag'] as String? : null;
+      state.copy = _CatalogCopy(WorkshopCatalog.fromJson(map['catalog']), workshopTime(map['fetchedAt']), etag);
       state.issue = null;
     } on FileSystemException {
       state.loaded = false;
@@ -137,7 +143,7 @@ class WorkshopClient {
     final temporary = File('${cacheFile.path}.part');
     try {
       await cacheFile.parent.create(recursive: true);
-      await temporary.writeAsString(jsonEncode({'schema': 1, 'origin': origin.toString(), 'etag': copy.etag,
+      await temporary.writeAsString(jsonEncode({'schema': 1, 'previewSchema': 1, 'origin': origin.toString(), 'etag': copy.etag,
         'fetchedAt': copy.fetchedAt.toUtc().toIso8601String(), 'catalog': copy.catalog.toJson()}), flush: true);
       await temporary.rename(cacheFile.path);
       state.issue = null;
@@ -158,7 +164,7 @@ class WorkshopClient {
       String? etag;
       if (response.status == 304) {
         await response.discard();
-        if (state.copy == null) workshopInvalid('workshop_bad_catalog');
+        if (state.copy?.etag == null) workshopInvalid('workshop_bad_catalog');
         catalog = state.copy!.catalog;
         etag = state.copy!.etag;
       } else {
@@ -195,8 +201,8 @@ class WorkshopClient {
   Future<Map<String, String>> _identity(WorkshopCredential credential, {WorkshopCapabilities? capabilities}) async {
     if (credential.worker != origin) workshopInvalid('workshop_consent_required');
     final caps = capabilities ?? await this.capabilities();
-    if (caps.forumOrigin != credential.forum) workshopInvalid('workshop_forum_origin');
-    return {'User-Api-Key': credential._key, 'X-Workshop-Forum-Origin': credential.forum.toString()};
+    if (caps.account.origin != credential.account) workshopInvalid('workshop_account_origin');
+    return {'Authorization': 'Bearer ${credential._token}', 'X-Workshop-Account-Origin': credential.account.toString()};
   }
 
   Future<Object?> _json(String method, String path, {Map<String, String> headers = const {}, Object? body,
@@ -218,7 +224,7 @@ class WorkshopClient {
 
   WorkshopSubmission _submission(Object? json, WorkshopCredential credential) {
     final result = WorkshopSubmission.fromJson(workshopMap(json)['submission']);
-    if (result.ownerOrigin != credential.forum) workshopInvalid();
+    if (result.ownerOrigin != credential.account) workshopInvalid();
     return result;
   }
 
@@ -238,6 +244,9 @@ class WorkshopClient {
       if (metadata.kind == 'companion' && !caps.features.companion) workshopInvalid('workshop_companion_disabled');
       if (!caps.kinds.contains(metadata.kind) || !metadata.supported) workshopInvalid('workshop_unsupported_kind');
       if (!caps.licenses.contains(metadata.license) || metadata.size > caps.archiveBytes) workshopInvalid('workshop_bad_metadata');
+      if (metadata.previewSource case final source?) {
+        if (!(caps.preview?.sources.contains(source) ?? false)) workshopInvalid('workshop_preview_unsupported');
+      }
       headers = await _identity(credential, capabilities: caps);
     } on Object catch (error) {
       final failure = workshopTransportError(error);
@@ -246,7 +255,11 @@ class WorkshopClient {
     }
     final result = await _json('POST', '/api/workshop/v1/submissions', headers: headers,
       body: {'requestId': requestId, ...metadata.toJson()});
-    return _mutationResult(() => _submission(result, credential));
+    return _mutationResult(() {
+      final submission = _submission(result, credential);
+      if (submission.metadata.previewSource != metadata.previewSource) workshopInvalid();
+      return submission;
+    });
   }
 
   Future<WorkshopSubmission> submission(String id, {required WorkshopCredential credential}) async {
@@ -264,7 +277,7 @@ class WorkshopClient {
     final rows = map['submissions'], next = map['nextCursor'];
     if (rows is! List || rows.length > limit || next != null && (next is! String || !RegExp(r'^[a-f0-9]{32}$').hasMatch(next))) workshopInvalid();
     final parsed = rows.map(WorkshopSubmission.fromJson).toList();
-    if (parsed.any((s) => s.ownerOrigin != credential.forum)) workshopInvalid();
+    if (parsed.any((s) => s.ownerOrigin != credential.account)) workshopInvalid();
     return WorkshopSubmissionPage(List.unmodifiable(parsed), next as String?);
   }
 

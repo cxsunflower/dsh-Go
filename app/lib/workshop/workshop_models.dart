@@ -1,8 +1,12 @@
 // The v1 wire contract is services/share-worker/docs/workshop-api.md.
 // Nothing here reads credentials, local preferences or a widget tree.
 
-const workshopArchiveBytes = 20 * 1024 * 1024;
-const workshopExpandedBytes = 64 * 1024 * 1024;
+const workshopArchiveBytes = 50 * 1024 * 1024;
+const workshopExpandedBytes = 128 * 1024 * 1024;
+const workshopPreviewSide = 512;
+const workshopPreviewPixels = 262144;
+const workshopPreviewBytes = 2 * 1024 * 1024;
+const workshopPreviewSources = {'pet': 'pet-idle', 'companion': 'companion-preview'};
 const workshopLicenses = {
   'CC0-1.0', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'MIT', 'Apache-2.0',
   'BSD-2-Clause', 'BSD-3-Clause', 'LicenseRef-Author-Permission',
@@ -148,31 +152,38 @@ class WorkshopMetadata {
       minApp = value['minApp'] as String, title = Map.unmodifiable((value['title'] as Map).cast<String, String>()),
       author = value['author'] as String, license = value['license'] as String, source = value['source'] as String,
       sha256 = value['sha256'] as String, size = value['size'] as int, description = value['description'] as String,
-      tags = List.unmodifiable((value['tags'] as List).cast<String>());
+      tags = List.unmodifiable((value['tags'] as List).cast<String>()),
+      previewSource = value['previewSource'] as String?;
 
   factory WorkshopMetadata.fromJson(Object? value, {bool submission = true}) {
     final m = workshopMap(value), title = m['title'];
     final description = m.containsKey('description') ? m['description'] : '';
     final tags = m.containsKey('tags') ? m['tags'] : const <String>[];
     final supported = const {'pet', 'companion'}.contains(m['kind']);
+    // Unknown public kinds retain their existing unsupported-kind projection;
+    // this client does not interpret their future preview source modes.
+    final previewSource = supported ? m['previewSource'] : null;
     if (!workshopId(m['kind']) || !workshopId(m['id']) || WorkshopVersion.tryParse(m['version']) == null ||
         WorkshopVersion.tryParse(m['minApp']) == null || title is! Map ||
         !workshopText(title['zh'], 120) || !workshopText(title['en'], 120) ||
         !workshopText(m['author'], 256) || !workshopText(m['license'], 100) || !workshopSource(m['source']) ||
         !workshopHash(m['sha256']) || m['size'] is! int || (m['size'] as int) < 1 ||
         (m['size'] as int) > 9007199254740991 || supported &&
-        (!workshopLicenses.contains(m['license']) || (m['size'] as int) > workshopArchiveBytes) || submission &&
+        (!workshopLicenses.contains(m['license']) || submission && (m['size'] as int) > workshopArchiveBytes) || submission &&
         (m['rightsConfirmed'] != true || !supported) ||
         description != '' && !workshopText(description, 512) || tags is! List || tags.length > 8 ||
-        tags.any((tag) => !workshopText(tag, 32)) || tags.toSet().length != tags.length) {
+        tags.any((tag) => !workshopText(tag, 32)) || tags.toSet().length != tags.length ||
+        supported && m.containsKey('previewSource') && previewSource != workshopPreviewSources[m['kind']]) {
       workshopInvalid(submission ? 'workshop_bad_metadata' : 'workshop_bad_catalog');
     }
-    return WorkshopMetadata._({...m, 'title': {'zh': title['zh'], 'en': title['en']}, 'description': description, 'tags': tags});
+    return WorkshopMetadata._({...m, 'title': {'zh': title['zh'], 'en': title['en']}, 'description': description,
+      'tags': tags, 'previewSource': previewSource});
   }
   final String kind, id, version, minApp, author, license, source, sha256, description;
   final Map<String, String> title;
   final List<String> tags;
   final int size;
+  final String? previewSource;
   String get identity => '$kind/$id';
   String get release => '$identity/$version';
   bool get supported => kind == 'pet' || kind == 'companion';
@@ -182,23 +193,47 @@ class WorkshopMetadata {
     'author': author, 'license': license, 'source': source, 'sha256': sha256, 'size': size,
     if (description.isNotEmpty) 'description': description,
     if (tags.isNotEmpty) 'tags': tags,
+    if (previewSource != null) 'previewSource': previewSource,
     if (submission) 'rightsConfirmed': true,
   };
 }
 
+/// A registered public PNG. Its path is bound to this exact archive and image.
+class WorkshopPreview {
+  WorkshopPreview._(this.path, this.sha256, this.size, this.width, this.height);
+  factory WorkshopPreview.fromJson(Object? value, {required WorkshopMetadata metadata}) {
+    final m = workshopMap(value), hash = m['sha256'];
+    final size = m['size'], width = m['width'], height = m['height'];
+    if (!workshopHash(hash) || size is! int || size < 1 || size > workshopPreviewBytes ||
+        width is! int || width < 1 || width > workshopPreviewSide ||
+        height is! int || height < 1 || height > workshopPreviewSide ||
+        width * height > workshopPreviewPixels ||
+        m['path'] != '/market/workshop/${metadata.release}/${metadata.sha256}/preview/$hash.png') {
+      workshopInvalid();
+    }
+    return WorkshopPreview._(m['path'] as String, hash as String, size, width, height);
+  }
+  final String path, sha256;
+  final int size, width, height;
+  Map<String, Object?> toJson() => {'path': path, 'sha256': sha256, 'size': size, 'width': width, 'height': height};
+}
+
 class WorkshopEntry {
-  WorkshopEntry._(this.metadata, this.blockedVersions);
+  WorkshopEntry._(this.metadata, this.blockedVersions, this.preview);
   factory WorkshopEntry.fromJson(Object? value) {
     final m = workshopMap(value), meta = WorkshopMetadata.fromJson(value, submission: false), blocked = m['blockedVersions'];
     if (m['url'] != meta.archivePath || blocked is! List || blocked.length > 4000 ||
         blocked.any((v) => WorkshopVersion.tryParse(v) == null) || blocked.toSet().length != blocked.length) {
       workshopInvalid('workshop_bad_catalog');
     }
-    return WorkshopEntry._(meta, Set.unmodifiable(blocked.cast<String>()));
+    return WorkshopEntry._(meta, Set.unmodifiable(blocked.cast<String>()),
+      meta.supported && m.containsKey('preview') ? WorkshopPreview.fromJson(m['preview'], metadata: meta) : null);
   }
   final WorkshopMetadata metadata;
   final Set<String> blockedVersions;
-  Map<String, Object?> toJson() => {...metadata.toJson(submission: false), 'url': metadata.archivePath, 'blockedVersions': blockedVersions.toList()};
+  final WorkshopPreview? preview;
+  Map<String, Object?> toJson() => {...metadata.toJson(submission: false), 'url': metadata.archivePath,
+    'blockedVersions': blockedVersions.toList(), if (preview != null) 'preview': preview!.toJson()};
 }
 
 class WorkshopWithdrawal {
@@ -219,10 +254,13 @@ class WorkshopWithdrawal {
 class WorkshopCatalog {
   WorkshopCatalog._(this.generatedAt, this.features, this.entries, this.withdrawn);
   factory WorkshopCatalog.fromJson(Object? value) {
-    final m = workshopMap(value), rows = m['entries'], gone = m['withdrawn'];
-    if (m['schema'] != 1 || rows is! List || rows.length > 1000 || gone is! List || gone.length > 4000) {
+    // Entries over 20 MiB come in largeEntries, which apps from before the
+    // 50 MiB cap ignore (one such entry made their whole catalog invalid).
+    final m = workshopMap(value), small = m['entries'], large = m['largeEntries'] ?? const <Object?>[], gone = m['withdrawn'];
+    if (m['schema'] != 1 || small is! List || large is! List || small.length + large.length > 1000 || gone is! List || gone.length > 4000) {
       workshopInvalid('workshop_bad_catalog');
     }
+    final rows = [...small, ...large];
     final entries = rows.map(WorkshopEntry.fromJson).toList(), withdrawals = gone.map(WorkshopWithdrawal.fromJson).toList();
     if (entries.map((e) => e.metadata.identity).toSet().length != entries.length ||
         withdrawals.map((e) => e.release).toSet().length != withdrawals.length) {
@@ -244,43 +282,81 @@ class WorkshopCatalog {
     final installedApp = WorkshopVersion.tryParse(appVersion.split('+').first);
     if (installedApp == null) return 'workshop_app_version_unknown';
     if (installedApp.compareTo(WorkshopVersion.tryParse(m.minApp)!) < 0) return 'workshop_min_app';
+    // The server may take larger uploads than this build: such an entry waits
+    // for an update instead of making the whole catalog unreadable.
+    if (m.size > workshopArchiveBytes) return 'workshop_app_too_old';
     return null;
   }
   Map<String, Object?> toJson() => {'schema': 1, 'generatedAt': generatedAt.toUtc().toIso8601String(), 'features': features.toJson(), 'entries': entries.map((e) => e.toJson()).toList(), 'withdrawn': withdrawn.map((e) => e.toJson()).toList()};
 }
 
+class WorkshopPreviewCapabilities {
+  WorkshopPreviewCapabilities._(this.sources);
+  factory WorkshopPreviewCapabilities.fromJson(Object? value) {
+    final m = workshopMap(value), sources = m['sources'];
+    if (m['schema'] != 1 || m['format'] != 'png' ||
+        m['maxWidth'] != workshopPreviewSide || m['maxHeight'] != workshopPreviewSide ||
+        m['maxPixels'] != workshopPreviewPixels || m['maxBytes'] != workshopPreviewBytes ||
+        sources is! List || sources.any((source) => !workshopId(source)) ||
+        sources.toSet().length != sources.length) {
+      workshopInvalid();
+    }
+    return WorkshopPreviewCapabilities._(Set.unmodifiable(sources.cast<String>()));
+  }
+  final Set<String> sources;
+}
+
+/// Where authors sign in. A null [clientId] means this deployment has not
+/// registered a GitHub OAuth App, so nobody can sign in to it yet.
+class WorkshopAccountCapabilities {
+  WorkshopAccountCapabilities._(this.origin, this.clientId);
+  factory WorkshopAccountCapabilities.fromJson(Object? value) {
+    final m = workshopMap(value), origin = m['origin'], clientId = m['clientId'];
+    if (origin is! String || clientId != null && (clientId is! String ||
+        !RegExp(r'^[A-Za-z0-9._-]{1,64}$').hasMatch(clientId))) {
+      workshopInvalid();
+    }
+    final parsed = Uri.tryParse(origin);
+    if (parsed == null) workshopInvalid();
+    return WorkshopAccountCapabilities._(workshopOrigin(parsed), clientId as String?);
+  }
+  final Uri origin;
+  final String? clientId;
+}
+
 class WorkshopCapabilities {
-  WorkshopCapabilities._(this.features, this.kinds, this.licenses, this.forumOrigin, this.archiveBytes, this.expandedBytes, this.maxMocVersion);
+  WorkshopCapabilities._(this.features, this.kinds, this.licenses, this.account, this.archiveBytes,
+    this.expandedBytes, this.maxMocVersion, this.preview);
   factory WorkshopCapabilities.fromJson(Object? value) {
     final m = workshopMap(value), limits = workshopMap(m['limits']);
-    final kinds = m['kinds'], licenses = m['licenses'], origin = m['forumOrigin'];
+    final kinds = m['kinds'], licenses = m['licenses'];
     if (m['schema'] != 1 || kinds is! List || kinds.any((k) => !workshopId(k)) || licenses is! List ||
-        licenses.any((k) => !workshopText(k, 100)) || origin is! String || limits['archiveBytes'] is! int ||
+        licenses.any((k) => !workshopText(k, 100)) || limits['archiveBytes'] is! int ||
         (limits['archiveBytes'] as int) < 1 || limits['expandedBytes'] is! int || (limits['expandedBytes'] as int) < 1 ||
         m['maxMocVersion'] is! int || (m['maxMocVersion'] as int) < 1) {
       workshopInvalid();
     }
-    final parsedOrigin = Uri.tryParse(origin);
-    if (parsedOrigin == null) workshopInvalid();
     return WorkshopCapabilities._(WorkshopFeatures.fromJson(m['features']), Set.unmodifiable(kinds.cast<String>()), Set.unmodifiable(licenses.cast<String>()),
-      workshopOrigin(parsedOrigin), limits['archiveBytes'] as int, limits['expandedBytes'] as int, m['maxMocVersion'] as int);
+      WorkshopAccountCapabilities.fromJson(m['account']), limits['archiveBytes'] as int, limits['expandedBytes'] as int, m['maxMocVersion'] as int,
+      m.containsKey('preview') ? WorkshopPreviewCapabilities.fromJson(m['preview']) : null);
   }
   final WorkshopFeatures features;
   final Set<String> kinds, licenses;
-  final Uri forumOrigin;
+  final WorkshopAccountCapabilities account;
   final int archiveBytes, expandedBytes, maxMocVersion;
+  final WorkshopPreviewCapabilities? preview;
 }
 
 enum WorkshopSubmissionStatus { draft, pending, approved, rejected, withdrawn }
 
 class WorkshopSubmission {
   WorkshopSubmission._(this.id, this.metadata, this.status, this.createdAt, this.updatedAt, this.ownerOrigin,
-      this.ownerId, this.username, this.reviewReason, this.withdrawalReason);
+      this.ownerId, this.username, this.reviewReason, this.withdrawalReason, this.preview);
   factory WorkshopSubmission.fromJson(Object? value) {
     final m = workshopMap(value), owner = workshopMap(m['owner']);
     final id = m['submissionId'], status = WorkshopSubmissionStatus.values.asNameMap()[m['status']];
     if (id is! String || !RegExp(r'^[a-f0-9]{32}$').hasMatch(id) || status == null ||
-        owner['forumUserId'] is! int || (owner['forumUserId'] as int) < 1 || !workshopText(owner['username'], 256) || owner['forumOrigin'] is! String) {
+        owner['accountId'] is! int || (owner['accountId'] as int) < 1 || !workshopText(owner['username'], 256) || owner['accountOrigin'] is! String) {
       workshopInvalid();
     }
     String? reason(Object? v) {
@@ -289,10 +365,12 @@ class WorkshopSubmission {
       if (!workshopText(r, 2000)) workshopInvalid();
       return r as String;
     }
-    final origin = Uri.tryParse(owner['forumOrigin'] as String);
+    final origin = Uri.tryParse(owner['accountOrigin'] as String);
     if (origin == null) workshopInvalid();
-    return WorkshopSubmission._(id, WorkshopMetadata.fromJson(m['metadata']), status, workshopTime(m['createdAt']), workshopTime(m['updatedAt']),
-      workshopOrigin(origin), owner['forumUserId'] as int, owner['username'] as String, reason(m['review']), reason(m['withdrawal']));
+    final metadata = WorkshopMetadata.fromJson(m['metadata']);
+    return WorkshopSubmission._(id, metadata, status, workshopTime(m['createdAt']), workshopTime(m['updatedAt']),
+      workshopOrigin(origin), owner['accountId'] as int, owner['username'] as String, reason(m['review']), reason(m['withdrawal']),
+      m.containsKey('preview') ? WorkshopPreview.fromJson(m['preview'], metadata: metadata) : null);
   }
   final String id;
   final WorkshopMetadata metadata;
@@ -302,6 +380,7 @@ class WorkshopSubmission {
   final int ownerId;
   final String username;
   final String? reviewReason, withdrawalReason;
+  final WorkshopPreview? preview;
 }
 
 class WorkshopSubmissionPage {

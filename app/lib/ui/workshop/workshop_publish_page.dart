@@ -4,23 +4,26 @@
 // A form page (docs/design/page-design.md §1 D) that is a different step
 // depending on what the state layer says, in this order:
 //
-//   the workshop is not taking submissions → sign in to the forum →
+//   the workshop is not taking submissions → sign in with GitHub →
 //   the credential disclosure → is there an unfinished submission? →
 //   pick a source → fill in the form → look at what was packed, tick the
 //   rights box → sending → the result
 //
 // Every step is drawn from workshopAccessProvider and workshopPublishProvider;
-// the page keeps only the unsent form text and which step the person chose
-// to look at. An unfinished submission is always shown before a new one can
-// start, and when a result is unknown the only thing offered is asking again
-// about the same request: nothing here can send a second one in its place.
+// the page keeps only the unsent form text, the picked cover's bytes (for
+// its thumbnail) and which step the person chose to look at. An unfinished
+// submission is always shown before a new one can start, and when a result
+// is unknown the only thing offered is asking again about the same request:
+// nothing here can send a second one in its place. When the phone's record
+// of it cannot be used at all, the person may let go of that record
+// (workshop_publish_recovery.dart); that is said to be local, and is never
+// worded as cancelling.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../forum/forum_auth.dart';
 import '../../l10n/l10n.dart';
 import '../../state/attachments.dart' show formatBytes;
 import '../../state/workshop_auth_state.dart';
@@ -28,17 +31,20 @@ import '../../state/workshop_publication.dart';
 import '../../state/workshop_publish_sources.dart';
 import '../../state/workshop_publish_state.dart';
 import '../../workshop/workshop_models.dart';
+import '../../workshop/workshop_preview.dart';
 import '../common/brief_notice.dart';
 import '../common/discard_guard.dart';
 import '../common/empty_view.dart';
 import '../common/list_page_row.dart';
-import '../forum/forum_account_sheet.dart' show showForumAccountSheet;
 import '../settings/settings_widgets.dart' show SettingsSection;
 import '../theme/app_icons.dart';
 import '../theme/theme.dart';
 import 'workshop_disclosure.dart';
 import 'workshop_publish_form.dart';
+import 'workshop_publish_preview.dart';
+import 'workshop_publish_recovery.dart';
 import 'workshop_publish_text.dart';
+import 'workshop_sign_in.dart';
 import 'workshop_text.dart';
 import 'workshop_widgets.dart';
 
@@ -89,10 +95,20 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
   /// How many times this visit asked again about an unknown result.
   int _rechecks = 0;
 
+  /// The companion cover the person picked, kept for its thumbnail. Only
+  /// drawn while its input is the one the state layer has ([_coverOf]).
+  WorkshopCover? _cover;
+
+  /// The let-go offer whose dialog was already shown, so one offer asks once.
+  WorkshopPendingAbandonOffer? _letGoAsked;
+
   @override
   void initState() {
     super.initState();
     final publish = ref.read(workshopPublishProvider);
+    // An offer left from an earlier visit is not asked about out of nowhere:
+    // 「放下这条记录」 gets a fresh one.
+    _letGoAsked = publish.abandonOffer;
     final status = publish.result?.status;
     if (publish.phase == WorkshopPublishPhase.complete &&
         !publish.hasPending &&
@@ -111,7 +127,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
       access.capabilities != null &&
       access.signedIn &&
       access.disclosureAccepted &&
-      access.forumUserId != null;
+      access.accountId != null;
 
   // Outside the provider's own notification: the check changes its state.
   void _scheduleRestore() => scheduleMicrotask(() {
@@ -137,25 +153,35 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
         _seed = null;
         _carry = null;
         _rechecks = 0;
+        _cover = null;
         _formEpoch++;
       });
+      _letGoAsked = null;
+    }
+    final offer = now.abandonOffer;
+    if (offer != null && !identical(offer, _letGoAsked)) {
+      _letGoAsked = offer;
+      unawaited(_askLetGo(offer));
     }
     _scheduleRestore();
   }
 
+  WorkshopCover? _coverOf(WorkshopPublishState publish) =>
+      _cover != null && identical(publish.source?.preview, _cover!.input) ? _cover : null;
+
   _Step _stepOf(WorkshopAccessState access, WorkshopPublishState publish) {
-    if (access.forumRestoring || access.loading && access.capabilities == null) return _Step.loading;
+    if (access.accountRestoring || access.loading && access.capabilities == null) return _Step.loading;
     final stale = access.error?.code == 'workshop_confirmation_stale';
     final reoffer = stale && access.disclosure != null && !access.disclosureAccepted;
     if (access.error != null && !reoffer) return _Step.unreachable;
     if (access.capabilities == null) return _Step.loading;
-    final known = access.signedIn && access.disclosureAccepted && access.forumUserId != null;
+    final known = access.signedIn && access.disclosureAccepted && access.accountId != null;
     // With uploads off there is no reason to sign in or consent; an account
     // already through both may still have something unfinished to look at.
     if (!access.uploadsEnabled && !known) return _Step.closed;
     if (!access.signedIn) return _Step.signIn;
     if (!access.disclosureAccepted) return access.disclosure == null ? _Step.loading : _Step.disclosure;
-    if (access.forumUserId == null) return _Step.profile;
+    if (access.accountId == null) return _Step.profile;
     if (!publish.pendingChecked) {
       final asked = identical(_restoreAsked, publish.session);
       return publish.working || !asked || access.loading ? _Step.loading : _Step.checkFailed;
@@ -188,11 +214,17 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
       showBriefNotice(context, refusal == null ? l10n.workshopErrorBusy : workshopPublishErrorText(l10n, refusal));
       return;
     }
+    // A pet goes with its preview unless the person turns it off. A
+    // companion starts without a cover, whatever the last one had.
+    if (source.kind == 'pet' && workshopTakesPreview(ref.read(workshopAccessProvider), source.kind)) {
+      workshopPublishSetPreview(context, ref, const WorkshopPreviewInput.petIdle());
+    }
     setState(() {
       _seed = _carry?.kind == source.kind ? _carry!.input : null;
       _carry = null;
       _seenResult = null;
       _editing = false;
+      _cover = null;
       _formEpoch++;
     });
   }
@@ -250,6 +282,44 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
     });
   }
 
+  /// Only reads the phone's record; when it can be let go, the offer that
+  /// appears is asked about in [_askLetGo].
+  Future<void> _letGo() async {
+    final before = ref.read(workshopPublishProvider).error;
+    await ref.read(workshopPublishProvider.notifier).requestPendingAbandonment();
+    if (mounted) workshopPublishNoticeDeclined(context, ref.read(workshopPublishProvider), before);
+  }
+
+  /// Asks about [offer] and, on 「放下记录」, hands the same object back. Only
+  /// the phone's record goes: nothing is sent to the workshop, and nothing
+  /// here says the submission was cancelled.
+  Future<void> _askLetGo(WorkshopPendingAbandonOffer offer) async {
+    final l10n = context.l10n;
+    final before = ref.read(workshopPublishProvider);
+    if (!await showWorkshopLetGoDialog(context, offer, resultKnown: before.result != null) || !mounted) return;
+    await ref.read(workshopPublishProvider.notifier).confirmPendingAbandonment(offer);
+    if (!mounted) return;
+    final after = ref.read(workshopPublishProvider);
+    if (after.recoveryError != null) return; // Said in place, beside the action.
+    if (after.abandonOffer != null) {
+      // Not started: something else was running.
+      showBriefNotice(context, l10n.workshopErrorBusy);
+      return;
+    }
+    showBriefNotice(context, l10n.workshopPublishLetGoDone);
+    // A known result stays on screen. Otherwise the details are editable
+    // again: in the form when the source is still chosen, and carried to
+    // the next form when a record from an earlier visit had none.
+    if (after.result != null) return;
+    final kind = before.preparedMetadata?.kind;
+    setState(() {
+      _carry = after.source == null && kind != null ? (kind: kind, input: after.input) : null;
+      _seed = null;
+      _editing = true;
+      _formEpoch++;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -291,12 +361,12 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
         );
       case _Step.signIn:
         return _Statement(
-          icon: AppIcons.forum,
+          icon: AppIcons.profile,
           title: l10n.workshopPublishSignInTitle,
           message: l10n.workshopPublishSignInMessage,
-          actionLabel: l10n.remoteForumSignIn,
-          // The forum's own sign-in; this page only waits for its outcome.
-          onAction: () => unawaited(showForumAccountSheet(context)),
+          actionLabel: l10n.workshopSignInTitle,
+          // The sign-in sheet's own flow; this page only waits for its outcome.
+          onAction: () => unawaited(showWorkshopSignInSheet(context)),
         );
       case _Step.disclosure:
         return WorkshopPublishFrame(
@@ -315,7 +385,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
           title: l10n.workshopPublishProfileTitle,
           message: l10n.workshopPublishProfileMessage,
           actionLabel: l10n.commonRetry,
-          onAction: () => unawaited(ref.read(forumAuthProvider.notifier).refreshUser()),
+          onAction: () => unawaited(ref.read(workshopAccessProvider.notifier).refresh()),
         );
       case _Step.checkFailed:
         final error = publish.error;
@@ -329,6 +399,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
               : workshopPublishErrorText(l10n, error),
           actionLabel: l10n.commonRetry,
           onAction: () => unawaited(ref.read(workshopPublishProvider.notifier).restorePending()),
+          below: WorkshopPublishLetGo(publish: publish, onLetGo: () => unawaited(_letGo()), centered: true),
         );
       case _Step.sending:
         return WorkshopPublishFrame(children: [...notes, _Sending(publish: publish)]);
@@ -340,6 +411,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
           onSendAgain: () => unawaited(_sendAgain()),
           onClearRecord: () => unawaited(_resume()),
           onClearFiles: () => unawaited(ref.read(workshopPublishProvider.notifier).retryCleanup()),
+          onLetGo: () => unawaited(_letGo()),
         );
       case _Step.unfinished:
         return _Unfinished(
@@ -349,6 +421,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
           onResume: () => unawaited(_resume()),
           onEdit: () => unawaited(_editUnsent()),
           onTick: () => workshopPublishTickRights(context, ref),
+          onLetGo: () => unawaited(_letGo()),
         );
       case _Step.sources:
         return WorkshopPublishFrame(
@@ -369,6 +442,8 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
           key: ValueKey(_formEpoch),
           source: publish.source!,
           seed: _seed ?? publish.input,
+          cover: _coverOf(publish),
+          onCover: (cover) => setState(() => _cover = cover),
           notes: notes,
           onChangeSource: () => unawaited(_changeSource()),
           // From here the state layer has the details: a later look at the
@@ -380,6 +455,7 @@ class _WorkshopPublishPageState extends ConsumerState<WorkshopPublishPage> {
         );
       case _Step.review:
         return WorkshopPublishReview(
+          cover: _coverOf(publish),
           notes: notes,
           onEdit: () => setState(() => _editing = true),
           onSubmit: () => unawaited(_submit()),
@@ -416,15 +492,23 @@ class _Waiting extends StatelessWidget {
 }
 
 /// A step that only says something: one glyph, one line, a short reason and
-/// at most one button.
+/// at most one button. [below] is for a quiet second way on, under it.
 class _Statement extends StatelessWidget {
-  const _Statement({required this.icon, required this.title, this.message, this.actionLabel, this.onAction});
+  const _Statement({
+    required this.icon,
+    required this.title,
+    this.message,
+    this.actionLabel,
+    this.onAction,
+    this.below,
+  });
 
   final IconData icon;
   final String title;
   final String? message;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final Widget? below;
 
   @override
   Widget build(BuildContext context) => WorkshopPublishFrame(
@@ -433,6 +517,7 @@ class _Statement extends StatelessWidget {
         padding: const EdgeInsets.only(top: 40),
         child: EmptyView(icon: icon, title: title, message: message, actionLabel: actionLabel, onAction: onAction),
       ),
+      ?below,
     ],
   );
 }
@@ -535,6 +620,7 @@ class _Result extends StatelessWidget {
     required this.onSendAgain,
     required this.onClearRecord,
     required this.onClearFiles,
+    required this.onLetGo,
   });
 
   final WorkshopPublishState publish;
@@ -543,6 +629,9 @@ class _Result extends StatelessWidget {
   final VoidCallback onSendAgain;
   final VoidCallback onClearRecord;
   final VoidCallback onClearFiles;
+
+  /// 「放下这条记录」, for when clearing the record keeps failing.
+  final VoidCallback onLetGo;
 
   @override
   Widget build(BuildContext context) {
@@ -590,6 +679,9 @@ class _Result extends StatelessWidget {
             // new submission: that is the step to try again.
             onAction: busy ? null : (publish.hasPending || !again ? onClearRecord : onSendAgain),
           ),
+        // The result is the workshop's and stays; only the phone's record
+        // of it is let go.
+        WorkshopPublishLetGo(publish: publish, onLetGo: onLetGo),
         if (publish.cleanupError != null)
           WorkshopNote(
             l10n.workshopPublishLeftovers,
@@ -614,6 +706,7 @@ class _Unfinished extends StatelessWidget {
     required this.onResume,
     required this.onEdit,
     required this.onTick,
+    required this.onLetGo,
   });
 
   final WorkshopPublishState publish;
@@ -627,6 +720,9 @@ class _Unfinished extends StatelessWidget {
   /// submission was never sent.
   final VoidCallback onEdit;
   final VoidCallback onTick;
+
+  /// 「放下这条记录」: the phone's record only, never the primary button.
+  final VoidCallback onLetGo;
 
   @override
   Widget build(BuildContext context) {
@@ -674,18 +770,18 @@ class _Unfinished extends StatelessWidget {
         // been taken back, going on needs it again.
         if (!publish.input.rightsConfirmed)
           WorkshopPublishRights(ticked: false, onTap: publish.working ? null : onTick, error: rightsError),
-        if (unsent)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton(
+        WorkshopPublishLetGo(
+          publish: publish,
+          onLetGo: onLetGo,
+          beside: [
+            if (unsent)
+              TextButton(
                 style: TextButton.styleFrom(minimumSize: const Size(48, 44)),
                 onPressed: onEdit,
                 child: Text(l10n.workshopPublishEditUnsent),
               ),
-            ),
-          ),
+          ],
+        ),
       ],
     );
   }

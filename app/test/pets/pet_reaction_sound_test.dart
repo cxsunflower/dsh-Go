@@ -84,15 +84,18 @@ Future<PetPack> _pump(
 }) async {
   final p = pack ?? diskPack('naiwa');
   usePhoneView(tester);
-  await warmSheets(tester, p, [
+  final poses = {
     p.animFor(PetStateName.idle),
     p.animFor(PetStateName.sleeping),
     p.animFor(PetStateName.waking),
-    p.reactions.values.map((name) => p.animations[name]!).first,
-    p.reactions['tapLeft'],
-    p.reactions['tapRight'],
-    p.reactions['tickle'],
-  ].whereType<PetAnimation>());
+    p.animFor(PetStateName.attention),
+    ...p.reactions.values.expand((names) => names).map((name) => p.animations[name]!),
+  };
+  // Keep these poses out of the three-sheet LRU while the test moves its clock.
+  for (final pose in poses) {
+    PetSheets.instance.pin(p, pose);
+  }
+  await warmSheets(tester, p, poses);
   await tester.pumpWidget(
     testApp(
       const ChatBottomHarness(),

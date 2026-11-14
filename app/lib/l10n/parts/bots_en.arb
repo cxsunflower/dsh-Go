@@ -354,6 +354,7 @@
   "botsPetRemoveBody": "You can import it again later.",
   "botsPetRemoveFailed": "Couldn't delete {name}. Try again",
   "botsPetSize": "Size",
+  "botsPetCustomSize": "Custom size",
   "botsPetQuiet": "Quiet mode",
   "botsPetQuietSubtitle": "Animations only, no bubbles",
   "botsPetSound": "Sounds",

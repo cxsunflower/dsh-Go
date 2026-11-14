@@ -117,7 +117,9 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 - 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `prone-eat`。
 - `holds`、`faces`（`front`）、`sounds`（`naiwa`）和 `snack.every` 按设计文档第 4 节写入 `pet.json`。
 
-`main` 中的 `carrying` 是上传与导入的预留状态，`petSignalsProvider` 尚未产生该信号。此包省略该状态及其计时，动画清单已移除 `carry`。其余 25 段分别由状态、档位、待机池、完成变体和交互入口触发。
+新版 App 已在导入宠物包时产生 `carrying` 信号，并在导入结束或失败后清除。此包保留精简后的 25 段动画，省略 `carrying` 及其计时，导入期间按协议回退到 `idle`。25 段分别由状态、档位、待机池、完成变体和交互入口触发；主线聊天页以三连点触发 `tickle`，包含奶蛙音效扩展的客户端保留双击播放 `laugh` 的交互。
+
+新版还支持反应变体（跨版本用 `tickle2` 等编号键）、非待机状态的 `bonus`、可选的六连点 `annoyed`，以及标准大小 50%–300% 的自定义尺寸。这些能力不要求宠物包补齐新字段；本包的单动画反应、完成变体和正面不镜像设置继续有效。
 
 ## 自检
 

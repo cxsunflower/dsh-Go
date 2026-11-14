@@ -59,6 +59,7 @@ class PetPrefs {
     this.packId = defaultPetId,
     this.packExplicit = true,
     this.size = PetSize.medium,
+    this.customHeight = 30,
     this.quiet = false,
     this.sound = true,
     this.position = defaultPosition,
@@ -77,6 +78,13 @@ class PetPrefs {
   final String packId;
   final bool packExplicit;
   final PetSize size;
+
+  /// 自定义's body height, dp, within [PetSize.customMin]–[PetSize.customMax].
+  /// Kept while a preset is chosen, so going back to 自定义 finds it again.
+  final double customHeight;
+
+  /// The body height to draw at, dp.
+  double get bodyHeight => size == PetSize.custom ? customHeight : size.bodyHeight;
 
   /// 「安静模式」: moves only, no bubbles.
   final bool quiet;
@@ -102,6 +110,7 @@ class PetPrefs {
     String? packId,
     bool? packExplicit,
     PetSize? size,
+    double? customHeight,
     bool? quiet,
     bool? sound,
     double? position,
@@ -115,6 +124,7 @@ class PetPrefs {
     packId: packId ?? this.packId,
     packExplicit: packExplicit ?? this.packExplicit,
     size: size ?? this.size,
+    customHeight: customHeight ?? this.customHeight,
     quiet: quiet ?? this.quiet,
     sound: sound ?? this.sound,
     position: position ?? this.position,
@@ -131,6 +141,7 @@ class PetPrefs {
       other.packId == packId &&
       other.packExplicit == packExplicit &&
       other.size == size &&
+      other.customHeight == customHeight &&
       other.quiet == quiet &&
       other.sound == sound &&
       other.position == position &&
@@ -145,6 +156,7 @@ class PetPrefs {
     packId,
     packExplicit,
     size,
+    customHeight,
     quiet,
     sound,
     position,
@@ -160,6 +172,7 @@ class PetPrefsController extends Notifier<PetPrefs> {
   static const keys = (
     pack: 'pet.pack',
     size: 'pet.size',
+    customHeight: 'pet.custom_height',
     quiet: 'pet.quiet',
     sound: 'pet.sound',
     position: 'pet.position',
@@ -212,6 +225,7 @@ class PetPrefsController extends Notifier<PetPrefs> {
             : noPetId,
         packExplicit: explicit,
         size: PetSize.fromName(prefs.getString(keys.size)),
+        customHeight: _customHeight(prefs.getDouble(keys.customHeight)),
         quiet: prefs.getBool(keys.quiet) ?? false,
         sound: prefs.getBool(keys.sound) ?? true,
         position: (prefs.getDouble(keys.position) ?? PetPrefs.defaultPosition).clamp(0.0, 1.0),
@@ -263,6 +277,15 @@ class PetPrefsController extends Notifier<PetPrefs> {
   }
 
   Future<void> setSize(PetSize v) => _save((s) => s.copyWith(size: v), (p) => p.setString(keys.size, v.name));
+
+  /// 自定义's height, dp; clamped to its range.
+  Future<void> setCustomHeight(double dp) {
+    final h = _customHeight(dp);
+    return _save((s) => s.copyWith(customHeight: h), (p) => p.setDouble(keys.customHeight, h));
+  }
+
+  static double _customHeight(double? dp) =>
+      dp == null || !dp.isFinite ? 30 : dp.clamp(PetSize.customMin, PetSize.customMax).toDouble();
   Future<void> setQuiet(bool v) => _save((s) => s.copyWith(quiet: v), (p) => p.setBool(keys.quiet, v));
   Future<void> setSound(bool v) => _save((s) => s.copyWith(sound: v), (p) => p.setBool(keys.sound, v));
 

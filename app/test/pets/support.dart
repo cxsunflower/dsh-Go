@@ -130,6 +130,9 @@ class FixedPetPrefs extends PetPrefsController {
   Future<void> setSize(PetSize v) async => state = state.copyWith(size: v);
 
   @override
+  Future<void> setCustomHeight(double dp) async => state = state.copyWith(customHeight: dp);
+
+  @override
   Future<void> setQuiet(bool v) async => state = state.copyWith(quiet: v);
 
   @override
@@ -349,7 +352,7 @@ double petScaleOn(WidgetTester tester, PetPack pack, [PetSize size = PetSize.med
   return switch (size) {
         PetSize.small => small,
         PetSize.medium => medium,
-        PetSize.large => large,
+        PetSize.large || PetSize.custom => large,
       } /
       dpr;
 }
