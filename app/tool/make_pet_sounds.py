@@ -6,12 +6,12 @@
 The inputs in app/tool/pet_src/naiwa/audio/ are already PCM16 mono 22050 Hz
 WAVs decoded from the addon's compiled sounds; sources.json pins the pak, each
 entry, and its SHA-256. Five clips are byte-for-byte copies. The laugh keeps
-its full 25.286531 s: its recording scores the whole laugh animation. Its
+its full 25.286531 s: the current silent pet pack does not play it. Its
 1,115,214 decoded PCM bytes would exceed SoundPool's one-megabyte limit, so
 only that clip is resampled to 11025 Hz mono PCM16 by this file's
 standard-library linear interpolation; every other clip stays at 22050 Hz.
 Every clip plays at gain 1 and rate 1; `ms` is its own length, rounded to the
-nearest millisecond, so a reaction keeps its pose until the recording ends.
+nearest millisecond. These resources are not registered in the app or shipped in the pet ZIP.
 """
 
 import argparse
@@ -40,7 +40,7 @@ CLIPS = {
     'dajiaosei': ('poke-left',),
     'diu': ('poke-right',),
     'andi': ('wake',),
-    'gagadilaxia': ('prone-eat',),
+    'gagadilaxia': ('prone',),
     'houla': ('alert',),
 }
 IDS = list(CLIPS)

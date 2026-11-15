@@ -2,16 +2,17 @@
 
 来自 github.com/cxsunflower，形象参考网络二创『奶蛙』用脚本重画，非官方，仓库不含任何参考图。
 
-经典黄色版本：梨形身体，头和身子连成一体，没有脖子；奶油色肚皮，浅绿色眼圈配黑瞳孔，灰褐色的小爪和脚。大笑时眼睛弯成两道弧，嘴巴张到半张脸那么大。所有帧都由 `draw.py` 用 numpy + Pillow 逐像素画出，不读取任何外部图片。动画清单和状态映射见 [docs/design/naiwa-pet.md](../../../../docs/design/naiwa-pet.md) 第 3、4 节。
+经典黄色版本：梨形身体，头和身子连成一体，没有脖子；奶油色肚皮，浅绿色眼圈配黑瞳孔，灰褐色的小爪和脚。大笑时眼睛弯成两道弧，嘴巴张到半张脸那么大。所有帧都由 `draw.py` 用 numpy + Pillow 逐像素画出，不读取任何外部图片。动画清单和状态映射见 [docs/design/naiwa-pet.md](../../../../docs/design/naiwa-pet.md) 第 2 节。
 
 ## 文件
 
 | 文件 | 说明 |
 |---|---|
 | `draw.py` | 生成脚本，唯一的源文件 |
-| `pet.json` | 由 `draw.py` 写出：帧时长、状态映射、档位、待机池、反应、`snack` |
+| `pet.json` | 由 `draw.py` 写出：帧时长、状态映射、档位、待机池与反应 |
 | `sheets/<anim>.png` | 由 `draw.py` 写出，1 倍单行横条，每帧 64×64，共 25 段 |
 | `docs/assets/naiwa-frames.png` | README 展示的全部 254 帧大图，由 `draw.py --preview` 生成 |
+| `docs/assets/naiwa/*.gif` | README 的 25 段动作预览，由 `draw.py --gallery` 按原时长生成，3 倍放大并循环展示 |
 
 `pet.json` 和 `sheets/` 是生成物，不要手改，改 `draw.py` 后重新生成。
 
@@ -24,7 +25,9 @@ python app/tool/pet_src/naiwa/draw.py              # 重画并写出 sheets/ 和
 python app/tool/pet_src/naiwa/draw.py --check      # 只在内存里重画并自检；磁盘上的文件过期也算失败
 python app/tool/pet_src/naiwa/draw.py --preview    # 另写全帧总览 app/build/pet_src_preview/naiwa.png
 python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png  # 更新 README 全帧大图
+python app/tool/pet_src/naiwa/draw.py --check --gallery docs/assets/naiwa  # 更新 README 全部 GIF 预览
 python app/tool/pet_src/naiwa/draw.py --strip laugh feast   # 另写单段放大图 app/build/pet_src_preview/naiwa/<anim>.png
+python app/tool/pet_src/naiwa/draw.py --check --strip prone --gif prone  # 逐帧图与原速 GIF 预览
 ```
 
 脚本不读时钟、不用随机数，两次运行的输出字节相同。打包试跑（只输出到 `app/build/`）：
@@ -38,7 +41,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 - 画布 64×64，透明像素一律是 `(0, 0, 0, 0)`，其余 alpha 都是 255，不抗锯齿。
 - 待机身体约 30×34：躯干最宽 30 像素（含描边），加上两侧小爪是 32 像素，占 x 16–47；高 34 像素，占 y 26–59。
 - 身体中轴 x = 32，脚底线 y = 60（最低的不透明行是 59）。待机各帧脚底线不变，不带离体道具。
-- `snack.mouth` = (32, 39)，是张大嘴（10×8 的 `eat` 嘴形）的中心。所有进食动画张嘴帧的嘴中心都在它 ±1 像素以内。
+- 直立进食的嘴中心是 (32, 39)，是张大嘴（10×8 的 `eat` 嘴形）的中心。直立进食动画的张嘴帧都在该中心 ±1 像素以内。趴行保持微笑，不张嘴进食。
 
 ## 调色板
 
@@ -96,30 +99,31 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `poke-left` | 8 | 900 ms | 左边被戳，往右一歪再弹回来（不循环） |
 | `poke-right` | 8 | 900 ms | 右边被戳，往左一歪再弹回来（不循环） |
 | `tickle` | 12 | 1420 ms | 和 `laugh` 一样捧腹大笑，最后回到待机（不循环），主线 App 连点三下时播放 |
-| `prone-eat` | 16 | 1720 ms | 趴着交替抬爪、前伸、落爪、拉身，对角后脚抬起再蹬地；手臂沿用正视图的短臂比例，固定上臂与前臂长度，近臂位于脸部下方、远臂藏在身体后，随吃字轻轻点头 |
+| `prone` | 16 | 1720 ms | 趴着交替抬爪、前伸、落爪、拉身，对角后脚抬起再蹬地；身体轻微起伏、偶尔眨眼，保持微笑。手臂沿用正视图的短臂比例，近臂位于脸部下方、远臂藏在身体后，没有吃字、咀嚼或碎屑 |
 
 共 25 段、254 帧，`sheets/` 合计约 37.3 KB。全部帧见[大图](../../../../docs/assets/naiwa-frames.png)。
 
 ## 状态映射
 
-| 状态 | 动画 |
+| 场景 | 动画 |
 |---|---|
-| idle / thinking / roam | `idle` / `thinking` / `walk` |
-| working | 1 个会话 `eat-code`，2 个 `eat-code-fast`，3 个及以上 `feast` |
-| juggling | 1 个子代理 `juggle`，2 个及以上 `juggle-many` |
-| error / attention / notification | `shocked` / `laugh` / `alert` |
-| sweeping | `devour` |
-| sleeping / waking | `sleep` / `wake` |
+| 待机 / 思考 / 游走 | `idle` / `thinking` / `walk` |
+| 工作 | 1 个会话 `eat-code`，2 个 `eat-code-fast`，3 个及以上 `feast` |
+| 子代理 | 1 个 `juggle`，2 个及以上 `juggle-many` |
+| 出错 / 完成 / 待确认 | `shocked` / `laugh` / `alert` |
+| 上下文压缩 / 导入宠物包 | `devour` / `juggle` |
+| 睡眠 / 唤醒 | `sleep` / `wake` |
+| 左右点按 | `poke-left` / `poke-right` |
+| 三连点随机反应 | `tickle`、`laugh-belly`、`laugh-roll`，等概率 |
+| 六连点 / 拖动 | `shocked` / `prone` |
 
-- 待机池：`idle-look`、`idle-giggle`、`snack` 权重 2，`dance` 权重 1。
-- 聊天页正常待机时每隔 10–25 秒随机插播一次，间隔参数由 `make_pet_pack.py` 的 `NAIWA.idle_every` 写入 `idlePool.everyMs`。无任务且 60 秒没有交互后休眠；待机动作不延后休眠。
-- attention 有 0.5 的概率换成 `laugh-point`、`laugh-roll`、`laugh-belly` 之一。
-- 反应：点左边 `poke-left`，点右边 `poke-right`，连点 `tickle`，拖动 `prone-eat`。
-- `holds`、`faces`（`front`）、`sounds`（`naiwa`）和 `snack.every` 按设计文档第 4 节写入 `pet.json`。
-
-新版 App 已在导入宠物包时产生 `carrying` 信号，并在导入结束或失败后清除。此包保留精简后的 25 段动画，省略 `carrying` 及其计时，导入期间按协议回退到 `idle`。25 段分别由状态、档位、待机池、完成变体和交互入口触发；主线聊天页以三连点触发 `tickle`，包含奶蛙音效扩展的客户端保留双击播放 `laugh` 的交互。
-
-新版还支持反应变体（跨版本用 `tickle2` 等编号键）、非待机状态的 `bonus`、可选的六连点 `annoyed`，以及标准大小 50%–300% 的自定义尺寸。这些能力不要求宠物包补齐新字段；本包的单动画反应、完成变体和正面不镜像设置继续有效。
+- 待机池四项 `idle-look`、`idle-giggle`、`snack`、`dance` 权重均为 1，分别播放 2、2、1、2 遍。
+- 聊天页正常待机时每次等待 10–25 秒后插播。间隔参数为 `min: 10000`、`mean: 18000`、`max: 25000`；无任务且 60 秒无交互后休眠，插播不延后休眠。
+- 完成态以 50% 概率先播放 `laugh-point` 或 `dance`，两者等概率，各播一遍后返回 `laugh`。完成态总时长为 3180 ms。
+- `reactions` 用 `tickle`、`tickle2`、`tickle3` 三个字符串键。1.1 秒内第 3 下触发候选，第 4、5 下继续挠痒，第 6 下转为 `annoyed` 并清空计数。
+- 导入期间复用抛接代码块；六连点复用惊跳。反应由 App 计时结束，不按录音延长。
+- 包按 main 的无声接口制作，不含 `sounds`、`snack`、`roam.free` 或 `drag.mirror`。动画中的代码字符都在图片中。
+- 悬浮窗不触发游走或连点反应。声音输入、已生成音频与来源说明保留在仓库中，见 [audio/README.md](audio/README.md)，不随宠物 ZIP 或 APK 打包。
 
 ## 自检
 
@@ -129,7 +133,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 - 待机各帧脚底线都是 y = 60，只有一个连通块，没有离体道具。
 - 离体道具离身体（含手持道具）至少 1 个透明像素；每帧最大的 8 连通块正好是身体。
 - `wake`、`poke-left`、`poke-right`、`tickle` 不循环，最后一帧和待机第 0 帧的重合度（IoU）不低于 0.9。
-- 进食动画张嘴帧的嘴中心在 `snack.mouth` ±1 像素以内。
+- 进食动画张嘴帧的嘴中心在 该中心 ±1 像素以内。
 - 全部帧的上臂、前臂长度与正视待机一致，趴爬的爪点落在相同的短臂范围内。逐帧核对完整五官位图，嘴部允许捂嘴、吃进字符和睡眠气泡的有意遮挡。
 - 睁眼和瞪眼在九个注视方向都保留一个白色高光；瞳孔移到眼圈边缘时，高光落在仍可见的瞳孔像素内。
 - `pet.json` 引用的动画都存在，每段动画都被用到。

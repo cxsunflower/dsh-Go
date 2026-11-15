@@ -52,8 +52,8 @@
     "frames": 28800
   },
   "gagadilaxia": {
-    "label": "趴吃",
-    "cue": ["prone-eat"],
+    "label": "趴行",
+    "cue": ["prone"],
     "pak": "nawa_pak50_dir.vpk",
     "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
     "pakEntry": "sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c",

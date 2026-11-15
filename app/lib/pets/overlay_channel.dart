@@ -152,6 +152,7 @@ class PetOverlayChannel {
   bool _listening = false;
   Future<Object?> Function(MethodCall)? _actions;
   Future<String?> Function(String text)? voiceFallback;
+
   void setActionHandler(Future<Object?> Function(MethodCall)? handler) {
     _actions = handler;
     _listen();

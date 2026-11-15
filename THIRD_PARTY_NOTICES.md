@@ -956,7 +956,9 @@ for this implementation of the WebRTC code package shall terminate as
 of the date such litigation is filed.
 ```
 
-### 奶蛙六段技能音效（Valve《Deadlock》addon，仅本地构建）
+### 奶蛙六段技能音效（Valve《Deadlock》addon，保留参考资源）
+
+声音输入和已生成音频保留在仓库中；当前宠物包按无声动画设计，音频不注册到 App，不随 APK 或宠物 ZIP 打包。
 
 - 全部来自 `nawa_pak50_dir_bf496.7z` → `nawa_pak50_dir.vpk`：1,427,634 字节，SHA-256 `093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13`（Valve VPK v2）；包内命名空间 `citadel_addons/naiwa`，即替换英雄 Dynamo 声音的 mod。
 - 包内 50 条 VO 都是空壳（每条固定 5671 字节、无真实语音）；只有 6 个技能音有内容，对应如下（左为资产/输入名，右为 pak 内条目）：

@@ -16,7 +16,7 @@ DSH Go 的源码以 AGPL-3.0 发布（见 [LICENSE](LICENSE)），但下面这�
 
 现有奶蛙像素宠物只保留经典黄款，源文件在 `app/tool/pet_src/naiwa/`，宠物包在 `app/assets/pets/naiwa/`。它来自 github.com/cxsunflower，参考网络二创形象「奶蛙」（见 [Orliss/nailong](https://github.com/Orliss/nailong)）用脚本重画，未收录该参考仓库的图片和视频；角色权利归原权利人，不纳入 AGPL-3.0。这是像素版的来源说明。
 
-本轮宠物设置保留原版 Deepy 小鲸鱼、鲸娘，仅新增像素奶蛙（宠物 id `naiwa`）；此前平滑帧图方案及素材移除，聊天 Live2D 与伙伴小屋那版 Live2D 奶蛙都已整体移除，仓库不再包含该模型、纹理、导入脚本或小屋角色条目，旧 `nailong` 命名仅用于迁移。
+像素奶蛙（宠物 id `naiwa`）作为无声 ZIP 导入，未注册为 APK 内置宠物。六段声音输入、已生成音频及来源记录保留在 `app/tool/pet_src/naiwa/audio/` 和 `app/assets/pet_sounds/naiwa/`，不参与 App 播放，不随 APK 或宠物 ZIP 打包；音频条款见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 go.dshtui.com 首页（`site/home/`）由社区开发者 ClayGao233 / 采云师烧饼制作，网页本身的来源和使用条件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。其中的 `dist/assets/dsh-go.svg`（`app/assets/brand/tile.svg` 的副本）、`dist/assets/dsh-go-pop.svg`（由品牌图形改出的立体版）、`dist/assets/author/share.png`（`docs/assets/social-preview.png` 的副本）和功能展示图里的品牌图形、鲸娘形象同样适用本页的条件。
 

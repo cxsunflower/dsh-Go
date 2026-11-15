@@ -2872,9 +2872,6 @@ class L10nZh extends L10n {
   String get botsPetWhaleGirl => '鲸娘';
 
   @override
-  String get botsPetNaiwa => '像素奶蛙';
-
-  @override
   String get botsPetNone => '不显示';
 
   @override
@@ -2882,9 +2879,6 @@ class L10nZh extends L10n {
 
   @override
   String get botsPetSource => '来自 DSH-TUI';
-
-  @override
-  String get botsPetSourceNaiwa => '像素奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方';
 
   @override
   String get botsPetImport => '导入';
@@ -3000,12 +2994,6 @@ class L10nZh extends L10n {
 
   @override
   String get botsPetQuietSubtitle => '只做动作，不冒气泡';
-
-  @override
-  String get botsPetSound => '音效';
-
-  @override
-  String get botsPetSoundSubtitle => '大笑和吃代码的声音，跟随媒体音量';
 
   @override
   String get botsPetShowNow => '立即显示';
@@ -16218,9 +16206,6 @@ class L10nZh extends L10n {
   String get searchKwPetQuiet => '安静,宠物安静';
 
   @override
-  String get searchKwPetSound => '音效,声音,笑声,鬼畜,宠物音效';
-
-  @override
   String get searchKwPetOutside => '悬浮窗,桌面宠物,宠物悬浮';
 
   @override
@@ -23723,7 +23708,7 @@ class L10nZh extends L10n {
   String get viewTipPetBubble => '宠物冒泡时点一下，就跳到等你的那个对话';
 
   @override
-  String get viewTipPetPlay => '点一下宠物会戳它，快速连点两下奶蛙会大笑，长按可以换宠物';
+  String get viewTipPetPlay => '连点宠物三下会挠痒痒，长按可以换宠物';
 
   @override
   String get viewTipActivityStrip => '生成时点一下状态条，看这一轮的完整轨迹';

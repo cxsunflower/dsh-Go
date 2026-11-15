@@ -1,42 +1,20 @@
-// The runtime pack format (docs/design/pets.md §3): the shipped packs parse
+// The runtime pack format (docs/design/pets.md §3): the two shipped packs parse
 // with their measured values, animations resolve by state and tier, hit boxes
-// by the documented lookup order, and broken packs are refused whole, while a
-// bad optional `sounds` or `snack` (docs/design/naiwa-pet.md §5) only reads as
-// absent.
+// by the documented lookup order, and broken packs are refused whole.
 
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dsh_app/pets/pet_pack.dart';
-import 'package:dsh_app/pets/pet_prefs.dart';
 import 'package:dsh_app/pets/pet_state.dart';
-import 'package:dsh_app/ui/pets/pet_sprite.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support.dart';
 
 Map<String, Object?> _json(String id) =>
     jsonDecode(File('assets/pets/$id/pack.json').readAsStringSync()) as Map<String, Object?>;
-
-PetPack diskPack(String id) => PetPack.parse(_json(id));
-final deepy = diskPack('deepy-whale');
-final girl = diskPack('whale-girl');
-
-class _NaiwaBundle extends CachingAssetBundle {
-  final paths = <String>[];
-
-  @override
-  Future<String> loadString(String key, {bool cache = true}) async {
-    paths.add(key);
-    if (key != 'assets/pets/naiwa/pack.json') throw StateError('Unexpected asset: $key');
-    return jsonEncode(_json('naiwa'));
-  }
-
-  @override
-  Future<ByteData> load(String key) => throw StateError('This bundle only serves the manifest: $key');
-}
 
 /// A [math.Random] whose draw is fixed, so a pick can be checked.
 class _Pick implements math.Random {
@@ -55,89 +33,6 @@ class _Pick implements math.Random {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  test('Naiwa permits free dragging and uses the prone mouth for eating', () {
-    final pack = PetPack.parse(_json('naiwa'));
-    expect(pack.freeRoam, isTrue);
-    expect(pack.dragMirror, isTrue, reason: 'drags left mirror the art and its mouth');
-    expect(deepy.freeRoam, isFalse);
-    expect(deepy.dragMirror, isFalse);
-    expect(girl.dragMirror, isFalse);
-    expect(pack.snack!.mouthOf('prone-eat'), pack.snack!.mouths['prone-eat']);
-    expect(pack.snack!.mouthOf('idle'), pack.snack!.mouth);
-    expect(pack.snack!.everyOf('prone-eat'), greaterThan(0));
-  });
-
-  group('Naiwa pixel pack', () {
-    test('loads its own sprite manifest and feeding anchors', () async {
-      final bundle = _NaiwaBundle();
-      final pack = await PetPack.load('naiwa', bundle);
-      expect(pack.id, 'naiwa');
-      expect(pack.pixelArt, isTrue);
-      expect(pack.sounds, 'naiwa');
-      expect(pack.snack!.mouthOf('prone-eat'), diskPack('naiwa').snack!.mouthOf('prone-eat'));
-      expect(bundle.paths, ['assets/pets/naiwa/pack.json']);
-    });
-  });
-
-  group('pet choices and saved preferences', () {
-    Future<ProviderContainer> load(String? id) async {
-      SharedPreferences.setMockInitialValues({
-        PetPrefsController.keys.pack: ?id,
-        PetPrefsController.keys.size: 'large',
-        PetPrefsController.keys.quiet: true,
-        PetPrefsController.keys.sound: false,
-        PetPrefsController.keys.position: 0.7,
-        PetPrefsController.keys.hidden: DateTime(2030).millisecondsSinceEpoch,
-      });
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      container.read(petPrefsProvider);
-      await pumpEventQueue();
-      expect(container.read(petPrefsProvider).loaded, isTrue);
-      return container;
-    }
-
-    test('original pets remain available, adding pixel Naiwa with Deepy the default', () {
-      expect(builtInPets, ['deepy-whale', 'whale-girl', 'naiwa']);
-      expect(defaultPetId, 'deepy-whale');
-      expect(const PetPrefs().packId, 'deepy-whale');
-    });
-
-    for (final id in ['nailong', 'naiwa-galaxy', 'naiwa-gb', 'naiwa-live2d']) {
-      test('retired $id migrates without changing the other preferences', () async {
-        final container = await load(id);
-        final prefs = container.read(petPrefsProvider);
-        expect(prefs.packId, 'naiwa');
-        expect(prefs.packExplicit, isTrue);
-        expect(prefs.size, PetSize.large);
-        expect(prefs.quiet, isTrue);
-        expect(prefs.sound, isFalse);
-        expect(prefs.position, 0.7);
-        expect(prefs.hiddenUntil, DateTime(2030));
-        expect((await SharedPreferences.getInstance()).getString(PetPrefsController.keys.pack), 'naiwa');
-      });
-    }
-
-    for (final id in ['deepy-whale', 'whale-girl', 'naiwa', noPetId]) {
-      test('current choice $id stays explicit and unchanged', () async {
-        final container = await load(id);
-        expect(container.read(petPrefsProvider).packId, id);
-        expect(container.read(petPrefsProvider).packExplicit, isTrue);
-        expect((await SharedPreferences.getInstance()).getString(PetPrefsController.keys.pack), id);
-      });
-    }
-
-    test('a stale caller also saves the migrated choice', () async {
-      final container = await load(noPetId);
-      await container.read(petPrefsProvider.notifier).setPack('nailong');
-      expect(container.read(petPrefsProvider).packId, 'naiwa');
-      expect(container.read(petPrefsProvider).hiddenUntil, isNull);
-      expect((await SharedPreferences.getInstance()).getString(PetPrefsController.keys.pack), 'naiwa');
-    });
-  });
-
   group('Deepy 小鲸鱼', () {
     test('canvas, 5× sheets, foot point, body', () {
       expect(deepy.id, 'deepy-whale');
@@ -296,18 +191,17 @@ void main() {
     });
 
     test('every name in an array must be an animation', () {
-      expect(
-        () => withReactions({
-          'tickle': ['tickle', 'nope'],
-        }),
-        throwsFormatException,
-      );
+      expect(() => withReactions({'tickle': ['tickle', 'nope']}), throwsFormatException);
       expect(() => withReactions({'tickle': 42}), throwsFormatException, reason: 'neither a name nor an array');
       expect(() => withReactions({'tickle': 'tickle', 'tickle2': 'nope'}), throwsFormatException);
     });
 
     test('numbered keys merge into the plain one, whatever their order', () {
-      final pack = withReactions({'tickle2': 'poke-left', 'tickle': 'tickle', 'tickle3': 'drag'});
+      final pack = withReactions({
+        'tickle2': 'poke-left',
+        'tickle': 'tickle',
+        'tickle3': 'drag',
+      });
       // The base name stays first: it is the one older apps play.
       expect(pack.reactions['tickle'], ['tickle', 'poke-left', 'drag']);
       expect(pack.reactions.keys, ['tickle']);
@@ -316,10 +210,7 @@ void main() {
     });
 
     test('a numbered key without its plain one is a reaction of its own', () {
-      final pack = withReactions({
-        'tickle2': 'poke-left',
-        'tickle3': ['drag', 'tickle'],
-      });
+      final pack = withReactions({'tickle2': 'poke-left', 'tickle3': ['drag', 'tickle']});
       expect(pack.reactions['tickle2'], ['poke-left']);
       expect(pack.reactions['tickle3'], ['drag', 'tickle']);
       expect(pack.reactions.containsKey('tickle'), isFalse);
@@ -373,11 +264,7 @@ void main() {
       'canvas': {'w': 16, 'h': 16},
       'contentBox': {'x': 0, 'y': 0, 'w': 16, 'h': 16},
       'animations': animations ?? {'idle': animation('idle.png')},
-      'states':
-          states ??
-          {
-            'idle': ['idle'],
-          },
+      'states': states ?? {'idle': ['idle']},
     };
 
     test('states and tiers it does not name play idle', () {
@@ -456,77 +343,5 @@ void main() {
         throwsFormatException,
       );
     });
-  });
-
-  group('sounds and snack', () {
-    PetPack parse(Map<String, Object?> extra) => PetPack.parse({..._json('whale-girl'), ...extra});
-    PetSnack? snack(Object? x, Object? y, Map<String, Object?> every) => parse({
-      'snack': {
-        'mouth': {'x': x, 'y': y},
-        'every': every,
-      },
-    }).snack;
-
-    test('the two older packs have neither', () {
-      for (final pack in [deepy, girl]) {
-        expect(pack.sounds, isNull, reason: pack.id);
-        expect(pack.snack, isNull, reason: pack.id);
-      }
-    });
-
-    test('sounds: a sound set id, anything else reads as none', () {
-      expect(parse({'sounds': 'naiwa'}).sounds, 'naiwa');
-      expect(parse({'sounds': 'naiwa-2'}).sounds, 'naiwa-2');
-      for (final bad in ['Naiwa', 'nai wa', '../naiwa', 'naiwa/x', r'naiwa\x', '', 7, true]) {
-        expect(parse({'sounds': bad}).sounds, isNull, reason: '$bad');
-      }
-    });
-
-    test('snack: the mouth in art pixels, an interval per animation', () {
-      final s = snack(33, 31, {'idle': 700, 'swim': 380})!;
-      expect(s.mouth, const Offset(33, 31));
-      expect(s.every, {'idle': 700, 'swim': 380});
-      expect(s.everyOf('swim'), 380);
-      expect(s.everyOf('tickle'), isNull, reason: 'no glyphs while it plays');
-    });
-
-    test('snack: the mouth must sit on the canvas, its edges included', () {
-      final w = girl.canvas.width, h = girl.canvas.height;
-      const every = {'idle': 700};
-      expect(snack(0, 0, every), isNotNull);
-      expect(snack(w, h, every), isNotNull);
-      expect(snack(w + 1, 31, every), isNull);
-      expect(snack(33, h + 1, every), isNull);
-      expect(snack(-1, 31, every), isNull);
-      expect(snack(33, -0.5, every), isNull);
-      expect(snack('33', 31, every), isNull);
-      expect(snack(33, null, every), isNull);
-    });
-
-    test('snack: an entry naming no animation or without a positive time is dropped', () {
-      final s = snack(33, 31, {'idle': 700, 'nope': 300, 'swim': 0, 'tickle': -5, 'poke-left': 'fast'})!;
-      expect(s.every, {'idle': 700});
-    });
-
-    test('snack: none left, no snack; the pack itself still loads', () {
-      final pack = parse({
-        'snack': {
-          'mouth': {'x': 33, 'y': 31},
-          'every': {'nope': 300, 'swim': 0, 'tickle': -5},
-        },
-      });
-      expect(pack.snack, isNull);
-      expect(pack.animations.keys, girl.animations.keys);
-    });
-  });
-
-  test('a pack still carrying sizeScale reads without it; the app sizes every pet', () {
-    final plain = diskPack('naiwa');
-    final legacy = PetPack.parse({..._json('naiwa'), 'sizeScale': 2});
-    expect(legacy.contentBox, plain.contentBox);
-    expect(
-      [for (final s in PetSize.values) petDevicePixels(legacy, s, 3)],
-      [for (final s in PetSize.values) petDevicePixels(plain, s, 3)],
-    );
   });
 }

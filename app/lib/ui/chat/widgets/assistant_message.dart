@@ -139,13 +139,7 @@ class _AssistantMessageState extends State<AssistantMessage> {
       // Long-press opens the menu; selecting text is one of its entries.
       // repairBareViews: a model that forgets the ```dsh-ui fence still gets
       // its view drawn instead of a wall of JSON.
-      _body = MarkdownBody(
-        text: text,
-        streaming: streaming,
-        reveal: reveal,
-        selectable: false,
-        repairBareViews: true,
-      );
+      _body = MarkdownBody(text: text, streaming: streaming, reveal: reveal, selectable: false, repairBareViews: true);
       _bodyText = text;
       _bodyStreaming = streaming;
       _bodyReveal = reveal;
@@ -198,7 +192,6 @@ class _AssistantMessageState extends State<AssistantMessage> {
         children: [
           if (reasoning.isNotEmpty) ...[
             ThinkingPill(
-              key: ValueKey(item.key),
               reasoning: reasoning,
               active: streaming && text.isEmpty,
               streaming: streaming,

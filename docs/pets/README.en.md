@@ -210,7 +210,7 @@ The app reduces agent activity into 11 states. **Idle alone is enough**; missing
 
 **Interaction**: tapping the left/right half of the body → `tapLeft`/`tapRight`; dragging → `drag`. On the chat page, three taps within 1.1 s trigger `tickle`; continuing to six taps plays `annoyed` and clears the count if the pack provides it, otherwise tickling continues. Reaction animations return to the previous state; while asleep, `waking` plays first. The overlay does not trigger multi-tap reactions.
 
-These are the shared pet-pack behaviors; see the [Naiwa notes](../design/naiwa-pet.md) for its double-tap laugh and other custom interactions.
+Naiwa uses the same silent playback rules; its animation assignments are in the [Naiwa notes](../design/naiwa-pet.md).
 
 **What never happens**: a stopped turn quietly returns to idle (no error); compaction completion is not celebrated; a disconnect or engine restart never becomes `error`.
 

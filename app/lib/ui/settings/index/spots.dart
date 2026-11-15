@@ -777,12 +777,6 @@ abstract final class Spots {
     title: (l) => l.botsPetQuiet,
     keywords: (l) => l.searchKwPetQuiet,
   );
-  static final petSound = SettingSpot(
-    'pet-sound',
-    page: SettingsPageId.pets,
-    title: (l) => l.botsPetSound,
-    keywords: (l) => l.searchKwPetSound,
-  );
   static final petOutsideApp = SettingSpot(
     'pet-outside-app',
     page: SettingsPageId.pets,
@@ -1133,7 +1127,6 @@ final _rows = <SettingSpot>[
   Spots.wallpaper,
   Spots.petSize,
   Spots.petQuiet,
-  Spots.petSound,
   Spots.petOutsideApp,
   Spots.petDisplayWhen,
   Spots.petOverlayShows,

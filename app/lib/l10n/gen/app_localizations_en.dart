@@ -3045,9 +3045,6 @@ class L10nEn extends L10n {
   String get botsPetWhaleGirl => 'Whale girl';
 
   @override
-  String get botsPetNaiwa => 'Pixel Naiwa';
-
-  @override
   String get botsPetNone => 'None';
 
   @override
@@ -3055,10 +3052,6 @@ class L10nEn extends L10n {
 
   @override
   String get botsPetSource => 'From DSH-TUI';
-
-  @override
-  String get botsPetSourceNaiwa =>
-      'Pixel Naiwa: from github.com/cxsunflower, a pixel redraw of a fan-made meme character, unofficial';
 
   @override
   String get botsPetImport => 'Import';
@@ -3176,12 +3169,6 @@ class L10nEn extends L10n {
 
   @override
   String get botsPetQuietSubtitle => 'Animations only, no bubbles';
-
-  @override
-  String get botsPetSound => 'Sounds';
-
-  @override
-  String get botsPetSoundSubtitle => 'Laughs and chomps, at media volume';
 
   @override
   String get botsPetShowNow => 'Show now';
@@ -17065,9 +17052,6 @@ class L10nEn extends L10n {
   String get searchKwPetQuiet => 'quiet,pet quiet';
 
   @override
-  String get searchKwPetSound => 'sound,sounds,laugh,pet sound';
-
-  @override
   String get searchKwPetOutside => 'overlay,floating pet,outside app';
 
   @override
@@ -25019,7 +25003,7 @@ class L10nEn extends L10n {
   String get viewTipPetBubble => 'When the pet pops a bubble, tap it to jump to the chat that\'s waiting';
 
   @override
-  String get viewTipPetPlay => 'Tap the pet to poke it, double-tap Naiwa to laugh; long-press to swap it';
+  String get viewTipPetPlay => 'Tap the pet three times to tickle it; long-press to swap it';
 
   @override
   String get viewTipActivityStrip => 'While it works, tap the status strip to see this turn\'s full trace';

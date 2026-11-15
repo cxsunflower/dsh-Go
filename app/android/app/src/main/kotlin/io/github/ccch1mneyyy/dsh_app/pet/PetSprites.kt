@@ -22,9 +22,7 @@ internal class PetSheet(val bitmap: Bitmap, val perLogical: Int)
 
 /**
  * A pet pack's files: `pack.json` and the sheets, from the app's bundled assets
- * (`assets/pets/<id>/`, through [assetPath]) or, for an imported pet, its folder under
- * `files/pets/<id>` ([PetPackFiles]): the installed one wins, and anything wrong with it falls
- * back to the bundled pack.
+ * (`assets/pets/<id>/`, through [assetPath]) or, for packs added later, `files/pets/<id>/`.
  *
  * Sheets decode one animation at a time, off the main thread, into a small LRU (Deepy decoded
  * whole is ~139 MB). A hi-res sheet is decoded no finer than it is drawn and within [SHEET_BYTES]:
@@ -222,16 +220,16 @@ internal class PetSprites(
         return if (r < 0) null else Rect(l, t, r + 1, bottom + 1)
     }
 
-    /**
-     * Where [id]'s files come from: the installed pack first (a checked directory, [PetPackFiles]),
-     * else the bundled assets. A half or broken installed pack never hides the bundled one. Brought
-     * pets are installed straight into `files/pets/<id>`, so nothing has to be handed in from Dart.
-     */
     private fun sourceFor(id: String): ((String) -> InputStream?)? {
         val bundled: (String) -> InputStream? = { name ->
             try { context.assets.open(assetPath("assets/pets/$id/$name")) } catch (_: Exception) { null }
         }
-        return PetPackFiles.source(null, id, bundled, File(context.filesDir, "pets/$id"))
+        if (bundled("pack.json")?.also { it.close() } != null) return bundled
+        val dir = File(context.filesDir, "pets/$id")
+        if (File(dir, "pack.json").isFile) {
+            return { name -> File(dir, name).takeIf { it.isFile && it.parentFile == dir }?.inputStream() }
+        }
+        return null
     }
 
     companion object {

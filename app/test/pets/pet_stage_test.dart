@@ -38,7 +38,6 @@ Future<void> pumpPet(
   HarnessConfig config = const HarnessConfig(),
   double position = PetPrefs.defaultPosition,
   PetSize size = PetSize.medium,
-  bool sound = true,
   ValueChanged<Offset>? onListTap,
   VoidCallback? onComposerTap,
   Iterable<String> warm = const [],
@@ -51,7 +50,7 @@ Future<void> pumpPet(
     testApp(
       ChatBottomHarness(onListTap: onListTap, onComposerTap: onComposerTap),
       overrides: [
-        ...petOverrides(pack: p, clock: clock, position: position, size: size, sound: sound),
+        ...petOverrides(pack: p, clock: clock, position: position, size: size),
         harnessConfigProvider.overrideWith(() => HarnessConfigController(config)),
       ],
     ),
@@ -317,7 +316,7 @@ void main() {
       expect(list, hasLength(1));
     });
 
-    testWidgets('tap left / right and three quick taps: their reactions', (tester) async {
+    testWidgets('tap left / right: their reactions; three quick taps: tickle', (tester) async {
       await pumpPet(tester, warm: ['react-left', 'react-right', 'react-double']);
       final body = hitBox(tester, deepy);
       final s = petScaleOn(tester, deepy);
@@ -332,30 +331,14 @@ void main() {
       expect(petLayer(tester).playing!.name, 'react-right');
       await tester.pump(const Duration(seconds: 3));
       clock.advance(const Duration(seconds: 3));
-      // Other pets retain the main app's three-tap tickle.
       for (var i = 0; i < 3; i++) {
-        await tester.tapAt(Offset(split + 6, body.center.dy));
+        await tester.tapAt(body.center);
         await tester.pump(const Duration(milliseconds: 50));
         clock.advance(const Duration(milliseconds: 300));
       }
       expect(petLayer(tester).playing!.name, 'react-double');
       await tester.pump(const Duration(seconds: 3));
       expect(petLayer(tester).playing!.name, 'idle');
-    });
-
-    testWidgets('a tap after the menu closed still reacts', (tester) async {
-      await pumpPet(tester, warm: ['react-left', 'react-right']);
-      final body = hitBox(tester, deepy);
-      await tester.longPressAt(body.center);
-      await tester.pumpAndSettle();
-      expect(find.text('换宠物'), findsOneWidget);
-      await tester.tapAt(const Offset(200, 40));
-      await tester.pumpAndSettle();
-      expect(find.text('换宠物'), findsNothing);
-      await tester.tapAt(body.center);
-      await tester.pump();
-      await tester.pump();
-      expect(petLayer(tester).playing!.name, isNot('idle'), reason: 'a tap after the menu reacts');
     });
 
     testWidgets('six quick taps without an annoyed reaction: it keeps tickling', (tester) async {
@@ -407,9 +390,7 @@ void main() {
 
     testWidgets('a bare pack (idle only, no reactions): taps and states fall back quietly', (tester) async {
       final bare = deepyWith({
-        'states': {
-          'idle': ['idle'],
-        },
+        'states': {'idle': ['idle']},
         'reactions': <String, Object?>{},
         'bonus': <String, Object?>{},
         'tiers': <String, Object?>{},
@@ -451,34 +432,6 @@ void main() {
   });
 
   group('moods on the page', () {
-    for (final (name, pick) in [('idle-look', 0.1), ('idle-giggle', 0.4), ('snack', 0.7), ('dance', 0.95)]) {
-      testWidgets('Naiwa plays $name before sleeping without needing a touch', (tester) async {
-        final pack = diskPack('naiwa');
-        PetLayer.random = _FixedRandom(pick);
-        await pumpPet(tester, pack: pack, sound: false, warm: [name, 'sleep']);
-        final started = clock.now;
-        for (var i = 0; i < 300 && petLayer(tester).playing?.name != name; i++) {
-          clock.advance(const Duration(milliseconds: 100));
-          container.read(petMoodProvider(PetScope.global).notifier).refresh();
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-        expect(petLayer(tester).playing?.name, name, reason: 'an idle action starts within 30 s');
-        expect(tester.state<PetSpriteState>(find.byType(PetSprite)).shown?.name, name);
-
-        final duration = Duration(milliseconds: pack.idles.singleWhere((e) => e.anim == name).ms + 100);
-        clock.advance(duration);
-        await tester.pump(duration);
-        expect(petLayer(tester).playing?.name, 'idle', reason: 'the action finishes and returns to idle');
-
-        final untilSleep = started.add(const Duration(seconds: 61)).difference(clock.now);
-        clock.advance(untilSleep);
-        container.read(petMoodProvider(PetScope.global).notifier).refresh();
-        await tester.pump(untilSleep);
-        await tester.pump();
-        expect(petLayer(tester).playing?.name, 'sleep', reason: 'idle actions do not postpone sleep');
-      });
-    }
-
     testWidgets('left alone for a minute: it sleeps; a touch wakes it', (tester) async {
       await pumpPet(tester, warm: ['sleeping', 'waking']);
       clock.advance(const Duration(seconds: 61));
@@ -515,10 +468,7 @@ void main() {
     testWidgets('bonus also plays on a state that is not attention', (tester) async {
       final pack = deepyWith({
         'bonus': {
-          'thinking': {
-            'anims': ['error'],
-            'chance': 0.5,
-          },
+          'thinking': {'anims': ['error'], 'chance': 0.5},
         },
       });
       // A die that always draws zero: the chance is hit, the lone extra picked.
@@ -670,19 +620,4 @@ void main() {
       expect(container.read(currentSessionProvider), isNull);
     });
   });
-}
-
-class _FixedRandom implements math.Random {
-  _FixedRandom(this.value);
-
-  final double value;
-
-  @override
-  double nextDouble() => value;
-
-  @override
-  bool nextBool() => value < 0.5;
-
-  @override
-  int nextInt(int max) => (value * max).floor();
 }

@@ -1,0 +1,36 @@
+name: Publish Pixel Naiwa
+
+on:
+  push:
+    tags: ['naiwa-v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check the ZIP builder and build the pet pack
+        run: |
+          python3 -m unittest discover -s tooling/pets -p 'test_*.py'
+          python3 tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_release/naiwa.zip
+          cd app/build/pet_release
+          sha256sum naiwa.zip > SHA256SUMS
+      - name: Publish the tagged pet pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$RUNNER_TEMP/naiwa-release.md"
+          cp docs/pets/naiwa-release.md "$notes"
+          printf '\n[全部动作预览 / All animation previews](https://github.com/%s/blob/%s/README.md)\n' "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >> "$notes"
+          gh release create "$GITHUB_REF_NAME" \
+            app/build/pet_release/naiwa.zip app/build/pet_release/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "像素奶蛙 ${GITHUB_REF_NAME#naiwa-v}" --notes-file "$notes"

@@ -6,10 +6,12 @@ Run from app/ (needs Pillow and numpy):
     python3 tool/make_pet_pack.py [--src DIR] [--out DIR] [--preview DIR] [--only ID]
 
 `--src` defaults to tool/pet_src (in git), `--out` to assets/pets and
-`--preview` to build/pet_preview (pass `--preview ''` to skip).
+`--preview` to build/pet_preview (pass `--preview ''` to skip). Without `--only` every
+pack is built, except that a sprite pack whose pet.json is not there yet is skipped with
+a note; `--only` on such a pack is an error.
 The output is deterministic: running it twice gives byte-identical files.
 
-Two source formats, both mapped onto Clawd on Desk's states (our pet protocol):
+Three source formats, all mapped onto Clawd on Desk's states (our pet protocol):
 
 * Clawd on Desk theme (pet_src/deepy-whale/): theme.json plus one APNG per animation in
   assets/. Frames are decoded in order and each keeps its own delay, read straight
@@ -21,6 +23,18 @@ Two source formats, both mapped onto Clawd on Desk's states (our pet protocol):
   cross-checked against gifs/NN-<key>.gif (8x export: the GIF merges consecutive
   identical frames, so the strip is collapsed the same way before comparing
   durations and pixels). The state mapping follows the page's Clawd table.
+* Sprite sheets (pet_src/naiwa*/, written by the directory's draw.py;
+  docs/design/naiwa-pet.md section 4): pet.json plus sheets/<key>.png, one 1x strip per
+  animation (canvas w x frames wide, h high; stored at 1x). pet.json gives each
+  animation's frame durations and loop flag; its states / tiers / bonus / reactions go
+  into pack.json once every name is checked (carrying is optional, the four basic
+  reactions are required, every animation is used). Reaction variants use numbered
+  string keys such as tickle2; annoyed is optional. Holds and idlePool loops become ms
+  (decision 6). Only the app's silent pet-pack fields are emitted. The art keeps the drawing
+  rules of naiwa-pet.md section 3: alpha 0 or 255, 4-16 frames of 60-400 ms per
+  animation, at most 400 frames per pack and 256 colours (transparent included) per
+  animation, and nothing detached from the body in the idle loop, whose pixels are the
+  contentBox.
 
 Decisions (measured on every run, the build fails when an assumption breaks):
 
@@ -39,7 +53,13 @@ Decisions (measured on every run, the build fails when an assumption breaks):
    (`frames[].i` may repeat), pack the cells row-major in a grid at most 4096 px
    on a side (GPU texture limit on older phones). Fully transparent pixels are
    written as 0,0,0,0. A sheet with at most 256 RGBA colours is written as an
-   indexed PNG with a tRNS table (lossless), otherwise as RGBA.
+   indexed PNG with a tRNS table (lossless), otherwise as RGBA. The image data is
+   deflated again by Python's zlib with the settings Pillow's encoder uses (level 9,
+   memLevel 9; the default strategy for 8-bit palette rows, which it leaves
+   unfiltered, Z_FILTERED for everything else): Pillow's wheels bundle zlib-ng, whose
+   stream for the same rows differs from a Pillow built on the system zlib, so the
+   same pack came out with different bytes on different machines. pack.json has LF
+   line ends on every OS.
 4. Anchor. `baseline` is the bottom edge of the lowest opaque (alpha >= 128) row,
    the mode over the base idle loop's frames: the feet line that sits on a perch.
    Deepy's 22 % shadow is below it (Clawd's baselineY 48.5 is the shadow's centre
@@ -69,6 +89,15 @@ Decisions (measured on every run, the build fails when an assumption breaks):
    the tap / tickle reactions. idlePool entries play 2 loops (Clawd's
    idleAnimations durations, whale-girl's own loops); whale-girl's
    smile-hearts / thumbs-up are the attention `bonus`.
+   A sprite pack's pet.json gives the loops itself: `holds` per state (attention,
+   error, sweeping, notification, carrying, waking; one loop where it says nothing)
+   times one loop of the state's first animation, through the same table as
+   whale-girl's, and `loops` per idlePool entry. Its one-shots must say
+   `loop: false` (the build fails otherwise); every other animation keeps the flag
+   pet.json gives it. A bonus chance lies strictly between 0 and 1: at 0 the bonus
+   never plays, at 1 the state's own animation never does.
+   Naiwa's PACKS entry shortens idleEvery to 10-25 s so its idle actions can
+   finish before the unchanged 60 s sleep timer.
 
 Format reference: docs/design/pets.md section 3.
 """
@@ -79,6 +108,7 @@ import os
 import re
 import struct
 import sys
+import zlib
 from collections import Counter
 
 import numpy as np
@@ -120,6 +150,24 @@ OWN_MARGIN = 8
 VACATE = 0.5
 CATCH = 0.9               # every animation's hit box holds at least this share of its body
 
+# Sprite sources (docs/design/naiwa-pet.md sections 3 and 4).
+SPRITE_KEYS = ['id', 'w', 'h', 'anims', 'states', 'tiers', 'idlePool', 'bonus', 'reactions',
+               'holds', 'faces']
+SPRITE_FRAMES = (4, 16)   # frames per animation
+SPRITE_MS = (60, 400)     # ms per frame
+SPRITE_TOTAL = 400        # frames per pack
+SPRITE_COLORS = 256       # RGBA values per animation, transparent included: the sheet stays indexed
+TIERED = ['working', 'juggling']
+NAME = re.compile(r'[a-z0-9-]+')    # animation names (they become file names)
+
+NAIWA = dict(
+    kind='sprite', faces='front', author='github.com/cxsunflower',
+    license='像素重绘；奶龙角色形象权利归其权利人，非官方',
+    source='来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。',
+    idle_every={'mean': 18000, 'min': 10000, 'max': 25000},
+    preview_zoom=3, preview_per_row=16,
+)
+
 PACKS = {
     'deepy-whale': dict(
         kind='clawd', dir='deepy-whale',
@@ -139,6 +187,7 @@ PACKS = {
         faces='front',     # she faces the viewer: never mirrored
         preview_zoom=3, preview_per_row=12,
     ),
+    'naiwa': dict(NAIWA, dir='naiwa', name='像素奶蛙'),
 }
 
 # Whale-girl: Clawd mapping from the page's event table (index.html, AGENT / MOUSE).
@@ -360,6 +409,16 @@ def load_clawd(src, meta):
     return (cw, ch), scale, factor, anims, mapping
 
 
+def loop_timings(held, states=STATES):
+    """timings where every loop-based entry is held(state) ms; the working / thinking
+    debounce and the sweeping cap stay as in REFERENCE_TIMINGS (decision 6)."""
+    timings = {group: {s: (ms if (group, s) in NOT_LOOPS else held(s))
+                       for s, ms in vals.items() if s in states}
+               for group, vals in REFERENCE_TIMINGS.items()}
+    timings['wakeMs'] = held('waking')
+    return timings
+
+
 def page_holds(html):
     """anim -> loops held, from the page's agent-event table (`const AGENT = [...]`):
     `{ code: …, name: …, key: 'error', hold: 1 }`. Entries without `hold` stay until the
@@ -416,13 +475,8 @@ def load_whale_girl(src, meta):
         anim = states[state][0]
         return holds.get(anim, 1) * loop_ms[anim]
 
-    timings = {}
-    for group, vals in REFERENCE_TIMINGS.items():
-        timings[group] = {s: (ms if (group, s) in NOT_LOOPS else held(s)) for s, ms in vals.items()}
-    timings['wakeMs'] = held('waking')
-
     mapping = dict(
-        states=states, tiers=W['tiers'], reactions=reactions, timings=timings,
+        states=states, tiers=W['tiers'], reactions=reactions, timings=loop_timings(held),
         idle_pool=[{'anim': n, 'ms': VARIANT_LOOPS * loop_ms[n], 'weight': 1} for n in W['idle_pool']],
         bonus={s: {'anims': list(v), 'chance': BONUS_CHANCE} for s, v in W['bonus'].items()},
         roam={'anim': states['roam'][0], 'faces': meta['faces']},
@@ -436,6 +490,179 @@ def load_whale_girl(src, meta):
     for n, a in anims.items():
         a['loop'] = n not in one_shot
     return (cw, ch), 1, 8, anims, mapping
+
+
+def whole(v):
+    """A positive int (JSON true is not a number here)."""
+    return type(v) is int and v > 0
+
+
+def number(v):
+    return type(v) in (int, float) and math.isfinite(v)
+
+
+def load_sprite(src, meta):
+    """pet.json + one 1x strip per animation -> (canvas, scale, export, anims, mapping),
+    drawing rules checked (naiwa-pet.md section 3)."""
+    root = os.path.join(src, meta['dir'])
+    path = os.path.join(root, 'pet.json')
+    check(os.path.isfile(path), f'{path} is missing')
+    try:
+        pet = json.loads(read_text(path))
+    except ValueError as e:
+        raise BuildError(f'{path}: {e}') from None
+    check(isinstance(pet, dict), 'pet.json is not an object')
+    unknown = sorted(set(pet) - set(SPRITE_KEYS))
+    check(not unknown, f'pet.json: unknown keys {unknown}')
+    check(pet.get('id') == meta['dir'], f'pet.json: id {pet.get("id")!r} is not {meta["dir"]!r}')
+    cw, ch = pet.get('w'), pet.get('h')
+    check(whole(cw) and whole(ch), f'pet.json: canvas {cw!r} x {ch!r}')
+
+    check(isinstance(pet.get('anims'), list) and pet['anims'], 'pet.json: no anims')
+    anims = {}
+    for a in pet['anims']:
+        check(isinstance(a, dict) and sorted(a) == ['durs', 'key', 'loop'],
+              f'pet.json anims: {a!r} needs key, durs and loop')
+        key, durs = a['key'], a['durs']
+        check(isinstance(key, str) and NAME.fullmatch(key), f'pet.json anims: name {key!r} is not [a-z0-9-]+')
+        check(key not in anims, f'pet.json anims: {key} is listed twice')
+        check(isinstance(a['loop'], bool), f'{key}: loop is not true or false')
+        check(isinstance(durs, list), f'{key}: durs is not a list')
+        lo, hi = SPRITE_FRAMES
+        check(lo <= len(durs) <= hi, f'{key}: {len(durs)} frames, not {lo}-{hi}')
+        lo, hi = SPRITE_MS
+        check(all(type(d) is int and lo <= d <= hi for d in durs),
+              f'{key}: frame durations {durs} are not whole ms in {lo}-{hi}')
+        sheet = os.path.join(root, 'sheets', f'{key}.png')
+        check(os.path.isfile(sheet), f'sheets/{key}.png is missing')
+        strip = read_rgba(sheet)
+        check(strip.shape[:2] == (ch, cw * len(durs)),
+              f'sheets/{key}.png: {strip.shape[1]}x{strip.shape[0]} for {len(durs)} frames of {cw}x{ch}')
+        alpha = strip[..., 3]
+        semi = int(((alpha > 0) & (alpha < 255)).sum())
+        check(not semi, f'sheets/{key}.png: {semi} semi-transparent pixels (pixel art: alpha is 0 or 255)')
+        frames = [clean(strip[:, i * cw:(i + 1) * cw]) for i in range(len(durs))]
+        colors = len(np.unique(np.concatenate(frames).reshape(-1, 4), axis=0))
+        check(colors <= SPRITE_COLORS, f'sheets/{key}.png: {colors} colours, more than {SPRITE_COLORS}')
+        anims[key] = dict(frames=frames, durs=list(durs), source=f'sheets/{key}.png', loop=a['loop'])
+    total = sum(len(a['durs']) for a in anims.values())
+    check(total <= SPRITE_TOTAL, f'pet.json: {total} frames, more than {SPRITE_TOTAL}')
+
+    mapping = sprite_mapping(pet, anims, meta)
+    # The idle loop's pixels are the body: they give contentBox and the anchor (decision 4).
+    for k, f in enumerate(anims[mapping['base_idle']]['frames']):
+        stray = int(((f[..., 3] >= OPAQUE) & ~body_cells(f, 1)).sum())
+        check(not stray, f'idle frame {k}: {stray} px apart from the body (the idle loop carries no props)')
+    return (cw, ch), 1, 1, anims, mapping
+
+
+def sprite_mapping(pet, anims, meta):
+    """pet.json's states / tiers / idlePool / bonus / reactions / holds,
+    checked against the animations (decision 6)."""
+
+    def names(v, where):
+        check(isinstance(v, list) and v and all(isinstance(n, str) for n in v),
+              f'pet.json {where}: {v!r} is not a list of animation names')
+        missing = [n for n in v if n not in anims]
+        check(not missing, f'pet.json {where}: no animation {", ".join(missing)}')
+        return list(v)
+
+    def name(v, where):
+        return names([v], where)[0]
+
+    def table(key, keys):
+        v = pet.get(key, {})
+        check(isinstance(v, dict), f'pet.json {key}: not an object')
+        extra = sorted(set(v) - set(keys))
+        check(not extra, f'pet.json {key}: {extra} not among {keys}')
+        return v
+
+    raw = table('states', STATES)
+    # Packs may omit carrying; the app falls back to idle during imports.
+    missing = [s for s in STATES if s != 'carrying' and s not in raw]
+    check(not missing, f'pet.json states: no {", ".join(missing)}')
+    states = {s: names(raw[s], f'states.{s}') for s in STATES if s in raw}
+    check(states['idle'] == ['idle'], 'pet.json states.idle: the base idle loop is "idle" alone '
+                                      '(fidgets go in idlePool)')
+
+    raw = pet.get('reactions', {})
+    check(isinstance(raw, dict), 'pet.json reactions: not an object')
+    missing = [r for r in REACTIONS if r not in raw]
+    check(not missing, f'pet.json reactions: no {", ".join(missing)}')
+    for r in raw:
+        if r in [*REACTIONS, 'annoyed']:
+            continue
+        match = re.fullmatch(r'(tapLeft|tapRight|tickle|drag|annoyed)(\d+)', r)
+        check(match and int(match[2]) >= 2 and match[1] in raw,
+              f'pet.json reactions: {r} needs a known base reaction and a suffix >= 2')
+    reactions = {r: name(value, f'reactions.{r}') for r, value in raw.items()}
+
+    raw = table('tiers', TIERED)
+    tiers = {}
+    for s in TIERED:
+        if s not in raw:
+            continue
+        check(isinstance(raw[s], list) and raw[s], f'pet.json tiers.{s}: not a list of tiers')
+        tiers[s] = []
+        for t in raw[s]:
+            check(isinstance(t, dict) and sorted(t) == ['anim', 'min'] and whole(t['min']),
+                  f'pet.json tiers.{s}: {t!r} is not {{"min": n >= 1, "anim": name}}')
+            tiers[s].append({'min': t['min'], 'anim': name(t['anim'], f'tiers.{s}')})
+        mins = [t['min'] for t in tiers[s]]
+        check(mins == sorted(set(mins), reverse=True), f'pet.json tiers.{s}: min {mins} is not highest first')
+
+    loop_ms = {n: sum(a['durs']) for n, a in anims.items()}
+    pool = pet.get('idlePool', [])
+    check(isinstance(pool, list), 'pet.json idlePool: not a list')
+    idle_pool = []
+    for x in pool:
+        check(isinstance(x, dict) and sorted(x) == ['anim', 'loops', 'weight'],
+              f'pet.json idlePool: {x!r} needs anim, loops and weight')
+        n = name(x['anim'], 'idlePool')
+        check(n not in states['idle'] and n not in [p['anim'] for p in idle_pool],
+              f'pet.json idlePool: {n} is the base idle loop or listed twice')
+        check(whole(x['loops']), f'pet.json idlePool {n}: loops {x["loops"]!r} is not a whole number >= 1')
+        check(number(x['weight']) and x['weight'] > 0, f'pet.json idlePool {n}: weight {x["weight"]!r} is not > 0')
+        idle_pool.append({'anim': n, 'ms': x['loops'] * loop_ms[n], 'weight': x['weight']})
+
+    raw = table('bonus', states)
+    bonus = {}
+    for s in STATES:
+        if s not in raw:
+            continue
+        b = raw[s]
+        check(isinstance(b, dict) and sorted(b) == ['anims', 'chance'], f'pet.json bonus.{s}: needs anims and chance')
+        bonus[s] = {'anims': names(b['anims'], f'bonus.{s}'), 'chance': b['chance']}
+        check(not set(bonus[s]['anims']) & set(states[s]), f'pet.json bonus.{s}: the state animation is no bonus')
+        check(number(b['chance']) and 0 < b['chance'] < 1,
+              f'pet.json bonus.{s}: chance {b["chance"]!r} is not strictly between 0 and 1')
+
+    held = [s for s in REFERENCE_TIMINGS['minDisplay']
+            if s in states and ('minDisplay', s) not in NOT_LOOPS] + ['waking']
+    holds = table('holds', held)
+    for s, v in holds.items():
+        check(whole(v), f'pet.json holds.{s}: {v!r} is not a whole number of loops >= 1')
+
+    for n in (states['waking'][0], reactions['tapLeft'], reactions['tapRight'], reactions['tickle']):
+        check(not anims[n]['loop'], f'{n}: plays once (waking, tapLeft, tapRight, tickle), so loop must be false')
+    used = {n for v in states.values() for n in v} | set(reactions.values()) | {x['anim'] for x in idle_pool}
+    used |= {t['anim'] for v in tiers.values() for t in v} | {n for b in bonus.values() for n in b['anims']}
+    unused = sorted(set(anims) - used)
+    check(not unused, f'pet.json: {", ".join(unused)} not used by states, tiers, idlePool, bonus or reactions')
+
+    faces = pet.get('faces', 'front')
+    check(faces == meta['faces'], f'pet.json: faces {faces!r}, the pack says {meta["faces"]!r}')
+
+    return dict(
+        states=states, tiers=tiers, reactions=reactions,
+        timings=loop_timings(lambda s: holds.get(s, 1) * loop_ms[states[s][0]], states),
+        idle_pool=idle_pool, bonus=bonus,
+        roam={'anim': states['roam'][0], 'faces': faces},
+        sleep={'afterMs': SLEEP_AFTER_MS},
+        base_idle='idle',
+        clawd_layout={},
+        clawd_hit=None,
+    )
 
 
 # ---------------------------------------------------------------- measuring
@@ -600,6 +827,27 @@ def anim_box(frames, scale):
     return x0, y0, x1 - x0, y1 - y0
 
 
+def redeflate(path):
+    """Rewrite a PNG's image data as one IDAT chunk deflated by Python's zlib as Pillow's
+    optimize does when it is built on the system zlib (level 9, 32 KB window, memLevel 9;
+    Z_FILTERED unless the rows are 8-bit palette indices); every other chunk stays as it
+    was (decision 3)."""
+    chunks = list(png_chunks(path))
+    depth, colour = chunks[0][1][8], chunks[0][1][9]
+    strategy = zlib.Z_DEFAULT_STRATEGY if (colour, depth) == (3, 8) else zlib.Z_FILTERED
+    z = zlib.compressobj(9, zlib.DEFLATED, 15, 9, strategy)
+    idat = z.compress(zlib.decompress(b''.join(body for t, body in chunks if t == b'IDAT'))) + z.flush()
+    out = [b'\x89PNG\r\n\x1a\n']
+    for t, body in chunks:
+        if t == b'IDAT':
+            if idat is None:
+                continue
+            body, idat = idat, None
+        out.append(struct.pack('>I', len(body)) + t + body + struct.pack('>I', zlib.crc32(t + body)))
+    with open(path, 'wb') as fh:
+        fh.write(b''.join(out))
+
+
 def save_png(a, path):
     """Lossless PNG: indexed + tRNS when the image has at most 256 RGBA colours."""
     flat = a.reshape(-1, 4)
@@ -610,6 +858,7 @@ def save_png(a, path):
         im.save(path, optimize=True, transparency=colors[:, 3].astype(np.uint8).tobytes())
     else:
         Image.fromarray(a, 'RGBA').save(path, optimize=True)
+    redeflate(path)
     back = read_rgba(path)
     check(np.array_equal(back, a), f'{path}: PNG round trip is not lossless')
 
@@ -652,12 +901,12 @@ def anim_order(mapping, names):
     then reactions, then anything left."""
     order = []
     for s in STATES:
-        order += mapping['states'][s]
+        order += mapping['states'].get(s, [])
         if s == 'idle':
             order += [x['anim'] for x in mapping['idle_pool']]
         order += [t['anim'] for t in mapping['tiers'].get(s, [])]
         order += mapping['bonus'].get(s, {}).get('anims', [])
-    order += [mapping['reactions'][r] for r in REACTIONS]
+    order += list(mapping['reactions'].values())
     order += sorted(names)
     seen = []
     for n in order:
@@ -684,7 +933,7 @@ def dumps(obj, indent=0):
 
 def build(pack_id, src, out_root, log=print):
     meta = PACKS[pack_id]
-    loader = load_clawd if meta['kind'] == 'clawd' else load_whale_girl
+    loader = {'clawd': load_clawd, 'whale-girl': load_whale_girl, 'sprite': load_sprite}[meta['kind']]
     (cw, ch), scale, export, anims, mapping = loader(src, meta)
     for n, a in anims.items():
         check(len(a['frames']) == len(a['durs']) > 0, f'{n}: frame / duration count mismatch')
@@ -715,7 +964,7 @@ def build(pack_id, src, out_root, log=print):
         'contentBox': m['contentBox'],
         'hitBoxes': hits,
         'animations': animations,
-        'idlePool': {'everyMs': dict(IDLE_EVERY_MS), 'anims': mapping['idle_pool']},
+        'idlePool': {'everyMs': dict(meta.get('idle_every', IDLE_EVERY_MS)), 'anims': mapping['idle_pool']},
         'states': mapping['states'],
         'bonus': mapping['bonus'],
         'tiers': mapping['tiers'],
@@ -724,7 +973,7 @@ def build(pack_id, src, out_root, log=print):
         'roam': mapping['roam'],
         'sleep': mapping['sleep'],
     }
-    with open(os.path.join(out_dir, 'pack.json'), 'w', encoding='utf-8') as fh:
+    with open(os.path.join(out_dir, 'pack.json'), 'w', encoding='utf-8', newline='\n') as fh:
         fh.write(dumps(pack) + '\n')
 
     # Report.
@@ -875,6 +1124,10 @@ def main(argv=None):
     args = ap.parse_args(argv)
     try:
         for pid in ([args.only] if args.only else list(PACKS)):
+            pet_json = os.path.join(args.src, PACKS[pid]['dir'], 'pet.json')
+            if PACKS[pid]['kind'] == 'sprite' and not args.only and not os.path.isfile(pet_json):
+                print(f'{pid}: skipped, {pet_json} is not there yet')
+                continue
             pack = build(pid, args.src, args.out)
             if args.preview:
                 p = render_preview(pack, os.path.join(args.out, pid),

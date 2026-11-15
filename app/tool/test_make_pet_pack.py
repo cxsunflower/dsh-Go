@@ -204,9 +204,9 @@ class PackFormat(unittest.TestCase):
                 self.assertGreaterEqual(p['scale'], 1)
                 cw, ch = p['canvas']['w'], p['canvas']['h']
                 self.assertTrue(isinstance(cw, int) and isinstance(ch, int))
-                expected_states = [s for s in STATES if pid != 'naiwa' or s != 'carrying']
-                self.assertEqual(list(p['states']), expected_states)
-                self.assertEqual(sorted(p['reactions']), sorted(REACTIONS))
+                self.assertEqual(list(p['states']), STATES)
+                expected_reactions = REACTIONS + (['tickle2', 'tickle3', 'annoyed'] if pid == 'naiwa' else [])
+                self.assertEqual(sorted(p['reactions']), sorted(expected_reactions))
                 for s, ts in p['tiers'].items():
                     self.assertIn(s, STATES)
                     mins = [t['min'] for t in ts]
@@ -221,11 +221,10 @@ class PackFormat(unittest.TestCase):
                 self.assertIn('notification', p['timings']['minDisplay'])
                 self.assertEqual(p['timings']['wakeMs'], p['animations'][p['states']['waking'][0]]['ms'])
                 self.assertEqual(sorted(p['timings']), ['autoReturn', 'minDisplay', 'wakeMs'])
-                self.assertIn(sorted(p['roam']), (['anim', 'faces'], ['anim', 'faces', 'free']))
+                self.assertEqual(sorted(p['roam']), ['anim', 'faces'])
                 self.assertIn(p['roam']['faces'], ('left', 'right', 'front'))
-                self.assertIs(p['roam'].get('free', True), True, 'roam.free is only written as true')
-                if 'drag' in p:
-                    self.assertEqual(p['drag'], {'mirror': True}, 'drag.mirror is only written as true')
+                for extension in ('sounds', 'snack', 'drag'):
+                    self.assertNotIn(extension, p)
                 self.assertEqual(p['sleep']['afterMs'], 60000)
                 self.assertEqual(len(p['states']['idle']), 1, 'idle fidgets live in idlePool')
                 pool = p['idlePool']
@@ -278,13 +277,15 @@ class PackFormat(unittest.TestCase):
                 self.assertEqual(p['license'], tool.PACKS[pid]['license'])
                 self.assertEqual(p['source'], tool.PACKS[pid]['source'])
                 self.assertIn('非官方', p['license'])
-                self.assertEqual(p['sounds'], 'naiwa')
                 self.assertNotIn('sizeScale', p)
-                self.assertIs(p['roam']['free'], True)
-                self.assertEqual(p['drag'], {'mirror': True}, 'Naiwa turns left when dragged left')
-                self.assertEqual(p['reactions']['drag'], 'prone-eat')
-                self.assertIn('prone-eat', p['snack']['every'])
-                self.assertIn('prone-eat', p['snack']['mouths'])
+                self.assertEqual(p['roam'], {'anim': 'walk', 'faces': 'front'})
+                self.assertEqual(p['reactions']['drag'], 'prone')
+                self.assertEqual(p['states']['carrying'], ['juggle'])
+                self.assertEqual(p['reactions']['annoyed'], 'shocked')
+                self.assertEqual([p['reactions'][r] for r in ('tickle', 'tickle2', 'tickle3')],
+                                 ['tickle', 'laugh-belly', 'laugh-roll'])
+                self.assertEqual(p['bonus']['attention'], {'anims': ['laugh-point', 'dance'], 'chance': 0.5})
+                self.assertEqual([x['weight'] for x in p['idlePool']['anims']], [1, 1, 1, 1])
                 self.assertTrue(os.path.isfile(os.path.join(APP, 'assets', 'pet_sounds', 'naiwa', 'sounds.json')))
 
     def test_every_reference_exists_and_every_animation_is_used(self):
@@ -602,8 +603,6 @@ def tiny_pet():
         'reactions': {'tapLeft': 'poke', 'tapRight': 'poke', 'tickle': 'poke', 'drag': 'busy'},
         'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 2, 'sweeping': 1},
         'faces': 'front',
-        'sounds': 'tiny-test',        # no such sound set: the build only notes it
-        'snack': {'mouth': {'x': 8, 'y': 9}, 'every': {'busy': 300, 'laugh': 150}},
     }
 
 
@@ -661,11 +660,7 @@ class SpriteSource(unittest.TestCase):
     def test_pack(self):
         p, d, log = self.build()
         pet, frames = tiny_pet(), tiny_frames()
-        self.assertEqual(list(p)[-4:], ['roam', 'sleep', 'sounds', 'snack'])
-        self.assertEqual(p['sounds'], 'tiny-test')
-        self.assertEqual(p['snack'], pet['snack'])
-        self.assertTrue(any("'tiny-test'" in line and 'sounds.json' in line for line in log),
-                        'a sound set that is not there yet is noted')
+        self.assertEqual(list(p)[-2:], ['roam', 'sleep'])
         self.assertEqual(list(p['states'].items()), [(s, pet['states'][s]) for s in STATES])
         for k in ('tiers', 'bonus', 'reactions'):
             self.assertEqual(p[k], pet[k], k)
@@ -683,12 +678,11 @@ class SpriteSource(unittest.TestCase):
                 for k, (x, y) in enumerate(zip(got, frames[a['key']])):
                     self.assertTrue(np.array_equal(x, y), f'frame {k} differs from the strip')
 
-    def test_snack_mouths(self):
-        """mouths moves the mouth in animations the pet eats in; it goes between mouth and every."""
-        mouths = {'laugh': {'x': 12, 'y': 10}}
-        p, _, _ = self.build(lambda pet, f: pet['snack'].update(mouths=mouths))
-        self.assertEqual(list(p['snack']), ['mouth', 'mouths', 'every'])
-        self.assertEqual(p['snack'], dict(tiny_pet()['snack'], mouths=mouths))
+    def test_numbered_reactions_and_annoyed(self):
+        extras = {'tickle2': 'laugh', 'tickle3': 'fidget', 'annoyed': 'busy'}
+        p, _, _ = self.build(lambda pet, f: pet['reactions'].update(extras))
+        self.assertEqual(p['reactions'], {**tiny_pet()['reactions'], **extras})
+        self.assertTrue(p['animations']['laugh']['loop'], 'a timed reaction may use looping art')
 
     def test_carrying_can_be_omitted(self):
         p, _, _ = self.build(lambda pet, frames: pet['states'].pop('carrying'))
@@ -697,18 +691,6 @@ class SpriteSource(unittest.TestCase):
         self.assertNotIn('carrying', p['timings']['autoReturn'])
         self.assertEqual(p['states']['idle'], ['idle'])
         self.assertEqual(p['reactions'], tiny_pet()['reactions'])
-
-    def test_free_roam_comes_from_the_pack_entry(self):
-        with mock.patch.dict(tool.PACKS, {'tiny': dict(TINY, free=True)}):
-            p, _, _ = self.build()
-        self.assertEqual(list(p['roam'].items()), [('anim', 'busy'), ('faces', 'front'), ('free', True)])
-
-    def test_drag_mirror_comes_from_the_pack_entry(self):
-        p, _, _ = self.build()
-        self.assertNotIn('drag', p, 'no drag.mirror unless the pack asks for it')
-        with mock.patch.dict(tool.PACKS, {'tiny': dict(TINY, drag_mirror=True)}):
-            p, _, _ = self.build()
-        self.assertEqual(p['drag'], {'mirror': True})
 
     def test_timings_follow_holds(self):
         """holds x one loop of the state's animation; carrying has no hold, so one loop."""
@@ -743,19 +725,13 @@ class SpriteSource(unittest.TestCase):
 
     def test_rejects_broken_sources(self):
         cases = [
-            ('mouth off the canvas', lambda p, f: p['snack']['mouth'].update(x=16), r'off the 16x16 canvas'),
-            ('mouth above the canvas', lambda p, f: p['snack']['mouth'].update(y=-1), r'off the 16x16 canvas'),
+            ('unsupported sound extension', lambda p, f: p.update(sounds='tiny-test'), r'unknown keys'),
+            ('orphan numbered reaction', lambda p, f: p['reactions'].update(annoyed2='busy'), r'known base reaction'),
+            ('bad reaction suffix', lambda p, f: p['reactions'].update(tickle1='poke'), r'suffix >= 2'),
+            ('unknown reaction', lambda p, f: p['reactions'].update(typo='poke'), r'known base reaction'),
+            ('variant names missing art', lambda p, f: p['reactions'].update(tickle2='nope'), r'no animation nope'),
             ('a state names a missing animation', lambda p, f: p['states'].update(thinking=['nope']),
              r'states\.thinking: no animation nope'),
-            ('snack.every names a missing animation', lambda p, f: p['snack']['every'].update(nope=100),
-             r'snack\.every: no animation nope'),
-            ('a mouths point off the canvas', lambda p, f: p['snack'].update(mouths={'laugh': {'x': 3, 'y': 16}}),
-             r'snack\.mouths\.laugh: \(3, 16\) is off the 16x16 canvas'),
-            ('a mouths animation that eats nothing', lambda p, f: p['snack'].update(mouths={'poke': {'x': 3, 'y': 9}}),
-             r'snack\.mouths\.poke: not in snack\.every'),
-            ('mouths names a missing animation', lambda p, f: p['snack'].update(mouths={'nope': {'x': 3, 'y': 9}}),
-             r'snack\.mouths: no animation nope'),
-            ('empty mouths', lambda p, f: p['snack'].update(mouths={}), r'snack\.mouths: not a non-empty object'),
             ('waking loops', lambda p, f: pet_anim(p, 'wake').update(loop=True), r'wake: plays once'),
             ('a tap reaction loops', lambda p, f: pet_anim(p, 'poke').update(loop=True), r'poke: plays once'),
             ('strip a frame short', lambda p, f: f['busy'].pop(), r'sheets/busy\.png: 48x16 for 4 frames'),
@@ -775,8 +751,6 @@ class SpriteSource(unittest.TestCase):
             ('a hold on a debounced state', lambda p, f: p['holds'].update(working=2), r"holds: \['working'\]"),
             ('a bonus that always plays', lambda p, f: p['bonus']['attention'].update(chance=1),
              r'chance 1 is not strictly between'),
-            ('a sounds id that is not one', lambda p, f: p.update(sounds='Tiny Test'), r"sounds 'Tiny Test'"),
-            ('a snack every 0 ms', lambda p, f: p['snack']['every'].update(busy=0), r'snack\.every\.busy'),
             ('an unknown key', lambda p, f: p.update(hold={}), r"unknown keys \['hold'\]"),
             ('faces against the pack', lambda p, f: p.update(faces='left'), r"faces 'left'"),
         ]

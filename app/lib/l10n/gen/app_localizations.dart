@@ -5324,12 +5324,6 @@ abstract class L10n {
   /// **'鲸娘'**
   String get botsPetWhaleGirl;
 
-  /// No description provided for @botsPetNaiwa.
-  ///
-  /// In zh, this message translates to:
-  /// **'像素奶蛙'**
-  String get botsPetNaiwa;
-
   /// No description provided for @botsPetNone.
   ///
   /// In zh, this message translates to:
@@ -5347,12 +5341,6 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'来自 DSH-TUI'**
   String get botsPetSource;
-
-  /// No description provided for @botsPetSourceNaiwa.
-  ///
-  /// In zh, this message translates to:
-  /// **'像素奶蛙：来自 github.com/cxsunflower，照网络二创形象重画的像素版，非官方'**
-  String get botsPetSourceNaiwa;
 
   /// No description provided for @botsPetImport.
   ///
@@ -5551,18 +5539,6 @@ abstract class L10n {
   /// In zh, this message translates to:
   /// **'只做动作，不冒气泡'**
   String get botsPetQuietSubtitle;
-
-  /// No description provided for @botsPetSound.
-  ///
-  /// In zh, this message translates to:
-  /// **'音效'**
-  String get botsPetSound;
-
-  /// No description provided for @botsPetSoundSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'大笑和吃代码的声音，跟随媒体音量'**
-  String get botsPetSoundSubtitle;
 
   /// No description provided for @botsPetShowNow.
   ///
@@ -29678,12 +29654,6 @@ abstract class L10n {
   /// **'安静,宠物安静'**
   String get searchKwPetQuiet;
 
-  /// No description provided for @searchKwPetSound.
-  ///
-  /// In zh, this message translates to:
-  /// **'音效,声音,笑声,鬼畜,宠物音效'**
-  String get searchKwPetSound;
-
   /// No description provided for @searchKwPetOutside.
   ///
   /// In zh, this message translates to:
@@ -43205,7 +43175,7 @@ abstract class L10n {
   /// No description provided for @viewTipPetPlay.
   ///
   /// In zh, this message translates to:
-  /// **'点一下宠物会戳它，快速连点两下奶蛙会大笑，长按可以换宠物'**
+  /// **'连点宠物三下会挠痒痒，长按可以换宠物'**
   String get viewTipPetPlay;
 
   /// No description provided for @viewTipActivityStrip.

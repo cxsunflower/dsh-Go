@@ -86,7 +86,7 @@ class Effects(unittest.TestCase):
             'laugh': [LAUGH], 'laugh-point': [LAUGH],
             'laugh-roll': [LAUGH], 'laugh-belly': [LAUGH],
             'poke-left': ['dajiaosei'], 'poke-right': ['diu'],
-            'wake': ['andi'], 'prone-eat': ['gagadilaxia'],
+            'wake': ['andi'], 'prone': ['gagadilaxia'],
             'alert': ['houla'],
         })
         for silent in ('@bite', '@drop', 'idle', 'sleep', 'thinking', 'snack'):

@@ -3,7 +3,7 @@
 
 Run from the repository root (needs numpy and Pillow):
 
-    python app/tool/pet_src/naiwa/draw.py [--check] [--preview [PATH]] [--strip ANIM ...]
+    python app/tool/pet_src/naiwa/draw.py [--check] [--preview [PATH]] [--strip ANIM ...] [--gif ANIM ...] [--gallery DIR]
 
 A run redraws all 25 animations, writes sheets/<anim>.png (1x single-row strips of
 64x64 cells) and pet.json next to this script, then checks them against
@@ -11,7 +11,9 @@ docs/design/naiwa-pet.md sections 3 and 4. `--check` redraws in memory and only
 verifies, failing when the files on disk are stale. `--preview` also writes a
 contact sheet of every frame (4x on a checkerboard) to
 app/build/pet_src_preview/naiwa.png (or PATH); `--strip ANIM` writes a 4x grid of each named
-animation to app/build/pet_src_preview/naiwa/ANIM.png. No clock and no randomness:
+animation to app/build/pet_src_preview/naiwa/ANIM.png; `--gif ANIM` writes an animated
+preview beside it, with the original frame timing. `--gallery DIR` writes all
+animations as looping 3x GIFs for the README. No clock and no randomness:
 two runs give byte-identical files.
 
 How the art is made: a small rig on integer pixels, no anti-aliasing.
@@ -55,16 +57,15 @@ MIN_MS, MAX_MS = 60, 400
 MAX_TOTAL_FRAMES = 400
 MAX_COLORS = 256
 
-# docs/design/naiwa-pet.md section 3, in table order.
+# Animation catalogue order; docs/design/naiwa-pet.md section 2 maps the triggers.
 ANIM_NAMES = [
     'idle', 'idle-look', 'idle-giggle', 'snack', 'dance', 'thinking',
     'eat-code', 'eat-code-fast', 'feast', 'juggle', 'juggle-many', 'shocked', 'laugh',
     'laugh-point', 'laugh-roll', 'laugh-belly', 'alert', 'devour', 'sleep',
-    'wake', 'walk', 'poke-left', 'poke-right', 'tickle', 'prone-eat',
+    'wake', 'walk', 'poke-left', 'poke-right', 'tickle', 'prone',
 ]
 ONE_SHOT = {'wake', 'poke-left', 'poke-right', 'tickle'}
-EATING = ['eat-code', 'eat-code-fast', 'feast', 'devour', 'snack']   # mouth at snack.mouth
-OWN_MOUTH = ['prone-eat']   # eating with the mouth elsewhere: snack.mouths
+EATING = ['eat-code', 'eat-code-fast', 'feast', 'devour', 'snack']   # shared upright mouth position
 
 PALETTE = {
     'line': '#4A2E12',
@@ -243,7 +244,7 @@ MOUTHS = {
              "...oooooo..."],
     'o': [".oo.", "owwo", "ommo", "ommo", ".oo."],
     'O': [".oooo.", "owwwwo", "ommmmo", "ommmmo", "ommmmo", "ommmmo", ".oooo."],
-    'eat': ["..oooooo..",               # wide open for code; its centre is snack.mouth
+    'eat': ["..oooooo..",               # wide open for code; its centre is upright mouth
             ".owwwwwwo.",
             "ommmmmmmmo",
             "ommmmmmmmo",
@@ -528,10 +529,9 @@ def dark_rim(m):
 
 # ---------------------------------------------------------------- lying on its belly
 #
-# prone-eat, played while dragged, has a figure of its own seen from the side: crawling
+# prone, played while dragged, has a figure of its own seen from the side: crawling
 # on its belly with the rump on the left and the legs stretched out behind it, the head
-# at the right end held up on the forepaws and turned to the viewer, so code flies in
-# from the right.
+# at the right end held up on the forepaws and turned to the viewer.
 
 PRONE_TOP, PRONE_X = 34, 41.0    # head: top row, centre line
 # Head half-width per row from the top: the idle dome squashed.
@@ -582,8 +582,6 @@ def render_prone(p):
     top = PRONE_TOP + q.get('nod', 0)
     mouth_y = top + PRONE_MOUTH_DY
     hw = np.asarray(PRONE_HEAD, float)[np.clip(YS - top, 0, len(PRONE_HEAD) - 1)]
-    if p['cheeks']:
-        hw = hw + p['cheeks'] * np.clip(1 - np.abs(CY - mouth_y) / 3.5, 0, 1)
     head = (YS >= top) & (YS < top + len(PRONE_HEAD)) & (np.abs(CX - PRONE_X) < hw) & floor
     (rump_c, rump_rx, rump_ry), (chest_c, chest_rx, chest_ry) = PRONE_BODY
     rise = q.get('rise', 0)          # the rump bobs as the hind feet push
@@ -636,12 +634,9 @@ def render_prone(p):
     eye_y = top + PRONE_EYE_DY
     for side in (-1, 1):
         face_part(eye_rows(p['eyes'], p['look'], side), fx + side * EYE_U, eye_y)
-        if p['blush']:
-            face_part(["pp"], fx + side * (EYE_U + 2.0), eye_y + 5.0)
-    centre = face_part(MOUTHS[p['mouth']], fx, mouth_y)
-    free, held = draw_props(lab, p['props'])
-    return dict(lab=lab, body=dilate4(sil), free=free, held=held,
-                mouth=centre if p['mouth'] == 'eat' else None, tint=p['tint'])
+    face_part(MOUTHS[p['mouth']], fx, mouth_y)
+    return dict(lab=lab, body=dilate4(sil), free=np.zeros_like(sil), held=np.zeros_like(sil),
+                mouth=None, tint=p['tint'])
 
 
 def render(p):
@@ -741,7 +736,7 @@ def to_rgba(frame):
 # ---------------------------------------------------------------- animations
 #
 # Each animation is a list of (pose, ms). Poses are built from BASE; the mouth used
-# for eating ('eat') must stay on one point in every eating animation (snack.mouth).
+# for eating ('eat') must stay on one point in every eating animation (upright mouth).
 
 def P(*bases, **kw):
     """A pose from BASE, then each base dict in order, then the keywords."""
@@ -1096,9 +1091,8 @@ def anim_tickle():
     return anim_laugh() + [(P(eyes='happy', mouth='smile', blush=True), 160), (P(), 200)]
 
 
-def anim_prone_eat():
-    """Dragged: crawling on its belly with the head up, a forepaw stepping out per bite
-    (the diagonal hind foot with it), munching code that flies in from the right."""
+def anim_prone():
+    """Dragged: alternate forepaw reaches and diagonal hind-foot pushes, with a blink."""
     # Lift, reach, plant, pull. The planted paw travels back relative to the body;
     # the last pose joins the opposite half-cycle within one pixel of paw travel.
     swing = [(-2, 0), (-2, 1), (0, 2), (2, 1), (3, 0), (2, 0), (1, 0), (0, 0)]
@@ -1106,28 +1100,16 @@ def anim_prone_eat():
     lift = [-90, -68, -46, -58, -78, -90, -94, -90]
     press = [-90, -90, -92, -94, -96, -94, -92, -90]
     rise = [0, 0.5, 1, 1, 0.5, 0, 0, 0]
+    nod = [0, -1, -1, 0, 1, 1, 0, 0]
+    durs = [110, 90, 90, 100, 110, 120, 120, 120]
     fr = []
-    for b, (ch, c) in enumerate((('{', 'c1'), ('+', 'c2'))):
-        def crawl(k, nod=0, **kw):
+    for b in range(2):
+        for k, ms in enumerate(durs):
             paws, kick = (stance[k], swing[k]), (lift[k], press[k])   # (far, near)
             if b:   # the far forepaw steps, with the near hind foot
                 paws, kick = paws[::-1], kick[::-1]
-            return P(prone=dict(paws=paws, kick=kick, rise=rise[k], nod=nod), **kw)
-        fly = lambda x, y: (('code', ch, x, y, c),)
-        crumbs = lambda i: tuple(('glyph', 'crumb', *path[i], c) for path in (
-            ((58, 40), (59, 44), (59, 48)), ((61, 43), (62, 46), (61, 50))))
-        fr += [
-            (crawl(0, nod=-1, mouth='line', look=(1, 0), props=fly(59, 33)), 110),
-            (crawl(1, mouth='eat', look=(1, 0), props=fly(58, 35)), 90),
-            (crawl(2, mouth='eat', look=(1, 0), props=fly(57, 39)), 90),
-            (crawl(3, mouth='eat', look=(0, 1), props=(('code-in', ch, 42, 44, c),)), 100),
-            (crawl(4, nod=1, mouth='chew_a', cheeks=1.5, eyes='squeeze', blush=True,
-                   props=crumbs(0)), 110),
-            (crawl(5, nod=1, mouth='chew_b', cheeks=1.5, eyes='happy', blush=True,
-                   props=crumbs(1)), 120),
-            (crawl(6, mouth='chew_a', cheeks=1.0, eyes='happy', props=crumbs(2)), 120),
-            (crawl(7, nod=-1, mouth='smile', look=(1, 0)), 120),
-        ]
+            fr.append((P(prone=dict(paws=paws, kick=kick, rise=rise[k], nod=nod[k]),
+                         look=(1, 0), eyes='closed' if b == 1 and k == 6 else 'open'), ms))
     return fr
 
 
@@ -1140,13 +1122,13 @@ ANIMS = {
     'laugh-belly': anim_laugh_belly, 'alert': anim_alert, 'devour': anim_devour,
     'sleep': anim_sleep, 'wake': anim_wake, 'walk': anim_walk,
     'poke-left': lambda: anim_poke(1), 'poke-right': lambda: anim_poke(-1),
-    'tickle': anim_tickle, 'prone-eat': anim_prone_eat,
+    'tickle': anim_tickle, 'prone': anim_prone,
 }
 
 
 # ---------------------------------------------------------------- pet.json
 
-def pet_json(anims, mouth, mouths):
+def pet_json(anims):
     return {
         'id': PACK_ID,
         'w': W, 'h': H,
@@ -1155,7 +1137,7 @@ def pet_json(anims, mouth, mouths):
         'states': {
             'idle': ['idle'], 'thinking': ['thinking'], 'working': ['eat-code'],
             'juggling': ['juggle'], 'error': ['shocked'], 'attention': ['laugh'],
-            'notification': ['alert'], 'sweeping': ['devour'],
+            'notification': ['alert'], 'sweeping': ['devour'], 'carrying': ['juggle'],
             'sleeping': ['sleep'], 'waking': ['wake'], 'roam': ['walk'],
         },
         'tiers': {
@@ -1164,25 +1146,19 @@ def pet_json(anims, mouth, mouths):
             'juggling': [{'min': 2, 'anim': 'juggle-many'}, {'min': 1, 'anim': 'juggle'}],
         },
         'idlePool': [
-            {'anim': 'idle-look', 'loops': 2, 'weight': 2},
-            {'anim': 'idle-giggle', 'loops': 2, 'weight': 2},
-            {'anim': 'snack', 'loops': 1, 'weight': 2},
+            {'anim': 'idle-look', 'loops': 2, 'weight': 1},
+            {'anim': 'idle-giggle', 'loops': 2, 'weight': 1},
+            {'anim': 'snack', 'loops': 1, 'weight': 1},
             {'anim': 'dance', 'loops': 2, 'weight': 1},
         ],
-        'bonus': {'attention': {'anims': ['laugh-point', 'laugh-roll', 'laugh-belly'],
+        'bonus': {'attention': {'anims': ['laugh-point', 'dance'],
                                 'chance': 0.5}},
         'reactions': {'tapLeft': 'poke-left', 'tapRight': 'poke-right', 'tickle': 'tickle',
-                      'drag': 'prone-eat'},
+                      'tickle2': 'laugh-belly', 'tickle3': 'laugh-roll',
+                      'annoyed': 'shocked', 'drag': 'prone'},
         'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 1,
                   'sweeping': 1},
         'faces': 'front',
-        'sounds': 'naiwa',
-        'snack': {
-            'mouth': {'x': mouth[0], 'y': mouth[1]},
-            'mouths': {n: {'x': x, 'y': y} for n, (x, y) in mouths.items()},
-            'every': {'eat-code': 700, 'eat-code-fast': 380, 'feast': 200, 'devour': 260,
-                      'snack': 1500, 'prone-eat': 260},
-        },
     }
 
 
@@ -1220,10 +1196,6 @@ def snack_mouth(anims, names=EATING):
     return iround(float(np.median(xs))), iround(float(np.median(ys)) - 0.5)
 
 
-def snack_mouths(anims):
-    return {n: snack_mouth(anims, [n]) for n in OWN_MOUTH}
-
-
 def sheet_png(frames):
     """1x single-row strip as PNG bytes: indexed with tRNS when it has <= 256 colours."""
     strip = np.concatenate(frames, axis=1)
@@ -1241,7 +1213,7 @@ def sheet_png(frames):
 
 def outputs(anims):
     files = {os.path.join('sheets', f'{n}.png'): sheet_png(anims[n]['frames']) for n in ANIM_NAMES}
-    spec = pet_json(anims, snack_mouth(anims), snack_mouths(anims))
+    spec = pet_json(anims)
     files['pet.json'] = (dumps(spec) + '\n').encode('utf-8')
     return files
 
@@ -1282,7 +1254,7 @@ def check(anims, files):
                         bad.append(f'{kind} eye looking {(dx, dy)}: missing single white highlight')
     names = list(anims)
     if names != ANIM_NAMES:
-        bad.append(f'animations {names} != the {len(ANIM_NAMES)} of naiwa-pet.md section 3')
+        bad.append(f'animations {names} != the {len(ANIM_NAMES)} in the animation catalogue')
     total = sum(len(a['durs']) for a in anims.values())
     if total > MAX_TOTAL_FRAMES:
         bad.append(f'{total} frames in total (max {MAX_TOTAL_FRAMES})')
@@ -1343,17 +1315,16 @@ def check(anims, files):
         iou = (first & last).sum() / (first | last).sum()
         if iou < 0.9:
             bad.append(f'{n}: last frame is not back near idle (mask overlap {iou:.0%})')
-    points = [(EATING, 'snack.mouth', snack_mouth(anims))]
-    points += [([n], f'snack.mouths[{n}]', pt) for n, pt in snack_mouths(anims).items()]
+    points = [(EATING, 'upright mouth', snack_mouth(anims))]
     for names, label, (mx, my) in points:
         for n in names:
             for x, y in (m['mouth'] for m in anims[n]['meta'] if m['mouth']):
                 if abs(x - mx) > 1 or abs(y - 0.5 - my) > 1:
                     bad.append(f'{n}: open mouth at ({x}, {y}) is off {label} ({mx}, {my})')
-    for i, m in enumerate(anims['prone-eat']['meta']):
+    for i, m in enumerate(anims['prone']['meta']):
         line = int(np.nonzero(m['body'].any(axis=1))[0][-1]) + 1
         if not GROUND <= line <= GROUND + 2:
-            bad.append(f'prone-eat frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
+            bad.append(f'prone frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
     # Check every expression against its complete facial bitmaps. Covering the
     # mouth while giggling, chewing a glyph and the sleep bubble are intentional.
     for n, anim in anims.items():
@@ -1379,13 +1350,10 @@ def check(anims, files):
             if not np.array_equal(m['lab'][visible], expected[visible]):
                 bad.append(f'{n} frame {i}: an eye or mouth is obscured')
     spec = json.loads(files['pet.json'])
-    snack = spec['snack']
-    for n in sorted(set(snack['mouths']) - set(snack['every'])):
-        bad.append(f'snack.mouths: {n} is not in snack.every')
     used = set(sum(spec['states'].values(), []))
     used |= {t['anim'] for ts in spec['tiers'].values() for t in ts}
     used |= {x['anim'] for x in spec['idlePool']} | set(spec['reactions'].values())
-    used |= set(spec['bonus']['attention']['anims']) | set(snack['every']) | set(snack['mouths'])
+    used |= {n for bonus in spec['bonus'].values() for n in bonus['anims']}
     for n in sorted(used - set(ANIM_NAMES)):
         bad.append(f'pet.json refers to unknown animation {n}')
     for n in sorted(set(ANIM_NAMES) - used):
@@ -1466,6 +1434,21 @@ def strip(anims, name, path, zoom=4, per_row=4):
     return path
 
 
+def animated_preview(anims, name, path, zoom=4, loop_all=False):
+    """Nearest-neighbour GIF at original timing; optionally loop single-play actions."""
+    a = anims[name]
+    frames = []
+    for fr in a['frames']:
+        tile = checker(W * zoom, H * zoom, 16)
+        tile.alpha_composite(Image.fromarray(fr, 'RGBA').resize(tile.size, Image.NEAREST))
+        frames.append(tile.convert('RGB'))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    repeat = {'loop': 0} if loop_all or name not in ONE_SHOT else {}
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=a['durs'],
+                   disposal=2, **repeat)
+    return path
+
+
 # ---------------------------------------------------------------- main
 
 def main(argv=None):
@@ -1474,6 +1457,8 @@ def main(argv=None):
     ap.add_argument('--preview', nargs='?', const=os.path.join(PREVIEW_DIR, f'{PACK_ID}.png'),
                     metavar='PATH', help='all frames, defaults to app/build/pet_src_preview/naiwa.png')
     ap.add_argument('--strip', nargs='*', default=[], metavar='ANIM', help='4x grid per animation')
+    ap.add_argument('--gif', nargs='*', default=[], metavar='ANIM', help='4x animated GIF per animation')
+    ap.add_argument('--gallery', metavar='DIR', help='all animations as looping 3x GIFs for the README')
     args = ap.parse_args(argv)
 
     anims = draw_all()
@@ -1498,7 +1483,7 @@ def main(argv=None):
     digest = hashlib.sha256(b''.join(files[k] for k in sorted(files))).hexdigest()[:16]
     print(f'{PACK_ID}: {len(anims)} animations, {total} frames, '
           f'{sum(len(v) for k, v in files.items() if k.endswith(".png")) / 1024:.1f} KB of sheets, '
-          f'snack.mouth {snack_mouth(anims)}, mouths {snack_mouths(anims)}, sha256 {digest}')
+          f'upright mouth {snack_mouth(anims)}, sha256 {digest}')
     for line in info:
         print('  ' + line)
     if args.preview:
@@ -1508,6 +1493,15 @@ def main(argv=None):
             problems.append(f'--strip: unknown animation {n}')
             continue
         print('  strip ' + strip(anims, n, os.path.join(PREVIEW_DIR, PACK_ID, f'{n}.png')))
+    for n in args.gif:
+        if n not in anims:
+            problems.append(f'--gif: unknown animation {n}')
+            continue
+        print('  gif ' + animated_preview(anims, n, os.path.join(PREVIEW_DIR, PACK_ID, f'{n}.gif')))
+    if args.gallery:
+        for n in anims:
+            animated_preview(anims, n, os.path.join(args.gallery, f'{n}.gif'), zoom=3, loop_all=True)
+        print(f'  gallery {args.gallery}: {len(anims)} looping GIFs')
     for p in problems:
         print(f'error: {p}', file=sys.stderr)
     return 1 if problems else 0
