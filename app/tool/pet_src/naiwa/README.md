@@ -10,9 +10,10 @@
 |---|---|
 | `draw.py` | 生成脚本，唯一的源文件 |
 | `pet.json` | 由 `draw.py` 写出：帧时长、状态映射、档位、待机池与反应 |
-| `sheets/<anim>.png` | 由 `draw.py` 写出，1 倍单行横条，每帧 64×64，共 25 段 |
-| `docs/assets/naiwa-frames.png` | README 展示的全部 254 帧大图，由 `draw.py --preview` 生成 |
-| `docs/assets/naiwa/*.gif` | README 的 25 段动作预览，由 `draw.py --gallery` 按原时长生成，3 倍放大并循环展示 |
+| `sheets/<anim>.png` | 由 `draw.py` 写出，1 倍单行横条，每帧 64×64，共 24 段 |
+| `docs/assets/naiwa-frames.png` | README 展示的全部 251 帧大图，由 `draw.py --preview` 生成 |
+| `docs/assets/naiwa/*.gif` | README 的 24 段动作预览，由 `draw.py --gallery` 按原时长生成，3 倍放大并循环展示 |
+| `docs/assets/naiwa-attention*.gif` | 完成状态的两种播放演示：大笑 → 待机，或跳舞 → 大笑 → 待机；由 `draw.py --completion-previews` 生成 |
 
 `pet.json` 和 `sheets/` 是生成物，不要手改，改 `draw.py` 后重新生成。
 
@@ -26,8 +27,10 @@ python app/tool/pet_src/naiwa/draw.py --check      # 只在内存里重画并自
 python app/tool/pet_src/naiwa/draw.py --preview    # 另写全帧总览 app/build/pet_src_preview/naiwa.png
 python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png  # 更新 README 全帧大图
 python app/tool/pet_src/naiwa/draw.py --check --gallery docs/assets/naiwa  # 更新 README 全部 GIF 预览
+python app/tool/pet_src/naiwa/draw.py --check --completion-previews docs/assets  # 完成状态及彩蛋顺序预览
 python app/tool/pet_src/naiwa/draw.py --strip laugh feast   # 另写单段放大图 app/build/pet_src_preview/naiwa/<anim>.png
 python app/tool/pet_src/naiwa/draw.py --check --strip prone --gif prone  # 逐帧图与原速 GIF 预览
+python app/tool/pet_src/naiwa/draw.py --check --strip carrying annoyed laugh-roll --gif carrying annoyed laugh-roll
 ```
 
 脚本不读时钟、不用随机数，两次运行的输出字节相同。打包试跑（只输出到 `app/build/`）：
@@ -70,6 +73,7 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 - 光从左上来：右下边缘两级暗部，头顶一块高光。描边是所有部件的 4 邻域膨胀减去部件本身；挡在躯干前面的手臂在重叠处也有自己的描边。
 - 眼睛、嘴、道具是手绘的小位图，按骨架锚点盖上去；左右对称的五官按中轴对称取整，落在镜像的像素上。
 - 离体道具（哈、Z、!、?、代码字符和方块、碎屑、汗滴）带 8 邻域描边，并和身体至少隔 1 个透明像素，打包工具按「最大连通块」找身体。爪里拿着的道具和鼻涕泡贴着身体。
+- 搬运的小箱子贴在肚前，先画箱子再画双臂与爪，手掌握住左右边缘；箱子随身体同步移动，不遮眼睛和嘴。胶带、白色标签与向下箭头帮助辨认导入场景。
 
 ## 动画
 
@@ -88,20 +92,19 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | `juggle-many` | 12 | 1200 ms | 四块代码方块轮流抛接，边抛边扭边笑 |
 | `shocked` | 12 | 1090 ms | 抬爪大惊，头上冒「!?」，身体乱抖，冒冷汗 |
 | `laugh` | 10 | 1060 ms | 捧腹大笑，嘴张到半张脸，「哈」字左右轮流冒出 |
-| `laugh-point` | 8 | 860 ms | 一手叉腰一手指着你笑 |
-| `laugh-roll` | 8 | 880 ms | 笑到仰面躺倒，左右翻滚，双脚朝天乱蹬 |
-| `laugh-belly` | 8 | 780 ms | 捧着肚子笑，肚子一鼓一鼓 |
+| `laugh-roll` | 13 | 1560 ms | 屈身后笑到仰面躺倒，左右翻滚、双脚朝天乱蹬，再坐稳起身，回到待机（不循环） |
 | `alert` | 8 | 1280 ms | 叉腰挥手，头顶感叹号一跳一跳 |
 | `devour` | 12 | 1360 ms | 一行代码 `fn(x)=>{` 平移过来，一口吃一个字符 |
+| `carrying` | 8 | 1320 ms | 双爪抱住带导入箭头的小箱子，左右小步交替，身体与箱子同步轻晃（循环） |
 | `sleep` | 8 | 3040 ms | 坐着打盹，鼻涕泡随呼吸一大一小，飘 Zzz |
 | `wake` | 8 | 1720 ms | 睁眼、站起来伸懒腰打哈欠，最后回到待机第 0 帧（不循环） |
 | `walk` | 8 | 1000 ms | 左右脚交替迈步，身体跟着倾斜 |
 | `poke-left` | 8 | 900 ms | 左边被戳，往右一歪再弹回来（不循环） |
 | `poke-right` | 8 | 900 ms | 右边被戳，往左一歪再弹回来（不循环） |
-| `tickle` | 12 | 1420 ms | 和 `laugh` 一样捧腹大笑，最后回到待机（不循环），主线 App 连点三下时播放 |
+| `annoyed` | 12 | 1530 ms | 连续被戳后皱眉鼓腮、双爪叉腰，左右脚各跺一下；闭眼放松、垂爪，回到待机（不循环） |
 | `prone` | 16 | 1720 ms | 趴着交替抬爪、前伸、落爪、拉身，对角后脚抬起再蹬地；身体轻微起伏、偶尔眨眼，保持微笑。手臂沿用正视图的短臂比例，近臂位于脸部下方、远臂藏在身体后，没有吃字、咀嚼或碎屑 |
 
-共 25 段、254 帧，`sheets/` 合计约 37.3 KB。全部帧见[大图](../../../../docs/assets/naiwa-frames.png)。
+共 24 段、251 帧，`sheets/` 合计约 36.5 KB。全部帧见[大图](../../../../docs/assets/naiwa-frames.png)。
 
 ## 状态映射
 
@@ -111,17 +114,17 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 | 工作 | 1 个会话 `eat-code`，2 个 `eat-code-fast`，3 个及以上 `feast` |
 | 子代理 | 1 个 `juggle`，2 个及以上 `juggle-many` |
 | 出错 / 完成 / 待确认 | `shocked` / `laugh` / `alert` |
-| 上下文压缩 / 导入宠物包 | `devour` / `juggle` |
+| 上下文压缩 / 导入宠物包 | `devour` / `carrying` |
 | 睡眠 / 唤醒 | `sleep` / `wake` |
 | 左右点按 | `poke-left` / `poke-right` |
-| 三连点随机反应 | `tickle`、`laugh-belly`、`laugh-roll`，等概率 |
-| 六连点 / 拖动 | `shocked` / `prone` |
+| 三连点反应 | `laugh-roll` |
+| 六连点 / 拖动 | `annoyed` / `prone` |
 
 - 待机池四项 `idle-look`、`idle-giggle`、`snack`、`dance` 权重均为 1，分别播放 2、2、1、2 遍。
 - 聊天页正常待机时每次等待 10–25 秒后插播。间隔参数为 `min: 10000`、`mean: 18000`、`max: 25000`；无任务且 60 秒无交互后休眠，插播不延后休眠。
-- 完成态以 50% 概率先播放 `laugh-point` 或 `dance`，两者等概率，各播一遍后返回 `laugh`。完成态总时长为 3180 ms。
-- `reactions` 用 `tickle`、`tickle2`、`tickle3` 三个字符串键。1.1 秒内第 3 下触发候选，第 4、5 下继续挠痒，第 6 下转为 `annoyed` 并清空计数。
-- 导入期间复用抛接代码块；六连点复用惊跳。反应由 App 计时结束，不按录音延长。
+- 完成态以 50% 概率先播放一遍 `dance`，再返回 `laugh`。完成态总时长为 3180 ms。
+- `reactions.tickle` 指向 `laugh-roll`，保留 main 的反应入口名。1.1 秒内第 3 下开始翻滚笑，第 4、5 下重新播放，第 6 下转为 `annoyed` 并清空计数。
+- 导入期间循环播放 `carrying`；六连点播放一次 `annoyed`。反应由 App 计时结束，不按录音延长。
 - 包按 main 的无声接口制作，不含 `sounds`、`snack`、`roam.free` 或 `drag.mirror`。动画中的代码字符都在图片中。
 - 悬浮窗不触发游走或连点反应。声音输入、已生成音频与来源说明保留在仓库中，见 [audio/README.md](audio/README.md)，不随宠物 ZIP 或 APK 打包。
 
@@ -129,12 +132,12 @@ python app/tool/make_pet_pack.py --only naiwa --out app/build/pet_try --preview 
 
 `draw.py` 每次运行都会检查下面这些，`--check` 还会核对磁盘上的文件是否最新：
 
-- 25 段名字齐全，每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色。alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`，PNG 读回来和画出来的逐像素相同。
+- 24 段名字齐全，每段 4–16 帧、每帧 60–400 ms、总帧数不超过 400、每段不超过 256 色。alpha 只有 0 和 255，透明像素全是 `(0, 0, 0, 0)`，PNG 读回来和画出来的逐像素相同。
 - 待机各帧脚底线都是 y = 60，只有一个连通块，没有离体道具。
 - 离体道具离身体（含手持道具）至少 1 个透明像素；每帧最大的 8 连通块正好是身体。
-- `wake`、`poke-left`、`poke-right`、`tickle` 不循环，最后一帧和待机第 0 帧的重合度（IoU）不低于 0.9。
+- `wake`、`poke-left`、`poke-right`、`laugh-roll`、`annoyed` 不循环，最后一帧和待机第 0 帧的重合度（IoU）不低于 0.9。
 - 进食动画张嘴帧的嘴中心在 该中心 ±1 像素以内。
 - 全部帧的上臂、前臂长度与正视待机一致，趴爬的爪点落在相同的短臂范围内。逐帧核对完整五官位图，嘴部允许捂嘴、吃进字符和睡眠气泡的有意遮挡。
-- 睁眼和瞪眼在九个注视方向都保留一个白色高光；瞳孔移到眼圈边缘时，高光落在仍可见的瞳孔像素内。
+- 睁眼和瞪眼在九个注视方向都保留一个白色高光；瞳孔移到眼圈边缘时，高光落在仍可见的瞳孔像素内。皱眉眼型同样保留浅绿眼圈、黑瞳孔和白色高光。
 - `pet.json` 引用的动画都存在，每段动画都被用到。
 - 能导入 `app/tool/make_pet_pack.py` 时，按它的规则预算点击框并打印出来。

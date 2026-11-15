@@ -33,10 +33,10 @@ RATE = 22050
 LAUGH_ID = 'hahahahahahaha'
 LAUGH_RATE = 11025
 
-# clip id → the cues it serves. The laugh's four poses share one recording;
+# clip id → reference cues. Both laugh poses share one recording;
 # `wake` is the waking state's animation, `alert` the notification state's.
 CLIPS = {
-    'hahahahahahaha': ('laugh', 'laugh-point', 'laugh-roll', 'laugh-belly'),
+    'hahahahahahaha': ('laugh', 'laugh-roll'),
     'dajiaosei': ('poke-left',),
     'diu': ('poke-right',),
     'andi': ('wake',),

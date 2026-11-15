@@ -32,23 +32,26 @@
     },
     {"key": "shocked", "durs": [70, 60, 60, 60, 60, 60, 120, 120, 120, 120, 120, 120], "loop": true},
     {"key": "laugh", "durs": [120, 100, 100, 100, 100, 100, 100, 100, 100, 140], "loop": true},
-    {"key": "laugh-point", "durs": [120, 100, 100, 100, 100, 100, 100, 140], "loop": true},
-    {"key": "laugh-roll", "durs": [110, 110, 110, 110, 110, 110, 110, 110], "loop": true},
-    {"key": "laugh-belly", "durs": [120, 90, 90, 90, 90, 90, 90, 120], "loop": true},
+    {
+      "key": "laugh-roll",
+      "durs": [100, 120, 110, 110, 110, 110, 110, 110, 110, 110, 140, 140, 180],
+      "loop": false
+    },
     {"key": "alert", "durs": [160, 160, 160, 160, 160, 160, 160, 160], "loop": true},
     {
       "key": "devour",
       "durs": [120, 100, 120, 120, 100, 120, 120, 100, 120, 120, 100, 120],
       "loop": true
     },
+    {"key": "carrying", "durs": [160, 160, 180, 160, 160, 160, 180, 160], "loop": true},
     {"key": "sleep", "durs": [380, 380, 380, 380, 380, 380, 380, 380], "loop": true},
     {"key": "wake", "durs": [260, 200, 300, 360, 160, 140, 100, 200], "loop": false},
     {"key": "walk", "durs": [140, 120, 120, 120, 140, 120, 120, 120], "loop": true},
     {"key": "poke-left", "durs": [90, 110, 100, 110, 110, 120, 100, 160], "loop": false},
     {"key": "poke-right", "durs": [90, 110, 100, 110, 110, 120, 100, 160], "loop": false},
     {
-      "key": "tickle",
-      "durs": [120, 100, 100, 100, 100, 100, 100, 100, 100, 140, 160, 200],
+      "key": "annoyed",
+      "durs": [100, 120, 130, 90, 130, 130, 90, 160, 180, 120, 100, 180],
       "loop": false
     },
     {
@@ -66,7 +69,7 @@
     "attention": ["laugh"],
     "notification": ["alert"],
     "sweeping": ["devour"],
-    "carrying": ["juggle"],
+    "carrying": ["carrying"],
     "sleeping": ["sleep"],
     "waking": ["wake"],
     "roam": ["walk"]
@@ -85,14 +88,12 @@
     {"anim": "snack", "loops": 1, "weight": 1},
     {"anim": "dance", "loops": 2, "weight": 1}
   ],
-  "bonus": {"attention": {"anims": ["laugh-point", "dance"], "chance": 0.5}},
+  "bonus": {"attention": {"anims": ["dance"], "chance": 0.5}},
   "reactions": {
     "tapLeft": "poke-left",
     "tapRight": "poke-right",
-    "tickle": "tickle",
-    "tickle2": "laugh-belly",
-    "tickle3": "laugh-roll",
-    "annoyed": "shocked",
+    "tickle": "laugh-roll",
+    "annoyed": "annoyed",
     "drag": "prone"
   },
   "holds": {"attention": 3, "error": 2, "notification": 2, "waking": 1, "sweeping": 1},

@@ -13,7 +13,7 @@
 
 | 输入（= clip id） | 角色 / cue | pak 内条目 | 时长 | 处理 |
 |---|---|---|---|---|
-| `hahahahahahaha.wav` | 大笑 `laugh`、`laugh-point`、`laugh-roll`、`laugh-belly` | `sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c` | 25.286531 秒 | **保留整段**；22050 Hz 的 PCM 有 1,115,214 字节，超过 SoundPool 单段上限，故降为 11025 Hz（278,784 帧 = 557,568 字节 PCM） |
+| `hahahahahahaha.wav` | 大笑 `laugh`、`laugh-roll` | `sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c` | 25.286531 秒 | **保留整段**；22050 Hz 的 PCM 有 1,115,214 字节，超过 SoundPool 单段上限，故降为 11025 Hz（278,784 帧 = 557,568 字节 PCM） |
 | `dajiaosei.wav` | 戳左 `poke-left` | `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_01.vsnd_c` | 1.071020 秒 | 逐字节复制，22050 Hz |
 | `diu.wav` | 戳右 `poke-right` | `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_02.vsnd_c` | 1.071020 秒 | 逐字节复制，22050 Hz |
 | `andi.wav` | 叫醒 `wake` | `sounds/abilities/dynamo/dyanmo_a2_quantum_cast.vsnd_c`（包内拼写即 `dyanmo`） | 1.306122 秒 | 逐字节复制，22050 Hz |
@@ -32,7 +32,7 @@
 
 | cue | clip |
 |---|---|
-| `laugh`、`laugh-point`、`laugh-roll`、`laugh-belly` | `hahahahahahaha` |
+| `laugh`、`laugh-roll` | `hahahahahahaha` |
 | `poke-left` | `dajiaosei` |
 | `poke-right` | `diu` |
 | `wake` | `andi` |

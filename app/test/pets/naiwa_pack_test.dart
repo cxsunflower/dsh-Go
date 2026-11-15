@@ -83,7 +83,7 @@ void main() {
   tearDown(PetSheets.instance.clear);
 
   test(
-    'CLI-built silent pack imports through the app validator and library, with all 25 animations reachable',
+    'CLI-built silent pack imports through the app validator and library, with all 24 animations reachable',
     () async {
       final tmp = Directory.systemTemp.createTempSync('naiwa-import-');
       addTearDown(() => tmp.deleteSync(recursive: true));
@@ -97,9 +97,12 @@ void main() {
       final bytes = await zip.readAsBytes();
       final validated = PetPackValidator.validateArchive(bytes);
       final pack = validated.pack;
-      expect(pack.animations.length, 25);
-      expect(pack.animations.values.fold<int>(0, (sum, a) => sum + a.frames.length), 254);
-      expect(validated.sheets.length, 25);
+      expect(pack.animations.length, 24);
+      expect(pack.animations.values.fold<int>(0, (sum, a) => sum + a.frames.length), 251);
+      expect(validated.sheets.length, 24);
+      for (final removed in ['laugh-point', 'laugh-belly', 'tickle']) {
+        expect(pack.animations.containsKey(removed), isFalse);
+      }
       expect(validated.dropped, isEmpty);
       for (final key in ['sounds', 'snack', 'drag']) {
         expect(validated.json.containsKey(key), isFalse);
@@ -118,9 +121,9 @@ void main() {
       final imported = await library.install(zip);
       expect(imported.id, 'user-naiwa');
       final loaded = await library.load(imported.id);
-      expect(loaded.animFor(PetStateName.carrying).name, 'juggle');
-      expect(loaded.reactions['tickle'], ['tickle', 'laugh-belly', 'laugh-roll']);
-      expect(loaded.reaction('annoyed')!.name, 'shocked');
+      expect(loaded.animFor(PetStateName.carrying).name, 'carrying');
+      expect(loaded.reactions['tickle'], ['laugh-roll']);
+      expect(loaded.reaction('annoyed')!.name, 'annoyed');
       expect(loaded.reaction('drag')!.name, 'prone');
     },
   );
@@ -161,34 +164,32 @@ void main() {
     });
   }
 
-  for (final (index, name) in ['tickle', 'laugh-belly', 'laugh-roll'].indexed) {
-    testWidgets('three taps choose $name; six taps interrupt it and start a new chain', (tester) async {
-      final pack = await _pump(tester, _Pick(index));
+  testWidgets('three taps roll laughing; six taps interrupt with annoyed and start a new chain', (tester) async {
+    final pack = await _pump(tester, _Pick(0));
+    await _tap(tester, pack);
+    await _tap(tester, pack);
+    expect(petLayer(tester).playing?.name, 'poke-right', reason: 'two taps do not start a special laugh');
+    for (var i = 0; i < 3; i++) {
       await _tap(tester, pack);
-      await _tap(tester, pack);
-      expect(petLayer(tester).playing?.name, 'poke-right', reason: 'two taps do not start a special laugh');
-      await _tap(tester, pack);
-      expect(petLayer(tester).playing?.name, name);
-      await _tap(tester, pack);
-      await _tap(tester, pack);
-      await _tap(tester, pack);
-      expect(petLayer(tester).playing?.name, 'shocked');
-      await _step(tester, const Duration(milliseconds: 1200));
-      expect(petLayer(tester).playing?.name, 'idle');
-      await _tap(tester, pack);
-      expect(petLayer(tester).playing?.name, 'poke-right');
-    });
+      expect(petLayer(tester).playing?.name, 'laugh-roll');
+    }
+    await _tap(tester, pack);
+    expect(petLayer(tester).playing?.name, 'annoyed');
+    await _step(tester, Duration(milliseconds: pack.playOf(pack.animations['annoyed']!) + 100));
+    expect(petLayer(tester).playing?.name, 'idle');
+    await _tap(tester, pack);
+    expect(petLayer(tester).playing?.name, 'poke-right');
+  });
 
-    testWidgets('$name returns after one pass instead of holding for a recording', (tester) async {
-      final pack = await _pump(tester, _Pick(index));
-      for (var i = 0; i < 3; i++) {
-        await _tap(tester, pack);
-      }
-      expect(petLayer(tester).playing?.name, name);
-      await _step(tester, Duration(milliseconds: pack.playOf(pack.animations[name]!) + 100));
-      expect(petLayer(tester).playing?.name, 'idle');
-    });
-  }
+  testWidgets('laugh-roll returns after one pass instead of holding for a recording', (tester) async {
+    final pack = await _pump(tester, _Pick(0));
+    for (var i = 0; i < 3; i++) {
+      await _tap(tester, pack);
+    }
+    expect(petLayer(tester).playing?.name, 'laugh-roll');
+    await _step(tester, Duration(milliseconds: pack.playOf(pack.animations['laugh-roll']!) + 100));
+    expect(petLayer(tester).playing?.name, 'idle');
+  });
 
   for (final (index, name) in ['eat-code', 'eat-code-fast', 'feast'].indexed) {
     testWidgets('${index + 1} running conversations play $name', (tester) async {
@@ -208,33 +209,31 @@ void main() {
     });
   }
 
-  testWidgets('import signal shows code juggling and releases after import ends', (tester) async {
+  testWidgets('import signal loops carrying a parcel and releases after import ends', (tester) async {
     await _pump(tester, _Pick(0));
     container.read(testSignalsProvider.notifier).set(PetSignals(lastInteraction: clock.now, carrying: true));
     await tester.pump();
     await tester.pump();
-    expect(petLayer(tester).playing?.name, 'juggle');
+    expect(petLayer(tester).playing?.name, 'carrying');
+    await _step(tester, const Duration(seconds: 3));
+    expect(petLayer(tester).playing?.name, 'carrying');
     container.read(testSignalsProvider.notifier).set(PetSignals(lastInteraction: clock.now));
     await tester.pump();
     await _step(tester, const Duration(seconds: 2));
     expect(petLayer(tester).playing?.name, 'idle');
   });
 
-  for (final (index, name) in ['laugh-point', 'dance'].indexed) {
-    testWidgets('completion bonus $name plays once before the main laugh and returns', (tester) async {
-      final pack = await _pump(tester, _Pick(index));
-      container
-          .read(petEventBusProvider)
-          .add(
-            PetEvent(kind: PetEventKind.done, host: HostRef.local, sessionId: 'finished', key: 'turn', at: clock.now),
-          );
-      await tester.pump();
-      await _step(tester, const Duration(milliseconds: 1600));
-      expect(petLayer(tester).playing?.name, name);
-      await _step(tester, Duration(milliseconds: pack.playOf(pack.animations[name]!) + 20));
-      expect(petLayer(tester).playing?.name, 'laugh');
-      await _step(tester, const Duration(seconds: 4));
-      expect(petLayer(tester).playing?.name, 'idle');
-    });
-  }
+  testWidgets('completion bonus dance plays once before the main laugh and returns', (tester) async {
+    final pack = await _pump(tester, _Pick(0));
+    container
+        .read(petEventBusProvider)
+        .add(PetEvent(kind: PetEventKind.done, host: HostRef.local, sessionId: 'finished', key: 'turn', at: clock.now));
+    await tester.pump();
+    await _step(tester, const Duration(milliseconds: 1600));
+    expect(petLayer(tester).playing?.name, 'dance');
+    await _step(tester, Duration(milliseconds: pack.playOf(pack.animations['dance']!) + 20));
+    expect(petLayer(tester).playing?.name, 'laugh');
+    await _step(tester, const Duration(seconds: 4));
+    expect(petLayer(tester).playing?.name, 'idle');
+  });
 }

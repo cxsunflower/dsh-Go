@@ -4,184 +4,223 @@
 
 像素奶蛙是 [DSH Go](https://github.com/ccch1mneyyy/dsh-Go) 的无声宠物包，包名为 `naiwa`。它会在你思考、工作和等待时陪在聊天页上：闲下来左右张望，忙起来吃代码，任务完成后捧腹大笑，也会对点按和拖动做出反应。
 
-来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。奶黄色身体、奶油色肚皮、浅绿眼圈和灰褐色小爪，统一绘制在 **64×64 透明画布**上，共 **25 段动画、254 帧**。
+来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。奶黄色身体、奶油色肚皮、浅绿眼圈和灰褐色小爪，统一绘制在 **64×64 透明画布**上，共 **24 段动画、251 帧**。
 
-[全部动作预览](#全部动作预览) · [导入使用](#导入使用) · [触发说明](#触发说明) · [完整帧图](#完整帧图) · [制作参考](#制作参考)
+[按状态预览](#按状态预览) · [导入使用](#导入使用) · [触发说明](#触发说明) · [完整帧图](#完整帧图) · [制作参考](#制作参考)
 
-## 全部动作预览
+## 按状态预览
 
-每个预览按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方便浏览，下面的 GIF 都会循环；App 内按状态和交互控制播放，点按、唤醒等单次动作会正常结束。棋盘格仅用于展示透明区域。
+每张卡片先写触发状态，再展示它对应的动作。完成状态分为两种：直接大笑，或先跳舞再大笑；没有新任务时，都在完成态持续 3.18 秒后回到待机。预览从进入完成态开始，不包含前面的 1.5 秒完成判定等待。
+
+GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方便浏览，预览会重复；App 内单次反应会正常结束，任务状态随实际任务切换。棋盘格仅展示透明区域。
+
+### 任务状态
 
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="呼吸眨眼 (idle)"><br>
-      <b>呼吸眨眼</b><br>
-      <code>idle</code><br>
-      普通待机
+      <b>完成</b><br>
+      <img src="docs/assets/naiwa-attention.gif" width="192" height="192" alt="完成: 捧腹大笑 → 待机"><br>
+      捧腹大笑 → 待机<br>
+      <code>laugh</code><br>
+      50%：直接大笑
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/idle-look.gif" width="192" height="192" alt="左右张望 (idle-look)"><br>
-      <b>左右张望</b><br>
-      <code>idle-look</code><br>
-      随机待机
+      <b>完成 · 彩蛋</b><br>
+      <img src="docs/assets/naiwa-attention-bonus.gif" width="192" height="192" alt="完成 · 彩蛋: 跳舞 → 大笑 → 待机"><br>
+      跳舞 → 大笑 → 待机<br>
+      <code>dance → laugh</code><br>
+      50%：先跳一段舞
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/idle-giggle.gif" width="192" height="192" alt="捂嘴偷笑 (idle-giggle)"><br>
-      <b>捂嘴偷笑</b><br>
-      <code>idle-giggle</code><br>
-      随机待机
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/snack.gif" width="192" height="192" alt="吃点心 (snack)"><br>
-      <b>吃点心</b><br>
-      <code>snack</code><br>
-      随机待机
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/dance.gif" width="192" height="192" alt="摇摆跳舞 (dance)"><br>
-      <b>摇摆跳舞</b><br>
-      <code>dance</code><br>
-      随机待机／完成彩蛋
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/thinking.gif" width="192" height="192" alt="托腮思考 (thinking)"><br>
-      <b>托腮思考</b><br>
+      <b>思考</b><br>
+      <img src="docs/assets/naiwa/thinking.gif" width="192" height="192" alt="思考: 托腮思考"><br>
+      托腮思考<br>
       <code>thinking</code><br>
-      等模型、推理或重试
+      等待模型、推理或重试
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/eat-code.gif" width="192" height="192" alt="吃代码 (eat-code)"><br>
-      <b>吃代码</b><br>
+      <b>工作 · 1 个会话</b><br>
+      <img src="docs/assets/naiwa/eat-code.gif" width="192" height="192" alt="工作 · 1 个会话: 吃代码"><br>
+      吃代码<br>
       <code>eat-code</code><br>
       1 个运行中的会话
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/eat-code-fast.gif" width="192" height="192" alt="加速进食 (eat-code-fast)"><br>
-      <b>加速进食</b><br>
+      <b>工作 · 2 个会话</b><br>
+      <img src="docs/assets/naiwa/eat-code-fast.gif" width="192" height="192" alt="工作 · 2 个会话: 加速进食"><br>
+      加速进食<br>
       <code>eat-code-fast</code><br>
       2 个运行中的会话
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/feast.gif" width="192" height="192" alt="狼吞虎咽 (feast)"><br>
-      <b>狼吞虎咽</b><br>
+      <b>工作 · 3 个及以上会话</b><br>
+      <img src="docs/assets/naiwa/feast.gif" width="192" height="192" alt="工作 · 3 个及以上会话: 狼吞虎咽"><br>
+      狼吞虎咽<br>
       <code>feast</code><br>
       3 个及以上运行中的会话
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/juggle.gif" width="192" height="192" alt="抛接代码块 (juggle)"><br>
-      <b>抛接代码块</b><br>
+      <b>子代理 · 1 个</b><br>
+      <img src="docs/assets/naiwa/juggle.gif" width="192" height="192" alt="子代理 · 1 个: 抛接代码块"><br>
+      抛接代码块<br>
       <code>juggle</code><br>
-      1 个子代理／导入宠物包
+      1 个子代理运行
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/juggle-many.gif" width="192" height="192" alt="多块抛接 (juggle-many)"><br>
-      <b>多块抛接</b><br>
+      <b>子代理 · 2 个及以上</b><br>
+      <img src="docs/assets/naiwa/juggle-many.gif" width="192" height="192" alt="子代理 · 2 个及以上: 多块抛接"><br>
+      多块抛接<br>
       <code>juggle-many</code><br>
-      2 个及以上子代理
+      2 个及以上子代理运行
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/shocked.gif" width="192" height="192" alt="抬爪惊跳 (shocked)"><br>
-      <b>抬爪惊跳</b><br>
-      <code>shocked</code><br>
-      出错／六连点
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/laugh.gif" width="192" height="192" alt="捧腹大笑 (laugh)"><br>
-      <b>捧腹大笑</b><br>
-      <code>laugh</code><br>
-      任务完成
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/laugh-point.gif" width="192" height="192" alt="指着笑 (laugh-point)"><br>
-      <b>指着笑</b><br>
-      <code>laugh-point</code><br>
-      完成彩蛋
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="翻滚笑 (laugh-roll)"><br>
-      <b>翻滚笑</b><br>
-      <code>laugh-roll</code><br>
-      三连点随机反应
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/laugh-belly.gif" width="192" height="192" alt="肚皮起伏笑 (laugh-belly)"><br>
-      <b>肚皮起伏笑</b><br>
-      <code>laugh-belly</code><br>
-      三连点随机反应
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/alert.gif" width="192" height="192" alt="挥手提醒 (alert)"><br>
-      <b>挥手提醒</b><br>
+      <b>待确认 / 待回答</b><br>
+      <img src="docs/assets/naiwa/alert.gif" width="192" height="192" alt="待确认 / 待回答: 挥手提醒"><br>
+      挥手提醒<br>
       <code>alert</code><br>
-      待确认／待回答
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/devour.gif" width="192" height="192" alt="吞下代码条 (devour)"><br>
-      <b>吞下代码条</b><br>
-      <code>devour</code><br>
-      上下文压缩
+      持续到事项处理完成
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/sleep.gif" width="192" height="192" alt="坐着打盹 (sleep)"><br>
-      <b>坐着打盹</b><br>
+      <b>出错</b><br>
+      <img src="docs/assets/naiwa/shocked.gif" width="192" height="192" alt="出错: 抬爪惊跳"><br>
+      抬爪惊跳<br>
+      <code>shocked</code><br>
+      任务失败
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>上下文压缩</b><br>
+      <img src="docs/assets/naiwa/devour.gif" width="192" height="192" alt="上下文压缩: 吞下代码条"><br>
+      吞下代码条<br>
+      <code>devour</code><br>
+      压缩期间
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>导入</b><br>
+      <img src="docs/assets/naiwa/carrying.gif" width="192" height="192" alt="导入: 抱箱搬运"><br>
+      抱箱搬运<br>
+      <code>carrying</code><br>
+      导入宠物包期间
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <b>待机</b><br>
+      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="待机: 呼吸眨眼"><br>
+      呼吸眨眼<br>
+      <code>idle</code><br>
+      没有任务或临时反应
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>睡眠</b><br>
+      <img src="docs/assets/naiwa/sleep.gif" width="192" height="192" alt="睡眠: 坐着打盹"><br>
+      坐着打盹<br>
       <code>sleep</code><br>
       无任务且 60 秒无交互
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/wake.gif" width="192" height="192" alt="醒来伸懒腰 (wake)"><br>
-      <b>醒来伸懒腰</b><br>
+      <b>唤醒</b><br>
+      <img src="docs/assets/naiwa/wake.gif" width="192" height="192" alt="唤醒: 醒来伸懒腰"><br>
+      醒来伸懒腰<br>
       <code>wake</code><br>
-      触摸／任务唤醒
+      触摸或任务唤醒
+    </td>
+  </tr>
+</table>
+
+### 待机小动作
+
+清醒待机时，每次等待 10–25 秒后等概率选一项；这些小动作不延后 60 秒休眠计时。
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="25%">
+      <b>待机 · 张望</b><br>
+      <img src="docs/assets/naiwa/idle-look.gif" width="192" height="192" alt="待机 · 张望: 左右张望"><br>
+      左右张望<br>
+      <code>idle-look</code><br>
+      每次 2 遍
+    </td>
+    <td align="center" valign="top" width="25%">
+      <b>待机 · 偷笑</b><br>
+      <img src="docs/assets/naiwa/idle-giggle.gif" width="192" height="192" alt="待机 · 偷笑: 捂嘴偷笑"><br>
+      捂嘴偷笑<br>
+      <code>idle-giggle</code><br>
+      每次 2 遍
+    </td>
+    <td align="center" valign="top" width="25%">
+      <b>待机 · 点心</b><br>
+      <img src="docs/assets/naiwa/snack.gif" width="192" height="192" alt="待机 · 点心: 吃点心"><br>
+      吃点心<br>
+      <code>snack</code><br>
+      每次 1 遍
+    </td>
+    <td align="center" valign="top" width="25%">
+      <b>待机 · 跳舞</b><br>
+      <img src="docs/assets/naiwa/dance.gif" width="192" height="192" alt="待机 · 跳舞: 摇摆跳舞"><br>
+      摇摆跳舞<br>
+      <code>dance</code><br>
+      每次 2 遍
+    </td>
+  </tr>
+</table>
+
+### 交互与游走
+
+App 外悬浮窗不触发游走、三连点和六连点。
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <b>左侧点按</b><br>
+      <img src="docs/assets/naiwa/poke-left.gif" width="192" height="192" alt="左侧点按: 向右歪身再弹回"><br>
+      向右歪身再弹回<br>
+      <code>poke-left</code><br>
+      点身体左半边
     </td>
     <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/walk.gif" width="192" height="192" alt="走路 (walk)"><br>
-      <b>走路</b><br>
+      <b>右侧点按</b><br>
+      <img src="docs/assets/naiwa/poke-right.gif" width="192" height="192" alt="右侧点按: 向左歪身再弹回"><br>
+      向左歪身再弹回<br>
+      <code>poke-right</code><br>
+      点身体右半边
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>三连点</b><br>
+      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="三连点: 翻滚笑 → 起身"><br>
+      翻滚笑 → 起身<br>
+      <code>laugh-roll</code><br>
+      1.1 秒内三连点
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <b>六连点</b><br>
+      <img src="docs/assets/naiwa/annoyed.gif" width="192" height="192" alt="六连点: 鼓腮跺脚 → 放松"><br>
+      鼓腮跺脚 → 放松<br>
+      <code>annoyed</code><br>
+      第 6 下触发并重置计数
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>拖动</b><br>
+      <img src="docs/assets/naiwa/prone.gif" width="192" height="192" alt="拖动: 趴行"><br>
+      趴行<br>
+      <code>prone</code><br>
+      交替伸爪、蹬腿，直到松手
+    </td>
+    <td align="center" valign="top" width="33%">
+      <b>待机游走</b><br>
+      <img src="docs/assets/naiwa/walk.gif" width="192" height="192" alt="待机游走: 左右迈步"><br>
+      左右迈步<br>
       <code>walk</code><br>
       聊天页待机游走
     </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/poke-left.gif" width="192" height="192" alt="左边被戳 (poke-left)"><br>
-      <b>左边被戳</b><br>
-      <code>poke-left</code><br>
-      点身体左半边，向右歪
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/poke-right.gif" width="192" height="192" alt="右边被戳 (poke-right)"><br>
-      <b>右边被戳</b><br>
-      <code>poke-right</code><br>
-      点身体右半边，向左歪
-    </td>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/tickle.gif" width="192" height="192" alt="挠痒大笑 (tickle)"><br>
-      <b>挠痒大笑</b><br>
-      <code>tickle</code><br>
-      三连点随机反应
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
-      <img src="docs/assets/naiwa/prone.gif" width="192" height="192" alt="趴行 (prone)"><br>
-      <b>趴行</b><br>
-      <code>prone</code><br>
-      拖动宠物
-    </td>
-    <td></td>
-    <td></td>
   </tr>
 </table>
 
@@ -195,18 +234,19 @@
 
 - **待机**：没有任务或临时反应时播放呼吸眨眼。清醒待机期间，每次等待 10–25 秒后等概率插播张望、偷笑、吃点心或跳舞，分别播放 2、2、1、2 遍。无任务且 60 秒没有交互后打盹，待机小动作不会延后睡眠；一次清醒期间不保证四种动作全部出现。
 - **任务状态**：等待模型、推理或重试时托腮思考；工作动画按运行中的会话数分为三档，抛接动画按子代理数分为两档。等待确认或回答时挥手，上下文压缩时吞下代码条。
-- **完成**：一轮结束后 1.5 秒内没有新一轮开始，才触发完成反应。通常播放大笑，有 50% 概率先插播指着笑或跳舞，两种彩蛋等概率。
-- **点按**：左右单击分别向另一侧歪身。1.1 秒内连点三次，等概率触发挠痒大笑、肚皮起伏笑或翻滚笑；第 4、5 下继续随机触发，第 6 下变为惊跳并重新计数。
+- **导入**：导入宠物包期间抱着小箱子交替迈步，导入结束后回到当前状态。
+- **完成**：一轮结束后 1.5 秒内没有新一轮开始，才触发完成反应。通常播放大笑，有 50% 概率先跳一段舞。
+- **点按**：左右单击分别向另一侧歪身。1.1 秒内连点三次触发翻滚笑；第 4、5 下重新播放，第 6 下改为鼓腮叉腰、跺脚两次并重新计数。两种反应都只播一遍，最后恢复待机姿势。
 - **拖动与游走**：拖动时趴行，放手后回到当前状态；聊天页待机时可以走动。App 外悬浮窗不触发游走或连点反应。
 
 ## 完整帧图
 
-全部 254 帧集中在一张大图中，按动作分组并标注帧编号、时长。组内从左到右、从上到下阅读；`loop` / `once` 表示素材的循环设置，标题时长为整段播放一遍的时长。点击图片可查看原始尺寸。
+全部 251 帧集中在一张大图中，按动作分组并标注帧编号、时长。组内从左到右、从上到下阅读；`loop` / `once` 表示素材的循环设置，标题时长为整段播放一遍的时长。点击图片可查看原始尺寸。
 
 <details>
-<summary>展开 25 段动画的全部 254 帧</summary>
+<summary>展开 24 段动画的全部 251 帧</summary>
 
-[![像素奶蛙全部 25 段动画、254 帧总览](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
+[![像素奶蛙全部 24 段动画、251 帧总览](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
 
 </details>
 
@@ -222,7 +262,7 @@
 | DSH Go 宠物包格式 | [宠物设计与格式](docs/design/pets.md) |
 | 保留的声音资源与来源 | [声音说明](app/tool/pet_src/naiwa/audio/README.md) |
 
-动作以正视待机姿势为比例基准，手臂长度和爪子尺寸保持一致。趴行动画为交替伸爪、蹬腿的 `prone`；身体、五官与道具的绘制规则见素材说明。
+动作以正视待机姿势为比例基准，手臂长度和爪子尺寸保持一致。`carrying` 双爪抱箱、交替迈步；`annoyed` 鼓腮叉腰、跺脚后放松；`prone` 交替伸爪、蹬腿趴行。身体、五官与道具的绘制规则见素材说明。
 
 <details>
 <summary>重新生成素材、ZIP 和 README 预览</summary>
@@ -238,7 +278,7 @@ python app/tool/make_pet_pack.py --only naiwa
 python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/pixel-naiwa.zip
 
 # 校验素材并更新全部 GIF 预览与完整帧图
-python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png --gallery docs/assets/naiwa
+python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png --gallery docs/assets/naiwa --completion-previews docs/assets
 ```
 
 </details>

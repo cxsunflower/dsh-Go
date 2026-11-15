@@ -3,9 +3,9 @@
 
 Run from the repository root (needs numpy and Pillow):
 
-    python app/tool/pet_src/naiwa/draw.py [--check] [--preview [PATH]] [--strip ANIM ...] [--gif ANIM ...] [--gallery DIR]
+    python app/tool/pet_src/naiwa/draw.py [--check] [--preview [PATH]] [--strip ANIM ...] [--gif ANIM ...] [--gallery DIR] [--completion-previews DIR]
 
-A run redraws all 25 animations, writes sheets/<anim>.png (1x single-row strips of
+A run redraws all 24 animations, writes sheets/<anim>.png (1x single-row strips of
 64x64 cells) and pet.json next to this script, then checks them against
 docs/design/naiwa-pet.md sections 3 and 4. `--check` redraws in memory and only
 verifies, failing when the files on disk are stale. `--preview` also writes a
@@ -13,7 +13,9 @@ contact sheet of every frame (4x on a checkerboard) to
 app/build/pet_src_preview/naiwa.png (or PATH); `--strip ANIM` writes a 4x grid of each named
 animation to app/build/pet_src_preview/naiwa/ANIM.png; `--gif ANIM` writes an animated
 preview beside it, with the original frame timing. `--gallery DIR` writes all
-animations as looping 3x GIFs for the README. No clock and no randomness:
+animations as looping 3x GIFs for the README. `--completion-previews DIR` writes
+the normal and bonus completion sequences, returning to idle when no new task
+arrives. No clock and no randomness:
 two runs give byte-identical files.
 
 How the art is made: a small rig on integer pixels, no anti-aliasing.
@@ -61,10 +63,10 @@ MAX_COLORS = 256
 ANIM_NAMES = [
     'idle', 'idle-look', 'idle-giggle', 'snack', 'dance', 'thinking',
     'eat-code', 'eat-code-fast', 'feast', 'juggle', 'juggle-many', 'shocked', 'laugh',
-    'laugh-point', 'laugh-roll', 'laugh-belly', 'alert', 'devour', 'sleep',
-    'wake', 'walk', 'poke-left', 'poke-right', 'tickle', 'prone',
+    'laugh-roll', 'alert', 'devour', 'carrying', 'sleep',
+    'wake', 'walk', 'poke-left', 'poke-right', 'annoyed', 'prone',
 ]
-ONE_SHOT = {'wake', 'poke-left', 'poke-right', 'tickle'}
+ONE_SHOT = {'wake', 'poke-left', 'poke-right', 'laugh-roll', 'annoyed'}
 EATING = ['eat-code', 'eat-code-fast', 'feast', 'devour', 'snack']   # shared upright mouth position
 
 PALETTE = {
@@ -217,6 +219,9 @@ def eye_rows(kind, look=(0, 0), side=-1):
         return [".......", ".......", "o.....o", ".o...o.", "..ooo..", ".......", "......."]
     if kind == 'sleepy':
         return [".......", ".......", "ooooooo", "ogkkkgo", ".ogggo.", "..ooo..", "......."]
+    if kind == 'annoyed':     # inward-sloping lids; keep the green iris and highlight
+        rows = ["ooo....", "oggooo.", "ogwkkoo", "ogkkkgo", ".ogggo.", "..ooo..", "......."]
+        return rows if side < 0 else [r_[::-1] for r_ in rows]
     if kind == 'squeeze':     # > <
         rows = ["oo...", ".ooo.", "...oo", ".ooo.", "oo..."]
         return rows if side < 0 else [r_[::-1] for r_ in rows]
@@ -257,6 +262,7 @@ MOUTHS = {
     'yawn': [".oooo.", "ommmmo", "ommmmo", "ommmmo", "omttmo", "omttmo", ".oooo."],
     'wavy': [".oo..oo.", "o..oo..o"],
     'burp': [".oo.", "ommo", ".oo."],
+    'pout': [".oooo.", "o....o"],
 }
 
 
@@ -292,6 +298,15 @@ CODE_FONT = {
     'f': [".XX", ".X.", "XXX", ".X.", ".X."], 'n': ["...", "XX.", "X.X", "X.X", "X.X"],
     'x': ["...", "...", "X.X", ".X.", "X.X"],
 }
+
+# Held against the belly, behind both forepaws. Tape and a downward arrow make
+# the parcel read as an import even without a caption or sound.
+PARCEL = [
+    "oooooooooooooo", "obbbbbttbbbbbo", "obbbbbttbbbbbo", "oooooooooooooo",
+    "obbbwwwwwwbbbo", "obbbwwkkwwbbbo", "obbbwwkkwwbbbo", "obbbkkkkkkbbbo",
+    "obbbwkkkkwbbbo", "obbbwwkkwwbbbo", "obbbwwwwwwbbbo", "oddddddddddddo",
+    "oooooooooooooo",
+]
 
 
 def glyph_cells(kind, *args):
@@ -390,7 +405,6 @@ ARMS = {   # elbow/hand direction targets; lengths come from the front idle pose
     'down_out': ((13.0, 9.5), (14.0, 5.5)),
     'hip': ((16.0, 9.5), (11.5, 5.0)),
     'head': ((14.0, 14.0), (15.5, 19.0)),
-    'point': ((15.5, 12.5), (19.5, 13.5)),
     'chin': ((9.0, 8.0), (5.0, 10.5)),
     'fold': ((10.0, 8.5), (5.5, 6.5)),
     'out': ((15.5, 13.5), (19.5, 15.5)),
@@ -408,7 +422,7 @@ ARMS = {   # elbow/hand direction targets; lengths come from the front idle pose
     'stretch': ((12.5, 16.5), (15.0, 21.5)),
     'lap': ((12.0, 7.0), (9.0, 3.5)),
 }
-PAWS = {'point': 'point', 'wave': 'open', 'wave_b': 'open'}
+PAWS = {'wave': 'open', 'wave_b': 'open'}
 LEGS = {   # (left foot, right foot) bottom centres relative to the hip line
     'stand': ((-6.5, -6.0), (6.5, -6.0)),
     'lift_l': ((-8.0, -3.5), (6.5, -6.0)),
@@ -420,7 +434,7 @@ LEGS = {   # (left foot, right foot) bottom centres relative to the hip line
 BASE = dict(x=0.0, y=0.0, rot=0.0, sx=1.0, sy=1.0, lean=0.0,
             eyes='open', look=(0, 0), mouth='smile', face=(0.0, 0.0), blush=False,
             arms=('down', 'down'), legs='stand', sit=False, cheeks=0.0, belly=0.0,
-            props=(), tint=None, ghost=0, prone=None)
+            props=(), tint=None, ghost=0, prone=None, parcel=False)
 
 
 def pose(base=None, **kw):
@@ -489,11 +503,7 @@ class Rig:
         pc = (iround_from(ha[0], self.ox), iround(ha[1]))
         paw = ellipse(pc, PAW_R, PAW_R)
         style = PAWS.get(spec) if isinstance(spec, str) else None
-        if style == 'point':
-            dx, dy = ha[0] - el[0], ha[1] - el[1]
-            n = math.hypot(dx, dy) or 1
-            paw |= capsule(pc, (pc[0] + 2.5 * dx / n, pc[1] + 2.5 * dy / n - 0.5), 0.75)
-        elif style == 'open':
+        if style == 'open':
             paw = ellipse(pc, 2.0, 1.9)
         return arm & ~paw, paw
 
@@ -684,6 +694,11 @@ def render(p):
         put(soles, 'paw')
         put(soles & ~shifted(soles, 1, 1), 'paw_lo')
         put(dilate4(soles) & ~soles & trunk, 'line')
+    if p['parcel']:
+        x0, y0 = corner(PARCEL, *rig.trunk_pt(0, 4), rig.ox)
+        stamp(lab, PARCEL, x0, y0,
+              {'o': 'line', 'b': 'c3', 't': 'belly', 'd': 'body_lo2', 'w': 'white', 'k': 'code_line'})
+        sil |= bitmap_mask(PARCEL, x0, y0)
     for a, pw in arms:
         limb = a | pw
         put(a, 'body')
@@ -957,15 +972,6 @@ def anim_laugh():
     ]
 
 
-def anim_laugh_point():
-    L = dict(eyes='happy', mouth='laugh', arms=('hip', 'point'), face=(0.5, 1.0), lean=1)
-    return [
-        (P(L), 120), (P(L, sy=1.04, y=-1), 100), (P(L, sy=0.97, sx=1.03), 100),
-        (P(L, sy=1.04, y=-1, props=(ha_at(48, 8),)), 100), (P(L, props=(ha_at(48, 6),)), 100),
-        (P(L, sy=0.97, sx=1.03), 100), (P(L, sy=1.04, y=-1), 100), (P(L), 140),
-    ]
-
-
 def grounded(p):
     """The pose moved up or down so its lowest pixel sits on the idle foot line."""
     bottom = int(np.nonzero(render(p)['lab'].any(axis=1))[0][-1])
@@ -973,31 +979,24 @@ def grounded(p):
 
 
 def anim_laugh_roll():
-    """Rolled onto its back laughing: rocking side to side, soles kicking in the air."""
+    """Three taps: crouch, roll laughing with kicking soles, then stand back up."""
     R = dict(eyes='happy', mouth='roar', arms=('belly', 'belly'), face=(0, 1.0), blush=True)
     kick = [((-9.0, 4.0), (8.0, -1.0)), ((-8.0, -1.0), (9.0, 4.0))]
-    fr = []
+    fr = [
+        (P(eyes='happy', mouth='grin', arms=('belly', 'belly')), 100),
+        (P(eyes='happy', mouth='laugh', arms=('belly', 'belly'), sy=0.90), 120),
+    ]
     for k, rot in enumerate([0, 12, 22, 12, 0, -12, -22, -12]):
         props = (ha_at(48, 10),) if k in (1, 2) else (ha_at(5, 10),) if k in (5, 6) else ()
         # Rock about the middle of the trunk, not the hips.
         p = P(R, sit=kick[k % 2], rot=rot, x=13 * math.sin(math.radians(rot)), props=props)
         fr.append((grounded(p), 110))
+    fr.extend([
+        (grounded(P(eyes='happy', mouth='grin', arms=('lap', 'lap'), sit=True)), 140),
+        (P(eyes='happy', arms=('down_in', 'down_in'), sy=0.95), 140),
+        (P(), 180),
+    ])
     return fr
-
-
-def anim_laugh_belly():
-    # Both paws press into the middle of the belly; the feet stay planted while
-    # the trunk folds and rebounds, readable even at the chat pet's small size.
-    hold = ((13.0, 7.0), (4.0, 5.5))
-    brace = ((13.0, 7.0), (4.0, 7.0))
-    L = dict(eyes='happy', mouth='laugh', arms=(hold, hold), face=(0, 1.5), blush=True)
-    J = dict(L, mouth='roar', belly=1.5, sy=0.86, sx=1.07, lean=1.5, arms=(brace, brace))
-    U = dict(L, sy=1.08, lean=-1.5)
-    return [
-        (P(L), 120), (P(J), 90), (P(U), 90), (P(J, props=(ha_at(49, 12),)), 90),
-        (P(U, props=(ha_at(50, 9),)), 90), (P(J), 90), (P(U, props=(ha_at(3, 11),)), 90),
-        (P(J, props=(ha_at(2, 8),)), 120),
-    ]
 
 
 def anim_alert():
@@ -1086,9 +1085,39 @@ def anim_poke(direction):
     ]
 
 
-def anim_tickle():
-    """Repeated taps: laugh once, then return to the front idle pose."""
-    return anim_laugh() + [(P(eyes='happy', mouth='smile', blush=True), 160), (P(), 200)]
+def anim_carrying():
+    """Import: grip a parcel with both short paws and take small alternating steps."""
+    hold = dict(arms=('fold', 'fold'), parcel=True)
+    return [
+        (P(hold, legs='step_l', x=-1), 160),
+        (P(hold, legs='lift_l', x=-1, y=-1), 160),
+        (P(hold, legs='step_l', y=-1), 180),
+        (P(hold), 160),
+        (P(hold, legs='step_r', x=1), 160),
+        (P(hold, legs='lift_r', x=1, y=-1), 160),
+        (P(hold, legs='step_r', y=-1), 180),
+        (P(hold), 160),
+    ]
+
+
+def anim_annoyed():
+    """Six taps: puff the cheeks, put paws on hips, stamp twice, then relax."""
+    glare = dict(eyes='annoyed', mouth='pout', cheeks=1.5)
+    huff = dict(glare, arms=('hip', 'hip'))
+    return [
+        (P(glare), 100),
+        (P(huff, sx=1.02), 120),
+        (P(huff, legs='lift_r', lean=-1), 130),
+        (P(huff, sy=0.95, sx=1.04), 90),
+        (P(huff), 130),
+        (P(huff, legs='lift_l', lean=1), 130),
+        (P(huff, sy=0.95, sx=1.04), 90),
+        (P(huff, lean=-1), 160),
+        (P(huff), 180),
+        (P(eyes='closed', mouth='line', arms=('down_in', 'down_in')), 120),
+        (P(mouth='line'), 100),
+        (P(), 180),
+    ]
 
 
 def anim_prone():
@@ -1118,11 +1147,11 @@ ANIMS = {
     'snack': anim_snack, 'dance': anim_dance, 'thinking': anim_thinking,
     'eat-code': anim_eat_code, 'eat-code-fast': anim_eat_code_fast, 'feast': anim_feast,
     'juggle': anim_juggle, 'juggle-many': anim_juggle_many, 'shocked': anim_shocked,
-    'laugh': anim_laugh, 'laugh-point': anim_laugh_point, 'laugh-roll': anim_laugh_roll,
-    'laugh-belly': anim_laugh_belly, 'alert': anim_alert, 'devour': anim_devour,
+    'laugh': anim_laugh, 'laugh-roll': anim_laugh_roll,
+    'alert': anim_alert, 'devour': anim_devour, 'carrying': anim_carrying,
     'sleep': anim_sleep, 'wake': anim_wake, 'walk': anim_walk,
     'poke-left': lambda: anim_poke(1), 'poke-right': lambda: anim_poke(-1),
-    'tickle': anim_tickle, 'prone': anim_prone,
+    'annoyed': anim_annoyed, 'prone': anim_prone,
 }
 
 
@@ -1137,7 +1166,7 @@ def pet_json(anims):
         'states': {
             'idle': ['idle'], 'thinking': ['thinking'], 'working': ['eat-code'],
             'juggling': ['juggle'], 'error': ['shocked'], 'attention': ['laugh'],
-            'notification': ['alert'], 'sweeping': ['devour'], 'carrying': ['juggle'],
+            'notification': ['alert'], 'sweeping': ['devour'], 'carrying': ['carrying'],
             'sleeping': ['sleep'], 'waking': ['wake'], 'roam': ['walk'],
         },
         'tiers': {
@@ -1151,11 +1180,10 @@ def pet_json(anims):
             {'anim': 'snack', 'loops': 1, 'weight': 1},
             {'anim': 'dance', 'loops': 2, 'weight': 1},
         ],
-        'bonus': {'attention': {'anims': ['laugh-point', 'dance'],
+        'bonus': {'attention': {'anims': ['dance'],
                                 'chance': 0.5}},
-        'reactions': {'tapLeft': 'poke-left', 'tapRight': 'poke-right', 'tickle': 'tickle',
-                      'tickle2': 'laugh-belly', 'tickle3': 'laugh-roll',
-                      'annoyed': 'shocked', 'drag': 'prone'},
+        'reactions': {'tapLeft': 'poke-left', 'tapRight': 'poke-right', 'tickle': 'laugh-roll',
+                      'annoyed': 'annoyed', 'drag': 'prone'},
         'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 1,
                   'sweeping': 1},
         'faces': 'front',
@@ -1245,7 +1273,7 @@ def blobs8(mask):
 def check(anims, files):
     """Problems as a list of strings (empty when everything holds)."""
     bad = []
-    for kind in ('open', 'wide'):
+    for kind in ('open', 'wide', 'annoyed'):
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
                 for side in (-1, 1):
@@ -1449,6 +1477,32 @@ def animated_preview(anims, name, path, zoom=4, loop_all=False):
     return path
 
 
+def completion_preview(anims, path, bonus=False):
+    """Completion's state timer includes the optional dance; then return to idle."""
+    spec = pet_json(anims)
+    name = spec['states']['attention'][0]
+    remaining = sum(anims[name]['durs']) * spec['holds']['attention']
+    frames, durs = [], []
+    if bonus:
+        extra = anims[spec['bonus']['attention']['anims'][0]]
+        frames.extend(extra['frames'])
+        durs.extend(extra['durs'])
+        remaining -= sum(extra['durs'])
+    while remaining > 0:
+        for frame, ms in zip(anims[name]['frames'], anims[name]['durs']):
+            duration = min(ms, remaining)
+            frames.append(frame)
+            durs.append(duration)
+            remaining -= duration
+            if remaining == 0:
+                break
+    idle = anims[spec['states']['idle'][0]]
+    frames.extend(idle['frames'])
+    durs.extend(idle['durs'])
+    return animated_preview({'completion': {'frames': frames, 'durs': durs}},
+                            'completion', path, zoom=3, loop_all=True)
+
+
 # ---------------------------------------------------------------- main
 
 def main(argv=None):
@@ -1459,6 +1513,7 @@ def main(argv=None):
     ap.add_argument('--strip', nargs='*', default=[], metavar='ANIM', help='4x grid per animation')
     ap.add_argument('--gif', nargs='*', default=[], metavar='ANIM', help='4x animated GIF per animation')
     ap.add_argument('--gallery', metavar='DIR', help='all animations as looping 3x GIFs for the README')
+    ap.add_argument('--completion-previews', metavar='DIR', help='normal and bonus completion flows at 3x')
     args = ap.parse_args(argv)
 
     anims = draw_all()
@@ -1502,6 +1557,11 @@ def main(argv=None):
         for n in anims:
             animated_preview(anims, n, os.path.join(args.gallery, f'{n}.gif'), zoom=3, loop_all=True)
         print(f'  gallery {args.gallery}: {len(anims)} looping GIFs')
+    if args.completion_previews:
+        for bonus in (False, True):
+            filename = 'naiwa-attention-bonus.gif' if bonus else 'naiwa-attention.gif'
+            path = os.path.join(args.completion_previews, filename)
+            print('  completion ' + completion_preview(anims, path, bonus=bonus))
     for p in problems:
         print(f'error: {p}', file=sys.stderr)
     return 1 if problems else 0

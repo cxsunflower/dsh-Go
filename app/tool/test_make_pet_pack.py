@@ -205,7 +205,7 @@ class PackFormat(unittest.TestCase):
                 cw, ch = p['canvas']['w'], p['canvas']['h']
                 self.assertTrue(isinstance(cw, int) and isinstance(ch, int))
                 self.assertEqual(list(p['states']), STATES)
-                expected_reactions = REACTIONS + (['tickle2', 'tickle3', 'annoyed'] if pid == 'naiwa' else [])
+                expected_reactions = REACTIONS + (['annoyed'] if pid == 'naiwa' else [])
                 self.assertEqual(sorted(p['reactions']), sorted(expected_reactions))
                 for s, ts in p['tiers'].items():
                     self.assertIn(s, STATES)
@@ -280,11 +280,10 @@ class PackFormat(unittest.TestCase):
                 self.assertNotIn('sizeScale', p)
                 self.assertEqual(p['roam'], {'anim': 'walk', 'faces': 'front'})
                 self.assertEqual(p['reactions']['drag'], 'prone')
-                self.assertEqual(p['states']['carrying'], ['juggle'])
-                self.assertEqual(p['reactions']['annoyed'], 'shocked')
-                self.assertEqual([p['reactions'][r] for r in ('tickle', 'tickle2', 'tickle3')],
-                                 ['tickle', 'laugh-belly', 'laugh-roll'])
-                self.assertEqual(p['bonus']['attention'], {'anims': ['laugh-point', 'dance'], 'chance': 0.5})
+                self.assertEqual(p['states']['carrying'], ['carrying'])
+                self.assertEqual(p['reactions']['annoyed'], 'annoyed')
+                self.assertEqual(p['reactions']['tickle'], 'laugh-roll')
+                self.assertEqual(p['bonus']['attention'], {'anims': ['dance'], 'chance': 0.5})
                 self.assertEqual([x['weight'] for x in p['idlePool']['anims']], [1, 1, 1, 1])
                 self.assertTrue(os.path.isfile(os.path.join(APP, 'assets', 'pet_sounds', 'naiwa', 'sounds.json')))
 

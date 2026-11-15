@@ -1,11 +1,12 @@
-像素奶蛙 1.1.0 是供 DSH Go 导入的无声像素宠物包。
+像素奶蛙 1.1.1 是供 DSH Go 导入的无声像素宠物包，共 24 段动画、251 帧。
 
 ## 更新内容
 
-- 25 段动画、254 帧，按现有宠物接口分配待机、思考、工作、子代理、完成、提醒和互动动作。
-- `prone-eat` 改为 `prone`：拖动时交替伸爪、蹬腿趴行，移除进食动作。
-- README 提供全部 25 段 GIF 动作预览、触发说明和完整 254 帧大图，并同步英文版。
-- 来源描述更新为「来源于奶龙民间二创『奶蛙』，以像素风格重新绘制」。声音资源保留参考，发布 ZIP 只包含清单与 25 张 PNG。
+- 新增抱箱搬运 `carrying`，在导入宠物包期间循环播放；新增鼓腮跺脚 `annoyed`，在六连点时播放一次并恢复待机。
+- 移除指着笑 `laugh-point`、肚皮起伏笑 `laugh-belly` 和挠痒大笑 `tickle`。三连点改为翻滚笑 `laugh-roll`，补齐屈身、起身与待机收尾。
+- 完成状态保留捧腹大笑，有 50% 概率先跳舞；全部动画覆盖 main 的 11 个状态、游走及 5 类交互入口。
+- 中英文 README 按状态展示动画，包含工作和子代理档位，以及「大笑 → 待机」「跳舞 → 大笑 → 待机」两种完成状态动态演示；完整帧图同步更新。
+- 声音资源完整保留参考，宠物继续按无声方式设计；发布 ZIP 只包含清单与 24 张 PNG。
 
 ## 下载与导入
 
@@ -15,6 +16,12 @@
 
 ## English
 
-Pixel Naiwa 1.1.0 is a silent pet pack for DSH Go with 25 animations and 254 frames. It uses the existing pet states and interactions, replaces `prone-eat` with the `prone` crawl, and includes a bilingual README with every animation preview and trigger description. Sound resources remain as references; the downloadable pack contains only the manifest and 25 PNG sheets.
+Pixel Naiwa 1.1.1 is a silent pet pack for DSH Go with 24 animations and 251 frames.
+
+- Adds a dedicated parcel-carrying animation during imports and a puff-and-stamp reaction after six quick taps.
+- Removes pointing laughter, belly laughter and the old tickle animation. Three quick taps now play rolling laughter with an entrance, a stand-up transition and an idle ending.
+- Completion plays the main laugh, with a 50% chance to dance first. The pack covers main's 11 states, roaming and five interaction types.
+- Reorganizes the bilingual README around states and tiers, with animated completion sequences and an updated full frame sheet.
+- Retains sound resources for reference. The downloadable pack remains silent and contains only the manifest and 24 PNG sheets.
 
 Download **pixel-naiwa.zip**, import it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same ID updates the existing pet. Use `SHA256SUMS` to verify the download.

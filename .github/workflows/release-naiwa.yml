@@ -29,7 +29,7 @@ jobs:
         run: |
           notes="$RUNNER_TEMP/naiwa-release.md"
           cp docs/pets/naiwa-release.md "$notes"
-          printf '\n[全部动作预览 / All animation previews](https://github.com/%s/blob/%s/README.md)\n' "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >> "$notes"
+          printf '\n[按状态预览 / Previews by state](https://github.com/%s/blob/%s/README.md)\n' "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >> "$notes"
           gh release create "$GITHUB_REF_NAME" \
             app/build/pet_release/pixel-naiwa.zip app/build/pet_release/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --verify-tag \

@@ -83,13 +83,12 @@ class Effects(unittest.TestCase):
     def test_cue_mapping_matches_the_design(self):
         sounds = json.loads((OUT / 'sounds.json').read_bytes())
         self.assertEqual(sounds['cues'], {
-            'laugh': [LAUGH], 'laugh-point': [LAUGH],
-            'laugh-roll': [LAUGH], 'laugh-belly': [LAUGH],
+            'laugh': [LAUGH], 'laugh-roll': [LAUGH],
             'poke-left': ['dajiaosei'], 'poke-right': ['diu'],
             'wake': ['andi'], 'prone': ['gagadilaxia'],
             'alert': ['houla'],
         })
-        for silent in ('@bite', '@drop', 'idle', 'sleep', 'thinking', 'snack'):
+        for silent in ('@bite', '@drop', 'idle', 'sleep', 'thinking', 'snack', 'carrying', 'annoyed'):
             self.assertNotIn(silent, sounds['cues'])
 
     def test_five_effects_are_byte_copies_and_only_the_laugh_is_resampled(self):

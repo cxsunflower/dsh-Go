@@ -1,7 +1,7 @@
 {
   "hahahahahahaha": {
     "label": "大笑",
-    "cue": ["laugh", "laugh-point", "laugh-roll", "laugh-belly"],
+    "cue": ["laugh", "laugh-roll"],
     "pak": "nawa_pak50_dir.vpk",
     "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
     "pakEntry": "sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c",
