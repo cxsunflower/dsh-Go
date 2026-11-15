@@ -187,7 +187,7 @@ Each preview uses the original frame timing at 3× nearest-neighbor scale. All G
 
 ## Import
 
-Save the generated `naiwa.zip` to your phone, choose it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same pack ID again updates the existing pet. Build commands are below.
+Save the generated `pixel-naiwa.zip` to your phone, choose it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same pack ID again updates the existing pet. Build commands are below.
 
 The code characters, laughter text and other small props are drawn into the frames. Sound resources and their provenance remain in the repository for reference. This pack is designed for silent playback; audio is not bundled in the pet ZIP or APK.
 
@@ -235,7 +235,7 @@ python app/tool/pet_src/naiwa/draw.py
 python app/tool/make_pet_pack.py --only naiwa
 
 # Build an importable ZIP
-python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/naiwa.zip
+python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/pixel-naiwa.zip
 
 # Check the artwork and refresh every GIF preview and the full frame sheet
 python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png --gallery docs/assets/naiwa

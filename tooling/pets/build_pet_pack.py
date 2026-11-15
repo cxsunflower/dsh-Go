@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Packages a pet pack as an installable zip (docs/design/pets.md §3.6).
 
-    python3 tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out naiwa.zip
+    python3 tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out pixel-naiwa.zip
 
 `--src` is either a source folder as `app/tool/make_pet_pack.py` writes it
 (`app/assets/pets/<id>/`: pack.json plus one PNG per animation) or a source

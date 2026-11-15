@@ -87,7 +87,7 @@ void main() {
     () async {
       final tmp = Directory.systemTemp.createTempSync('naiwa-import-');
       addTearDown(() => tmp.deleteSync(recursive: true));
-      final zip = File('${tmp.path}/naiwa.zip');
+      final zip = File('${tmp.path}/pixel-naiwa.zip');
       final built = await Process.run(
         Platform.isWindows ? 'python' : 'python3',
         ['../tooling/pets/build_pet_pack.py', '--src', _folder.path, '--out', zip.path],

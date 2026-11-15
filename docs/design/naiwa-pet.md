@@ -60,7 +60,7 @@ python app/tool/pet_src/naiwa/draw.py
 python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png
 python app/tool/pet_src/naiwa/draw.py --check --strip prone --gif prone
 python app/tool/make_pet_pack.py --only naiwa
-python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/naiwa.zip
+python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/pixel-naiwa.zip
 ```
 
 ZIP 只有顶层 `pack.json` 和它引用的 25 张 PNG。导入后 App 使用 `user-naiwa` 安装目录；同名再次导入更新同一只宠物。

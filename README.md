@@ -187,7 +187,7 @@
 
 ## 导入使用
 
-将生成的 `naiwa.zip` 保存到手机，在 **设置 → 宠物 → 导入** 中选择它，再选中「像素奶蛙」。再次导入相同包 ID 会更新已有宠物；ZIP 制作命令见下方。
+将生成的 `pixel-naiwa.zip` 保存到手机，在 **设置 → 宠物 → 导入** 中选择它，再选中「像素奶蛙」。再次导入相同包 ID 会更新已有宠物；ZIP 制作命令见下方。
 
 吃代码时的字符、笑声文字和其他小道具均画在动画帧内。声音资源与来源记录保留在仓库中供参考，此宠物包按无声方式设计，不随宠物 ZIP 或 APK 打包音频。
 
@@ -235,7 +235,7 @@ python app/tool/pet_src/naiwa/draw.py
 python app/tool/make_pet_pack.py --only naiwa
 
 # 生成可导入的 ZIP
-python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/naiwa.zip
+python tooling/pets/build_pet_pack.py --src app/assets/pets/naiwa --out app/build/pet_main_compat/pixel-naiwa.zip
 
 # 校验素材并更新全部 GIF 预览与完整帧图
 python app/tool/pet_src/naiwa/draw.py --check --preview docs/assets/naiwa-frames.png --gallery docs/assets/naiwa

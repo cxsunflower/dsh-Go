@@ -9,7 +9,7 @@
 
 ## 下载与导入
 
-下载下方附件 **naiwa.zip**，在 **设置 → 宠物 → 导入** 中选择它，再选中「像素奶蛙」。同 ID 再次导入会更新已有宠物。
+下载下方附件 **pixel-naiwa.zip**，在 **设置 → 宠物 → 导入** 中选择它，再选中「像素奶蛙」。同 ID 再次导入会更新已有宠物。
 
 `SHA256SUMS` 用于校验下载文件；GitHub 自动生成的 Source code 压缩包是仓库源码快照。
 
@@ -17,4 +17,4 @@
 
 Pixel Naiwa 1.1.0 is a silent pet pack for DSH Go with 25 animations and 254 frames. It uses the existing pet states and interactions, replaces `prone-eat` with the `prone` crawl, and includes a bilingual README with every animation preview and trigger description. Sound resources remain as references; the downloadable pack contains only the manifest and 25 PNG sheets.
 
-Download **naiwa.zip**, import it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same ID updates the existing pet. Use `SHA256SUMS` to verify the download.
+Download **pixel-naiwa.zip**, import it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same ID updates the existing pet. Use `SHA256SUMS` to verify the download.
