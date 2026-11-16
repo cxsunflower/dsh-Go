@@ -701,6 +701,8 @@
   "remoteAuthentication": "登录方式",
   "remotePasswordStorageHelp": "只保存在这台手机上，由 Android Keystore 加密",
   "remoteKeyStorageHelp": "只保存在这台手机上，由 Android Keystore 加密。支持 Ed25519、RSA、ECDSA",
+  "remotePasswordStorageHelpIos": "只保存在这台手机上，由系统钥匙串加密",
+  "remoteKeyStorageHelpIos": "只保存在这台手机上，由系统钥匙串加密。支持 Ed25519、RSA、ECDSA",
   "remotePrivateKey": "私钥",
   "remoteShow": "显示",
   "remoteImportKeyFile": "从文件导入",
@@ -758,7 +760,7 @@
   "remoteDirectoryRecent": "最近",
   "remoteDirectoryEnterPath": "输入路径",
   "remoteDirectoryGo": "前往",
-  "remoteDirectoryAbsolutePath": "从「/」开始写完整路径",
+  "remoteDirectoryAbsolutePath": "写完整路径，如 /root/workspace 或 C:/Users/me",
   "remoteDirectoryNewFolder": "新建文件夹",
   "remoteDirectoryParentCaption": "在「{name}」里",
   "@remoteDirectoryParentCaption": {

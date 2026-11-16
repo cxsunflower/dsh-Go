@@ -25,6 +25,7 @@ import '../../../plugins/native/native_files.dart';
 import '../../../plugins/native/native_model.dart';
 import '../../../plugins/native/native_state.dart';
 import '../../../plugins/native/native_surface.dart';
+import '../../../state/android_features.dart';
 import '../../../state/chat_state.dart';
 import '../../../state/composer_insert.dart';
 import '../../../state/hosts_state.dart';
@@ -33,7 +34,7 @@ import '../../../ui_config/ui_config_model.dart';
 import '../../features/all_features_page.dart' show dshWebOpenerProvider;
 import '../../common/app_dialog.dart';
 import '../../features/feature_catalog.dart';
-import '../../settings/index/settings_pages.dart' show settingsPageForLink;
+import '../../settings/index/settings_pages.dart' show SettingsIndex, settingsPageForLink;
 import '../../settings/settings_screen.dart';
 import 'native_panel.dart';
 import 'native_voice_consent.dart';
@@ -278,10 +279,8 @@ Future<bool> runNativeTap(
 
   // What may travel with this tap, after asking once.
   final wants = switch (surface) {
-    NativeSurface.composerActions || NativeSurface.composerTools => {
-      if (plugin.wantsDraft) 'draft',
-      if (plugin.wantsClipboard) 'clipboard',
-    },
+    NativeSurface.composerActions ||
+    NativeSurface.composerTools => {if (plugin.wantsDraft) 'draft', if (plugin.wantsClipboard) 'clipboard'},
     NativeSurface.messageActions => {if (plugin.wantsMessage && message != null) 'message'},
     _ => const <String>{},
   };
@@ -354,6 +353,32 @@ Future<bool> runNativeTap(
   }
 }
 
+/// Hands back the file requests of an answer nobody acts on (the panel went
+/// away meanwhile): the bridge gave them out already, and the next pick on the
+/// connection would wait for them. execute closes them as cancelled before
+/// any picker opens.
+Future<void> _releaseFiles(
+  NativeFileCoordinator? files,
+  List<NativeEffect> effects,
+  DshGoInvocation invocation,
+  DateTime tappedAt,
+  DateTime Function() now,
+) async {
+  final stream = invocation.stream;
+  if (files == null || stream == null) return;
+  for (final effect in effects.whereType<PickFileEffect>()) {
+    await files.execute(
+      effect,
+      pkg: invocation.pkg,
+      stream: stream,
+      userGesture: false,
+      tappedAt: tappedAt,
+      now: now,
+      isCurrent: () => false,
+    );
+  }
+}
+
 Future<bool> _invoke(
   BuildContext context,
   WidgetRef ref, {
@@ -379,6 +404,8 @@ Future<bool> _invoke(
   final diagnostics = ref.read(nativeDiagnosticsProvider.notifier);
   final work = ref.read(nativeWorkProvider.notifier);
   final clock = ref.read(nativeClockProvider);
+  // Read now: the panel may be gone (and its ref with it) when the answer comes.
+  final files = ref.read(nativeFileCoordinatorProvider);
   final DshGoInvokeResult result;
   final invokedAt = clock();
   try {
@@ -397,7 +424,10 @@ Future<bool> _invoke(
     }
     return false;
   }
-  if (!guard.current) return false;
+  if (!guard.current) {
+    await _releaseFiles(files, parseNativeEffects(result.effects, []), invocation, tappedAt, clock);
+    return false;
+  }
   diagnostics.invoked(package, result.elapsed);
   void dataEffect(NativeEffect effect) {
     if (!guard.current) return;
@@ -754,6 +784,12 @@ Future<void> runComposerCommand(BuildContext context, WidgetRef ref, String line
 
 /// An app page by its ui.json / 全部功能 id, `new-chat` or `settings`.
 Future<void> openNativePage(BuildContext context, WidgetRef ref, String page, {String? sessionId}) async {
+  // On HarmonyOS, Android's own pages aren't there: say so.
+  if (!ref.read(androidSystemFeaturesProvider) &&
+      SettingsIndex.androidOnlyLink(page, ios: ref.read(operatingSystemProvider) == 'ios')) {
+    _toast(context, context.l10n.harmonyPageUnavailable);
+    return;
+  }
   final navigator = Navigator.of(context);
   switch (page) {
     case 'new-chat':
