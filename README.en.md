@@ -2,15 +2,15 @@
 
 [简体中文](README.md) · English
 
-Pixel Naiwa is a silent pet pack for [DSH Go](https://github.com/ccch1mneyyy/dsh-Go), identified as `naiwa`. It keeps you company on the chat page: looking around while idle, eating code while tasks run, laughing when work finishes, and reacting to taps and drags.
+Pixel Naiwa is a silent pet pack for [DSH Go](https://github.com/ccch1mneyyy/dsh-Go), identified as `naiwa`. It keeps you company on the chat page: looking around while idle, typing while tasks run, hopping with a green check mark when work finishes, and reacting to taps and drags.
 
-Based on Naiwa, a fan creation derived from Nailong, and redrawn in pixel art. Its yellow body, cream belly, pale green eye rings and gray-brown paws share a **transparent 64×64 canvas**, with **24 animations and 251 frames** in total.
+Based on Naiwa, a fan creation derived from Nailong, and redrawn in pixel art. Its yellow body, cream belly, pale green eye rings and gray-brown paws share a **transparent 64×64 canvas**, with **24 animations and 861 frames** in total.
 
 [Previews by state](#previews-by-state) · [Import](#import) · [Triggers](#triggers) · [Full frame sheet](#full-frame-sheet) · [Making the pack](#making-the-pack)
 
 ## Previews by state
 
-Each card starts with the state or interaction that triggers it, followed by the animation. Completion is shown in two forms: laughing directly, or dancing first. With no new task, either returns to idle after the 3.18-second completion state. These previews begin when that state starts, after the 1.5-second debounce.
+Each card starts with the state or interaction that triggers it, followed by the animation. Completion uses a silent La mouth shape, a small hop and a green check mark. It plays once for 2.08 seconds, then returns to idle if no new task starts. These previews begin when that state starts, after the 1.5-second debounce.
 
 All GIFs repeat for browsing, use original frame timing and show the artwork at 3× scale. In the app, single-play reactions end normally; task states follow the actual task.
 
@@ -20,17 +20,10 @@ All GIFs repeat for browsing, use original frame timing and show the artwork at 
   <tr>
     <td align="center" valign="top" width="33%">
       <b>Completed</b><br>
-      <img src="docs/assets/naiwa-attention.gif" width="192" height="192" alt="Completed: Laugh → idle"><br>
-      Laugh → idle<br>
-      <code>laugh</code><br>
-      50%: laugh directly
-    </td>
-    <td align="center" valign="top" width="33%">
-      <b>Completed · bonus</b><br>
-      <img src="docs/assets/naiwa-attention-bonus.gif" width="192" height="192" alt="Completed · bonus: Dance → laugh → idle"><br>
-      Dance → laugh → idle<br>
-      <code>dance → laugh</code><br>
-      50%: dance first
+      <img src="docs/assets/naiwa-attention.gif" width="192" height="192" alt="Completed: Hop, a La mouth shape and a check mark → idle"><br>
+      Hop, a La mouth shape and ✅ → idle<br>
+      <code>celebrate</code><br>
+      One 2.08-second pass each time
     </td>
     <td align="center" valign="top" width="33%">
       <b>Thinking</b><br>
@@ -39,43 +32,50 @@ All GIFs repeat for browsing, use original frame timing and show the artwork at 
       <code>thinking</code><br>
       Waiting for the model, reasoning or retrying
     </td>
+    <td align="center" valign="top" width="33%">
+      <b>Idle</b><br>
+      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="Idle: Gentle breathing and blinking, feet planted"><br>
+      Gentle breathing, feet planted<br>
+      <code>idle</code><br>
+      No task or temporary reaction
+    </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
       <b>Working · 1 conversation</b><br>
-      <img src="docs/assets/naiwa/eat-code.gif" width="192" height="192" alt="Working · 1 conversation: Eat code"><br>
-      Eat code<br>
-      <code>eat-code</code><br>
+      <img src="docs/assets/naiwa/typing.gif" width="192" height="192" alt="Working · 1 conversation: Type with one paw"><br>
+      Type with one paw<br>
+      <code>typing</code><br>
       1 running conversation
     </td>
     <td align="center" valign="top" width="33%">
       <b>Working · 2 conversations</b><br>
-      <img src="docs/assets/naiwa/eat-code-fast.gif" width="192" height="192" alt="Working · 2 conversations: Eat faster"><br>
-      Eat faster<br>
-      <code>eat-code-fast</code><br>
+      <img src="docs/assets/naiwa/typing-both.gif" width="192" height="192" alt="Working · 2 conversations: Type with alternating paws"><br>
+      Type with alternating paws<br>
+      <code>typing-both</code><br>
       2 running conversations
     </td>
     <td align="center" valign="top" width="33%">
       <b>Working · 3+ conversations</b><br>
-      <img src="docs/assets/naiwa/feast.gif" width="192" height="192" alt="Working · 3+ conversations: Feast"><br>
-      Feast<br>
-      <code>feast</code><br>
+      <img src="docs/assets/naiwa/typing-fast.gif" width="192" height="192" alt="Working · 3+ conversations: Type rapidly"><br>
+      Type rapidly<br>
+      <code>typing-fast</code><br>
       3 or more running conversations
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
       <b>Subagent · 1</b><br>
-      <img src="docs/assets/naiwa/juggle.gif" width="192" height="192" alt="Subagent · 1: Juggle two code blocks"><br>
-      Juggle two code blocks<br>
-      <code>juggle</code><br>
+      <img src="docs/assets/naiwa/terminal.gif" width="192" height="192" alt="Subagent · 1: Direct one terminal"><br>
+      Direct one terminal<br>
+      <code>terminal</code><br>
       1 running subagent
     </td>
     <td align="center" valign="top" width="33%">
       <b>Subagents · 2+</b><br>
-      <img src="docs/assets/naiwa/juggle-many.gif" width="192" height="192" alt="Subagents · 2+: Juggle four code blocks"><br>
-      Juggle four code blocks<br>
-      <code>juggle-many</code><br>
+      <img src="docs/assets/naiwa/terminals.gif" width="192" height="192" alt="Subagents · 2+: Coordinate two terminals"><br>
+      Coordinate two terminals<br>
+      <code>terminals</code><br>
       2 or more running subagents
     </td>
     <td align="center" valign="top" width="33%">
@@ -96,9 +96,9 @@ All GIFs repeat for browsing, use original frame timing and show the artwork at 
     </td>
     <td align="center" valign="top" width="33%">
       <b>Context compaction</b><br>
-      <img src="docs/assets/naiwa/devour.gif" width="192" height="192" alt="Context compaction: Devour a ribbon of code"><br>
-      Devour a ribbon of code<br>
-      <code>devour</code><br>
+      <img src="docs/assets/naiwa/eat-paper.gif" width="192" height="192" alt="Context compaction: Continuously eat a long sheet"><br>
+      Continuously eat a long sheet<br>
+      <code>eat-paper</code><br>
       While compacting
     </td>
     <td align="center" valign="top" width="33%">
@@ -110,13 +110,6 @@ All GIFs repeat for browsing, use original frame timing and show the artwork at 
     </td>
   </tr>
   <tr>
-    <td align="center" valign="top" width="33%">
-      <b>Idle</b><br>
-      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="Idle: Breathe and blink"><br>
-      Breathe and blink<br>
-      <code>idle</code><br>
-      No task or temporary reaction
-    </td>
     <td align="center" valign="top" width="33%">
       <b>Sleeping</b><br>
       <img src="docs/assets/naiwa/sleep.gif" width="192" height="192" alt="Sleeping: Doze while sitting"><br>
@@ -193,10 +186,10 @@ The outside-app overlay does not trigger roaming, triple taps or six-tap reactio
     </td>
     <td align="center" valign="top" width="33%">
       <b>Three quick taps</b><br>
-      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="Three quick taps: Roll laughing → stand up"><br>
-      Roll laughing → stand up<br>
+      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="Three quick taps: Belly laugh → roll → stand up"><br>
+      Belly laugh → roll → stand up<br>
       <code>laugh-roll</code><br>
-      3 taps within 1.1 seconds
+      3 taps within 1.1 seconds; 1.44-second laugh, 2.94 seconds total
     </td>
   </tr>
   <tr>
@@ -209,9 +202,9 @@ The outside-app overlay does not trigger roaming, triple taps or six-tap reactio
     </td>
     <td align="center" valign="top" width="33%">
       <b>Dragging</b><br>
-      <img src="docs/assets/naiwa/prone.gif" width="192" height="192" alt="Dragging: Crawl"><br>
+      <img src="docs/assets/naiwa/crawl.gif" width="192" height="192" alt="Dragging: Crawl"><br>
       Crawl<br>
-      <code>prone</code><br>
+      <code>crawl</code><br>
       Alternate paws and hind feet until released
     </td>
     <td align="center" valign="top" width="33%">
@@ -233,20 +226,20 @@ The code characters, laughter text and other small props are drawn into the fram
 ## Triggers
 
 - **Idle:** breathing and blinking play when no task or temporary reaction is active. While awake and idle, the pet waits 10–25 seconds before choosing equally between looking around, giggling, snacking and dancing, for 2, 2, 1 and 2 loops respectively. With no active task, 60 seconds without interaction leads to sleep; idle actions do not delay it. All four are not guaranteed to appear before the pet falls asleep.
-- **Tasks:** the pet rests a paw under its chin while waiting for the model, reasoning or retrying. Working has three tiers based on running conversations; juggling has two tiers based on subagents. It waves when confirmation or an answer is needed, and devours a ribbon of code during context compaction.
+- **Tasks:** the pet rests a paw under its chin while waiting for the model, reasoning or retrying. Working progresses from typing with one paw to alternating paws and rapid typing as running conversations increase. It directs one or two terminal icons based on the subagent count, waves when confirmation or an answer is needed, and continuously feeds a long printed sheet into its mouth during context compaction.
 - **Import:** while a pet pack is being imported, the pet holds a small parcel and alternates steps. It returns to the current state when importing ends.
-- **Completion:** the reaction starts when a turn has ended and no new round starts for 1.5 seconds. It plays the laugh animation, with a 50% chance to dance first.
-- **Taps:** tapping either half makes the pet lean away from that side. Three taps within 1.1 seconds trigger rolling laughter; the fourth and fifth restart it. The sixth switches to puffed cheeks, paws on hips and two foot stamps, then resets the count. Both reactions play once and finish in the idle pose.
+- **Completion:** the reaction starts when a turn has ended and no new round starts for 1.5 seconds. It plays a small hop with a silent La mouth shape and a green check mark once for 2.08 seconds, then returns to the current state.
+- **Taps:** tapping either half makes the pet lean away from that side. Three taps within 1.1 seconds play belly laughter, rolling and standing back up in sequence over 2.94 seconds, including 1.44 seconds of belly laughter; the fourth and fifth restart it. The sixth switches to puffed cheeks, paws on hips and two foot stamps, then resets the count. Both reactions play once and finish in the idle pose.
 - **Dragging and roaming:** dragging plays the crawl animation; releasing returns to the current state. The pet can walk while idle on the chat page. The outside-app overlay does not trigger roaming or quick-tap reactions.
 
 ## Full frame sheet
 
-All 251 frames are collected in one image, grouped by animation and labeled with frame indices and durations. Read each group from left to right, then top to bottom. `loop` / `once` describe the asset's repeat setting; the heading gives the duration of one full pass. Click the image to view its original size.
+All 861 frames are collected in one image, grouped by animation and labeled with frame indices and durations. Read each group from left to right, then top to bottom. `loop` / `once` describe the asset's repeat setting; the heading gives the duration of one full pass. Click the image to view its original size.
 
 <details>
-<summary>Show all 251 frames from the 24 animations</summary>
+<summary>Show all 861 frames from the 24 animations</summary>
 
-[![All 24 Pixel Naiwa animations and 251 frames](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
+[![All 24 Pixel Naiwa animations and 861 frames](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
 
 </details>
 
@@ -262,7 +255,7 @@ All 251 frames are collected in one image, grouped by animation and labeled with
 | DSH Go pet pack format | [Pet design and format](docs/design/pets.md) |
 | Retained sound resources and provenance | [Sound notes](app/tool/pet_src/naiwa/audio/README.md) |
 
-The front-facing idle pose sets the proportions, arm lengths and paw sizes for every action. In `carrying`, both paws grip a parcel while the feet alternate steps. In `annoyed`, the pet puffs its cheeks, puts its paws on its hips, stamps and relaxes. The `prone` crawl alternates forepaw reaches and hind-foot pushes. See the artwork notes for body, face and prop drawing rules.
+The front-facing idle pose sets the proportions, arm lengths and paw sizes for every action. In `carrying`, both paws grip a parcel while the feet alternate steps. In `annoyed`, the pet puffs its cheeks, puts its paws on its hips, stamps and relaxes. The `crawl` animation alternates forepaw reaches and hind-foot pushes. See the artwork notes for body, face and prop drawing rules.
 
 <details>
 <summary>Regenerate artwork, the ZIP and README previews</summary>

@@ -2,15 +2,15 @@
 
 简体中文 · [English](README.en.md)
 
-像素奶蛙是 [DSH Go](https://github.com/ccch1mneyyy/dsh-Go) 的无声宠物包，包名为 `naiwa`。它会在你思考、工作和等待时陪在聊天页上：闲下来左右张望，忙起来吃代码，任务完成后捧腹大笑，也会对点按和拖动做出反应。
+像素奶蛙是 [DSH Go](https://github.com/ccch1mneyyy/dsh-Go) 的无声宠物包，包名为 `naiwa`。它会在你思考、工作和等待时陪在聊天页上：闲下来左右张望，忙起来敲键盘，任务完成后轻跃庆祝、亮起 ✅，也会对点按和拖动做出反应。
 
-来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。奶黄色身体、奶油色肚皮、浅绿眼圈和灰褐色小爪，统一绘制在 **64×64 透明画布**上，共 **24 段动画、251 帧**。
+来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。奶黄色身体、奶油色肚皮、浅绿眼圈和灰褐色小爪，统一绘制在 **64×64 透明画布**上，共 **24 段动画、861 帧**。
 
 [按状态预览](#按状态预览) · [导入使用](#导入使用) · [触发说明](#触发说明) · [完整帧图](#完整帧图) · [制作参考](#制作参考)
 
 ## 按状态预览
 
-每张卡片先写触发状态，再展示它对应的动作。完成状态分为两种：直接大笑，或先跳舞再大笑；没有新任务时，都在完成态持续 3.18 秒后回到待机。预览从进入完成态开始，不包含前面的 1.5 秒完成判定等待。
+每张卡片先写触发状态，再展示它对应的动作。任务完成时做出无声“啦”的口型，轻跃并亮起 ✅；整段播放一遍，共 2.08 秒，没有新任务时回到待机。预览从进入完成态开始，不包含前面的 1.5 秒完成判定等待。
 
 GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方便浏览，预览会重复；App 内单次反应会正常结束，任务状态随实际任务切换。棋盘格仅展示透明区域。
 
@@ -20,17 +20,10 @@ GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方�
   <tr>
     <td align="center" valign="top" width="33%">
       <b>完成</b><br>
-      <img src="docs/assets/naiwa-attention.gif" width="192" height="192" alt="完成: 捧腹大笑 → 待机"><br>
-      捧腹大笑 → 待机<br>
-      <code>laugh</code><br>
-      50%：直接大笑
-    </td>
-    <td align="center" valign="top" width="33%">
-      <b>完成 · 彩蛋</b><br>
-      <img src="docs/assets/naiwa-attention-bonus.gif" width="192" height="192" alt="完成 · 彩蛋: 跳舞 → 大笑 → 待机"><br>
-      跳舞 → 大笑 → 待机<br>
-      <code>dance → laugh</code><br>
-      50%：先跳一段舞
+      <img src="docs/assets/naiwa-attention.gif" width="192" height="192" alt="完成: 轻跃、“啦”口型与对勾 → 待机"><br>
+      轻跃、“啦”口型与 ✅ → 待机<br>
+      <code>celebrate</code><br>
+      每次一遍，2.08 秒
     </td>
     <td align="center" valign="top" width="33%">
       <b>思考</b><br>
@@ -39,43 +32,50 @@ GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方�
       <code>thinking</code><br>
       等待模型、推理或重试
     </td>
+    <td align="center" valign="top" width="33%">
+      <b>待机</b><br>
+      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="待机: 脚底落地，轻呼吸眨眼"><br>
+      脚底落地，轻呼吸眨眼<br>
+      <code>idle</code><br>
+      没有任务或临时反应
+    </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
       <b>工作 · 1 个会话</b><br>
-      <img src="docs/assets/naiwa/eat-code.gif" width="192" height="192" alt="工作 · 1 个会话: 吃代码"><br>
-      吃代码<br>
-      <code>eat-code</code><br>
+      <img src="docs/assets/naiwa/typing.gif" width="192" height="192" alt="工作 · 1 个会话: 单爪敲键盘"><br>
+      单爪敲键盘<br>
+      <code>typing</code><br>
       1 个运行中的会话
     </td>
     <td align="center" valign="top" width="33%">
       <b>工作 · 2 个会话</b><br>
-      <img src="docs/assets/naiwa/eat-code-fast.gif" width="192" height="192" alt="工作 · 2 个会话: 加速进食"><br>
-      加速进食<br>
-      <code>eat-code-fast</code><br>
+      <img src="docs/assets/naiwa/typing-both.gif" width="192" height="192" alt="工作 · 2 个会话: 双爪交替敲键"><br>
+      双爪交替敲键<br>
+      <code>typing-both</code><br>
       2 个运行中的会话
     </td>
     <td align="center" valign="top" width="33%">
       <b>工作 · 3 个及以上会话</b><br>
-      <img src="docs/assets/naiwa/feast.gif" width="192" height="192" alt="工作 · 3 个及以上会话: 狼吞虎咽"><br>
-      狼吞虎咽<br>
-      <code>feast</code><br>
+      <img src="docs/assets/naiwa/typing-fast.gif" width="192" height="192" alt="工作 · 3 个及以上会话: 快速打字"><br>
+      快速打字<br>
+      <code>typing-fast</code><br>
       3 个及以上运行中的会话
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="33%">
       <b>子代理 · 1 个</b><br>
-      <img src="docs/assets/naiwa/juggle.gif" width="192" height="192" alt="子代理 · 1 个: 抛接代码块"><br>
-      抛接代码块<br>
-      <code>juggle</code><br>
+      <img src="docs/assets/naiwa/terminal.gif" width="192" height="192" alt="子代理 · 1 个: 指挥一个终端"><br>
+      指挥一个终端<br>
+      <code>terminal</code><br>
       1 个子代理运行
     </td>
     <td align="center" valign="top" width="33%">
       <b>子代理 · 2 个及以上</b><br>
-      <img src="docs/assets/naiwa/juggle-many.gif" width="192" height="192" alt="子代理 · 2 个及以上: 多块抛接"><br>
-      多块抛接<br>
-      <code>juggle-many</code><br>
+      <img src="docs/assets/naiwa/terminals.gif" width="192" height="192" alt="子代理 · 2 个及以上: 左右调度终端"><br>
+      左右调度终端<br>
+      <code>terminals</code><br>
       2 个及以上子代理运行
     </td>
     <td align="center" valign="top" width="33%">
@@ -96,9 +96,9 @@ GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方�
     </td>
     <td align="center" valign="top" width="33%">
       <b>上下文压缩</b><br>
-      <img src="docs/assets/naiwa/devour.gif" width="192" height="192" alt="上下文压缩: 吞下代码条"><br>
-      吞下代码条<br>
-      <code>devour</code><br>
+      <img src="docs/assets/naiwa/eat-paper.gif" width="192" height="192" alt="上下文压缩: 持续吃纸、双爪交替送纸"><br>
+      持续吃纸、双爪交替送纸<br>
+      <code>eat-paper</code><br>
       压缩期间
     </td>
     <td align="center" valign="top" width="33%">
@@ -110,13 +110,6 @@ GIF 按原始帧时长播放，以 3 倍整数放大保留像素边缘。为方�
     </td>
   </tr>
   <tr>
-    <td align="center" valign="top" width="33%">
-      <b>待机</b><br>
-      <img src="docs/assets/naiwa/idle.gif" width="192" height="192" alt="待机: 呼吸眨眼"><br>
-      呼吸眨眼<br>
-      <code>idle</code><br>
-      没有任务或临时反应
-    </td>
     <td align="center" valign="top" width="33%">
       <b>睡眠</b><br>
       <img src="docs/assets/naiwa/sleep.gif" width="192" height="192" alt="睡眠: 坐着打盹"><br>
@@ -193,10 +186,10 @@ App 外悬浮窗不触发游走、三连点和六连点。
     </td>
     <td align="center" valign="top" width="33%">
       <b>三连点</b><br>
-      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="三连点: 翻滚笑 → 起身"><br>
-      翻滚笑 → 起身<br>
+      <img src="docs/assets/naiwa/laugh-roll.gif" width="192" height="192" alt="三连点: 捧腹大笑 → 打滚 → 起身"><br>
+      捧腹大笑 → 打滚 → 起身<br>
       <code>laugh-roll</code><br>
-      1.1 秒内三连点
+      1.1 秒内三连点；捧腹 1.44 秒，全段 2.94 秒
     </td>
   </tr>
   <tr>
@@ -209,9 +202,9 @@ App 外悬浮窗不触发游走、三连点和六连点。
     </td>
     <td align="center" valign="top" width="33%">
       <b>拖动</b><br>
-      <img src="docs/assets/naiwa/prone.gif" width="192" height="192" alt="拖动: 趴行"><br>
+      <img src="docs/assets/naiwa/crawl.gif" width="192" height="192" alt="拖动: 趴行"><br>
       趴行<br>
-      <code>prone</code><br>
+      <code>crawl</code><br>
       交替伸爪、蹬腿，直到松手
     </td>
     <td align="center" valign="top" width="33%">
@@ -228,25 +221,25 @@ App 外悬浮窗不触发游走、三连点和六连点。
 
 将生成的 `pixel-naiwa.zip` 保存到手机，在 **设置 → 宠物 → 导入** 中选择它，再选中「像素奶蛙」。再次导入相同包 ID 会更新已有宠物；ZIP 制作命令见下方。
 
-吃代码时的字符、笑声文字和其他小道具均画在动画帧内。声音资源与来源记录保留在仓库中供参考，此宠物包按无声方式设计，不随宠物 ZIP 或 APK 打包音频。
+单爪敲键盘时的字符、笑声文字和其他小道具均画在动画帧内。声音资源与来源记录保留在仓库中供参考，此宠物包按无声方式设计，不随宠物 ZIP 或 APK 打包音频。
 
 ## 触发说明
 
 - **待机**：没有任务或临时反应时播放呼吸眨眼。清醒待机期间，每次等待 10–25 秒后等概率插播张望、偷笑、吃点心或跳舞，分别播放 2、2、1、2 遍。无任务且 60 秒没有交互后打盹，待机小动作不会延后睡眠；一次清醒期间不保证四种动作全部出现。
-- **任务状态**：等待模型、推理或重试时托腮思考；工作动画按运行中的会话数分为三档，抛接动画按子代理数分为两档。等待确认或回答时挥手，上下文压缩时吞下代码条。
+- **任务状态**：等待模型、推理或重试时托腮思考；工作按运行中的会话数分为单爪敲键、双爪交替、快速打字三档，子代理按数量指挥一个或两个终端图标。等待确认或回答时挥手，上下文压缩时持续吃纸、双爪交替送纸。
 - **导入**：导入宠物包期间抱着小箱子交替迈步，导入结束后回到当前状态。
-- **完成**：一轮结束后 1.5 秒内没有新一轮开始，才触发完成反应。通常播放大笑，有 50% 概率先跳一段舞。
-- **点按**：左右单击分别向另一侧歪身。1.1 秒内连点三次触发翻滚笑；第 4、5 下重新播放，第 6 下改为鼓腮叉腰、跺脚两次并重新计数。两种反应都只播一遍，最后恢复待机姿势。
+- **完成**：一轮结束后 1.5 秒内没有新一轮开始，才触发完成反应。每次播放一遍轻跃庆祝：张口“啦”→收口微笑，配合绿色 ✅，共 2.08 秒，再回到当前状态。
+- **点按**：左右单击分别向另一侧歪身。1.1 秒内连点三次依次捧腹大笑、打滚并起身，共 2.94 秒，其中捧腹阶段为 1.44 秒；第 4、5 下重新播放，第 6 下改为鼓腮叉腰、跺脚两次并重新计数。两种反应都只播一遍，最后恢复待机姿势。
 - **拖动与游走**：拖动时趴行，放手后回到当前状态；聊天页待机时可以走动。App 外悬浮窗不触发游走或连点反应。
 
 ## 完整帧图
 
-全部 251 帧集中在一张大图中，按动作分组并标注帧编号、时长。组内从左到右、从上到下阅读；`loop` / `once` 表示素材的循环设置，标题时长为整段播放一遍的时长。点击图片可查看原始尺寸。
+全部 861 帧集中在一张大图中，按动作分组并标注帧编号、时长。组内从左到右、从上到下阅读；`loop` / `once` 表示素材的循环设置，标题时长为整段播放一遍的时长。点击图片可查看原始尺寸。
 
 <details>
-<summary>展开 24 段动画的全部 251 帧</summary>
+<summary>展开 24 段动画的全部 861 帧</summary>
 
-[![像素奶蛙全部 24 段动画、251 帧总览](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
+[![像素奶蛙全部 24 段动画、861 帧总览](docs/assets/naiwa-frames.png)](docs/assets/naiwa-frames.png)
 
 </details>
 
@@ -262,7 +255,7 @@ App 外悬浮窗不触发游走、三连点和六连点。
 | DSH Go 宠物包格式 | [宠物设计与格式](docs/design/pets.md) |
 | 保留的声音资源与来源 | [声音说明](app/tool/pet_src/naiwa/audio/README.md) |
 
-动作以正视待机姿势为比例基准，手臂长度和爪子尺寸保持一致。`carrying` 双爪抱箱、交替迈步；`annoyed` 鼓腮叉腰、跺脚后放松；`prone` 交替伸爪、蹬腿趴行。身体、五官与道具的绘制规则见素材说明。
+动作以正视待机姿势为比例基准，手臂长度和爪子尺寸保持一致。`carrying` 双爪抱箱、交替迈步；`annoyed` 鼓腮叉腰、跺脚后放松；`crawl` 交替伸爪、蹬腿趴行。身体、五官与道具的绘制规则见素材说明。
 
 <details>
 <summary>重新生成素材、ZIP 和 README 预览</summary>
