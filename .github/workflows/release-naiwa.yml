@@ -2,7 +2,7 @@ name: Publish Pixel Naiwa
 
 on:
   push:
-    tags: ['naiwa-v*']
+    tags: ['pixel-naiwa-v*']
 
 permissions:
   contents: read
@@ -30,15 +30,20 @@ jobs:
           notes="$RUNNER_TEMP/naiwa-release.md"
           cp docs/pets/naiwa-release.md "$notes"
           printf '\n[按状态预览 / Previews by state](https://github.com/%s/blob/%s/README.md)\n' "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >> "$notes"
+          legacy_tag="naiwa-v${GITHUB_REF_NAME#pixel-naiwa-v}"
+          if gh release view "$legacy_tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release edit "$legacy_tag" --repo "$GITHUB_REPOSITORY" \
+              --tag "$GITHUB_REF_NAME" --target "$GITHUB_SHA" --verify-tag
+          fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
               app/build/pet_release/pixel-naiwa.zip app/build/pet_release/SHA256SUMS \
               --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-              --title "像素奶蛙 ${GITHUB_REF_NAME#naiwa-v}" --notes-file "$notes"
+              --title "像素奶蛙 ${GITHUB_REF_NAME#pixel-naiwa-v}" --notes-file "$notes"
           else
             gh release create "$GITHUB_REF_NAME" \
               app/build/pet_release/pixel-naiwa.zip app/build/pet_release/SHA256SUMS \
               --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --title "像素奶蛙 ${GITHUB_REF_NAME#naiwa-v}" --notes-file "$notes"
+              --title "像素奶蛙 ${GITHUB_REF_NAME#pixel-naiwa-v}" --notes-file "$notes"
           fi

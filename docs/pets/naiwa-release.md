@@ -1,5 +1,7 @@
 像素奶蛙 1.1.1 是供 DSH Go 导入的无声像素宠物包，共 24 段动画、861 帧。本次更新替换此前的 251 帧版本，同 ID 再次导入即可更新。
 
+发布标签：`pixel-naiwa-v1.1.1`；下载文件：`pixel-naiwa.zip`。
+
 ## 更新内容
 
 - 完成状态改为 `celebrate`：轻跃、“啦”口型与 ✅，播放一遍后返回当前状态。三连点播放 `laugh-roll`，先捧腹大笑 1440 ms，再打滚、起身，共 2940 ms。
@@ -19,6 +21,8 @@
 ## English
 
 Pixel Naiwa 1.1.1 is a silent pet pack for DSH Go with 24 animations and 861 frames. This update replaces the earlier 251-frame build; importing the same pet ID updates the installed pack.
+
+Release tag: `pixel-naiwa-v1.1.1`; downloadable file: `pixel-naiwa.zip`.
 
 - Completion now plays `celebrate`: a small hop, a “La” mouth shape and a check mark, followed by a return to the current state. Three taps play `laugh-roll`: 1440 ms of belly laughter followed by rolling and standing up, for 2940 ms in total.
 - Three work tiers use `typing`, `typing-both` and `typing-fast`, with one paw, alternating paws and rapid typing. Key flashes and rising characters follow the keystrokes.
