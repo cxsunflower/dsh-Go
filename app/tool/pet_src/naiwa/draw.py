@@ -14,22 +14,29 @@ app/build/pet_src_preview/naiwa.png (or PATH); `--strip ANIM` writes a 4x grid o
 animation to app/build/pet_src_preview/naiwa/ANIM.png; `--gif ANIM` writes an animated
 preview beside it, with the original frame timing. `--gallery DIR` writes all
 animations as looping 3x GIFs for the README. `--completion-previews DIR` writes
-the normal and bonus completion sequences, returning to idle when no new task
-arrives. No clock and no randomness:
+the completion sequence, returning to idle when no new task arrives. No clock and no randomness:
 two runs give byte-identical files.
 
 How the art is made: a small rig on integer pixels, no anti-aliasing.
 
 * The trunk (head and body in one piece, no neck) is a per-row half-width profile
   about x = 32: a dome, sides widening to a low belly, a rounded bottom. A pose
-  squashes or stretches it about the hip line, shears it (leaning), and moves or
-  rotates the whole figure.
+  stretches the torso between the hip and a rigid head. The head moves on whole
+  pixels without scaling or shearing; a roll rotates the whole figure.
 * The belly is an ellipse inside the trunk; an arm is two capsules (shoulder, elbow,
-  hand) ending in a 4x4 paw; legs are short capsules on half-ellipse feet.
+  hand) ending in a 4x4 paw. Arms follow the shoulder without torso distortion;
+  the rasterized elbow uses a half-pixel grid and the wrist shares the palm's
+  integer anchor. Legs are short capsules on half-ellipse feet.
 * Light comes from the top left: a dark rim on the bottom-right edges, a highlight
   on the crown. The outline is the 4-neighbour dilation of all parts minus the
   parts (1 px, stair-stepped); a limb in front of the trunk gets its own outline
-  where it overlaps.
+  where it overlaps. Where those lines would double up, leave a pinhole or stick
+  out by a pixel, the limb grows a pixel to meet the line next to it; the trunk
+  and the head keep their shape.
+* Every piece moves by whole pixels and all at once: the figure's offset, each
+  foot, the belly bulge and the crawl's shins are rounded before drawing, and an
+  eased arm is redrawn only when its palm reaches the next pixel. Otherwise each
+  part crosses its own rounding on a different frame, and playback ripples.
 * Eyes, mouths and props are hand-drawn bitmaps stamped at rig anchors. Detached
   props (哈, Z, !, ?, code glyphs and tiles, crumbs, sweat) get an 8-neighbour
   outline and keep at least one clear pixel from the body, so the pack builder's
@@ -54,20 +61,20 @@ PREVIEW_DIR = os.path.join(REPO, 'app', 'build', 'pet_src_preview')
 PACK_ID = 'naiwa'
 
 W = H = 64
-MIN_FRAMES, MAX_FRAMES = 4, 16
-MIN_MS, MAX_MS = 60, 400
-MAX_TOTAL_FRAMES = 400
+MIN_FRAMES, MAX_FRAMES = 4, 64
+MIN_MS, MAX_MS = 40, 400
+MAX_TOTAL_FRAMES = 1024
 MAX_COLORS = 256
 
 # Animation catalogue order; docs/design/naiwa-pet.md section 2 maps the triggers.
 ANIM_NAMES = [
     'idle', 'idle-look', 'idle-giggle', 'snack', 'dance', 'thinking',
-    'eat-code', 'eat-code-fast', 'feast', 'juggle', 'juggle-many', 'shocked', 'laugh',
-    'laugh-roll', 'alert', 'devour', 'carrying', 'sleep',
-    'wake', 'walk', 'poke-left', 'poke-right', 'annoyed', 'prone',
+    'typing', 'typing-both', 'typing-fast', 'terminal', 'terminals', 'shocked', 'celebrate',
+    'laugh-roll', 'alert', 'eat-paper', 'carrying', 'sleep',
+    'wake', 'walk', 'poke-left', 'poke-right', 'annoyed', 'crawl',
 ]
-ONE_SHOT = {'wake', 'poke-left', 'poke-right', 'laugh-roll', 'annoyed'}
-EATING = ['eat-code', 'eat-code-fast', 'feast', 'devour', 'snack']   # shared upright mouth position
+ONE_SHOT = {'celebrate', 'wake', 'poke-left', 'poke-right', 'laugh-roll', 'annoyed'}
+EATING = ['eat-paper', 'snack']   # shared upright mouth position
 
 PALETTE = {
     'line': '#4A2E12',
@@ -83,6 +90,8 @@ PALETTE = {
     'c1': '#C678DD', 'c2': '#98C379', 'c3': '#D19A66', 'c4': '#61AFEF', 'c5': '#E5C07B',
     'c6': '#ABB2BF',
     'ghost_r': '#FF3D6E', 'ghost_c': '#2EE6FF',
+    'check_green': '#30AF69', 'check_edge': '#186943',
+    'deck': '#4B5263',
 }
 NAMES = list(PALETTE)
 IDX = {n: i + 1 for i, n in enumerate(NAMES)}
@@ -249,6 +258,10 @@ MOUTHS = {
              "...oooooo..."],
     'o': [".oo.", "owwo", "ommo", "ommo", ".oo."],
     'O': [".oooo.", "owwwwo", "ommmmo", "ommmmo", "ommmmo", "ommmmo", ".oooo."],
+    'la': ['..oooooo..', '.owwwwwwo.', 'ommmmmmmmo', 'ommmmmmmmo',
+           'ommmmmmmmo', 'ommttttmmo', '.omttttmo.', '..oooooo..'],
+    'la_close': ['..oooooo..', '.owwwwwwo.', 'ommmmmmmmo', '.omttttmo.',
+                 '..omttmo..', '...oooo...'],
     'eat': ["..oooooo..",               # wide open for code; its centre is upright mouth
             ".owwwwwwo.",
             "ommmmmmmmo",
@@ -299,6 +312,21 @@ CODE_FONT = {
     'x': ["...", "...", "X.X", ".X.", "X.X"],
 }
 
+# Held in front of the belly, under the forepaws. Seen from a little above: the
+# back edge is narrower, two staggered rows of keys and a space bar sit on the
+# lighter deck, and a darker front edge gives it depth.
+KEYBOARD = [
+    "..oooooooooooooooooooooooooo..",
+    ".odddkkdkkdkkdkkdkkdkkdkkdddo.",
+    ".oddddddddddddddddddddddddddo.",
+    "odkkdkkdkkdkkdkkdkkdkkdkkdkkdo",
+    "oddddddddddddddddddddddddddddo",
+    "oddkkkkddkkkkkkkkkkkkddkkkkddo",
+    "offffffffffffffffffffffffffffo",
+    ".oooooooooooooooooooooooooooo.",
+]
+KEYBOARD_AT = (17, 48)   # top-left; symmetric about x = 32
+
 # Held against the belly, behind both forepaws. Tape and a downward arrow make
 # the parcel read as an import even without a caption or sound.
 PARCEL = [
@@ -306,6 +334,15 @@ PARCEL = [
     "obbbwwwwwwbbbo", "obbbwwkkwwbbbo", "obbbwwkkwwbbbo", "obbbkkkkkkbbbo",
     "obbbwkkkkwbbbo", "obbbwwkkwwbbbo", "obbbwwwwwwbbbo", "oddddddddddddo",
     "oooooooooooooo",
+]
+
+# The paper's lower edge rolls toward the viewer, with its curled end on the right.
+PAPER_CURL = [
+    '.oooooooo..',
+    'owwwwwwwoo.',
+    'owwwwwwoswo',
+    '.osssssosoo',
+    '..ooooooo..',
 ]
 
 
@@ -326,6 +363,28 @@ def glyph_cells(kind, *args):
     return [(GLYPHS[name], x, y, color)], 'line'
 
 
+def rect_mask(x, y, w, h):
+    return (XS >= x) & (XS < x + w) & (YS >= y) & (YS < y + h)
+
+
+def paper_pixels(x, top, length, offset, bend):
+    """A printed sheet feeds upward from a curled lower edge into the mouth."""
+    bend = iround_from(bend, 0)   # the lower end sways as one piece, not row after row
+    lab = np.zeros((H, W), np.uint8)
+    for row in range(length - len(PAPER_CURL)):
+        cx = iround(x + bend * (row / max(1, length - 1)) ** 2)
+        y = top + row
+        lab[rect_mask(cx - 4, y, 8, 1)] = IDX['code_line']
+        lab[rect_mask(cx - 3, y, 6, 1)] = IDX['white']
+        if (row + offset) % 6 == 2:
+            lab[rect_mask(cx - 2, y, 4, 1)] = IDX['c6']
+        elif (row + offset) % 6 == 3:
+            lab[rect_mask(cx - 2, y, 2, 1)] = IDX['c1']
+    stamp(lab, PAPER_CURL, iround(x + bend) - 5, top + length - len(PAPER_CURL),
+          {'o': 'code_line', 'w': 'white', 's': 'c6'})
+    return lab
+
+
 def draw_props(lab, props):
     """Paint props over the figure; returns (detached prop pixels, attached prop pixels).
 
@@ -333,13 +392,58 @@ def draw_props(lab, props):
     with an outline; a '-held' suffix ('glyph-held', 'code-held') marks one held in a
     paw, and '-in' ('code-in') one inside the open mouth, drawn without outline;
     ('block', text, x, y[, colours]) is a juggled code tile, (x, y) its top-left;
-    ('bubble', x, y, size) hangs from the face. Held and hanging props may touch
-    the body; the others must not.
+    ('bubble', x, y, size) hangs from the face; ('check', x, y, size) is a detached
+    green completion badge. ('keyboard', lit) sits under the paws, lit being the
+    (x, y, fresh) keys just struck; terminal icons float above the paws;
+    paper-held is a printed sheet held against the mouth.
+    Held and hanging props may touch the body; the others must not.
     """
     free = np.zeros((H, W), bool)
     held = np.zeros((H, W), bool)
     for pr in props:
         kind = pr[0]
+        if kind == 'keyboard':
+            stamp(lab, KEYBOARD, *KEYBOARD_AT, {'o': 'code_line', 'd': 'deck', 'k': 'c6', 'f': 'tile'})
+            # A struck key flashes white with a glow under it, then stays blue a frame.
+            for x, y, fresh in pr[1]:
+                lab[rect_mask(x, y, 2, 1)] = IDX['white' if fresh else 'c4']
+                if fresh:
+                    lab[rect_mask(x, y + 1, 2, 1)] = IDX['c4']
+            held |= bitmap_mask(KEYBOARD, *KEYBOARD_AT)
+            continue
+        if kind == 'terminal':
+            x, y, color, phase = pr[1:]
+            mask = rect_mask(x, y, 14, 12)
+            for xx, yy in ((x, y), (x + 13, y), (x, y + 11), (x + 13, y + 11)):
+                mask &= ~((XS == xx) & (YS == yy))
+            lab[mask] = IDX['code_line']
+            lab[rect_mask(x + 1, y + 1, 12, 10)] = IDX['tile']
+            lab[rect_mask(x + 2, y + 1, 10, 2)] = IDX[color]
+            stamp(lab, ['X..', '.X.', '..X', '.X.', 'X..'], x + 3, y + 4, {'X': 'white'})
+            lab[rect_mask(x + 8, y + 9, 3 if phase < .65 else 1, 1)] = IDX['white']
+            free |= mask
+            continue
+        if kind == 'paper-held':
+            paper = paper_pixels(*pr[1:])
+            mask = paper != 0
+            lab[mask] = paper[mask]
+            held |= mask
+            continue
+        if kind == 'check':
+            x, y, size = pr[1:]
+            mask = (XS >= x) & (XS < x + size) & (YS >= y) & (YS < y + size)
+            for xx, yy in ((x, y), (x + size - 1, y), (x, y + size - 1), (x + size - 1, y + size - 1)):
+                mask &= ~((XS == xx) & (YS == yy))
+            inside = mask & ~dilate4(~mask)
+            lab[mask] = IDX['check_edge']
+            lab[inside] = IDX['check_green']
+            a = (x + size * .23, y + size * .52)
+            b = (x + size * .43, y + size * .72)
+            c = (x + size * .79, y + size * .27)
+            tick = capsule(a, b, .8) | capsule(b, c, .8)
+            lab[tick & inside] = IDX['white']
+            free |= mask
+            continue
         if kind == 'bubble':
             x, y, n = pr[1:]
             rows = disc_rows(n, 'o', 's', 1.0)
@@ -383,6 +487,7 @@ def draw_props(lab, props):
 # ---------------------------------------------------------------- the rig
 
 HB = 26                    # trunk height: rows 27..52 at rest
+HEAD_BASE = 12              # the head above this line is rigid; only the torso stretches
 HIP_X, HIP_Y = 32.0, 53.0  # trunk bottom centre on the canvas
 # Trunk half-width per row, bottom row first. Whole pixels, so at rest every row is
 # 2 * hw pixels wide and symmetric about x = 32.
@@ -431,10 +536,11 @@ LEGS = {   # (left foot, right foot) bottom centres relative to the hip line
     'step_r': ((-6.5, -6.0), (6.0, -4.5)),
 }
 
-BASE = dict(x=0.0, y=0.0, rot=0.0, sx=1.0, sy=1.0, lean=0.0,
+BASE = dict(x=0.0, y=0.0, rot=0.0, sy=1.0, lean=0.0,
             eyes='open', look=(0, 0), mouth='smile', face=(0.0, 0.0), blush=False,
             arms=('down', 'down'), legs='stand', sit=False, cheeks=0.0, belly=0.0,
-            props=(), tint=None, ghost=0, prone=None, parcel=False)
+            props=(), tint=None, ghost=0, prone=None, parcel=False, cover_mouth=False,
+            open_paws=(False, False))
 
 
 def pose(base=None, **kw):
@@ -446,16 +552,28 @@ def pose(base=None, **kw):
 class Rig:
     def __init__(self, p):
         self.p = p
-        self.ox, self.oy = HIP_X + p['x'], HIP_Y + p['y']
+        # Place the figure on whole pixels and bulge the belly in half-pixel steps.
+        # A fraction would let the hip, head and feet cross their rounding on
+        # different frames, and an eased move would then play back as a ripple
+        # running through the body. The torso keeps its width in every pose.
+        self.ox, self.oy = HIP_X + iround_from(p['x'], 0), HIP_Y + iround(p['y'])
+        self.bulge = iround(p['belly'] * 2) / 2
         th = math.radians(p['rot'])
         self.c, self.s = math.cos(th), math.sin(th)
+        # Snap the rigid head once, so translating it preserves every outline pixel.
+        hx, hy = self.fig(p['lean'] * EYE_V / HB, HEAD_BASE + EYE_V * (p['sy'] - 1))
+        self.head_x, self.head_y = iround(hx), iround(hy)
+        dx, dy = self.head_x - self.ox, self.oy - self.head_y
+        self.head_u = dx * self.c + dy * self.s
+        self.head_v = -dx * self.s + dy * self.c
 
     def hw(self, v):
         hw = np.interp(np.asarray(v, float) - 0.5, np.arange(HB), PROFILE)
         if self.p['cheeks']:
-            hw = hw + self.p['cheeks'] * np.clip(1 - np.abs(v - MOUTH_V) / 3.5, 0, 1)
-        if self.p['belly']:
-            hw = hw + self.p['belly'] * np.clip(1 - np.abs(v - BELLY_V) / 5.0, 0, 1)
+            hw = hw + (self.p['cheeks'] * np.clip(1 - np.abs(v - MOUTH_V) / 3.5, 0, 1)
+                       * (v < HEAD_BASE))
+        if self.bulge:
+            hw = hw + self.bulge * np.clip(1 - np.abs(v - BELLY_V) / 5.0, 0, 1)
         return hw
 
     def fig(self, u, v):
@@ -463,56 +581,66 @@ class Rig:
         return (self.ox + u * self.c - v * self.s, self.oy - (u * self.s + v * self.c))
 
     def trunk_pt(self, u, v):
+        if v >= HEAD_BASE:
+            return (self.head_x + u * self.c - (v - HEAD_BASE) * self.s,
+                    self.head_y - u * self.s - (v - HEAD_BASE) * self.c)
+        t = v / HEAD_BASE
+        return self.fig(u + self.head_u * t, self.head_v * t)
+
+    def face_pt(self, u, v):
+        # Snap the face as a group: odd/even bitmap heights otherwise move a frame apart.
         p = self.p
-        return self.fig(u * p['sx'] + p['lean'] * v / HB, v * p['sy'])
+        fu, fv = p['face']
+        cx, cy = self.trunk_pt(fu, EYE_V + fv)
+        cy = iround(cy - .5) + .5
+        dv = v - EYE_V - fv
+        du = u - fu
+        return cx + du * self.c - dv * self.s, cy - du * self.s - dv * self.c
 
     def local(self):
-        p = self.p
         fu, fv = CX - self.ox, self.oy - CY
         u = fu * self.c + fv * self.s
         v = -fu * self.s + fv * self.c
-        v = v / p['sy']
-        u = (u - p['lean'] * v / HB) / p['sx']
-        return u, v
+        t = v / self.head_v
+        return (np.where(v >= self.head_v, u - self.head_u, u - self.head_u * t),
+                np.where(v >= self.head_v, v - self.head_v + HEAD_BASE, t * HEAD_BASE))
 
     def trunk(self, u, v):
         return (v > 0) & (v < HB) & (np.abs(u) < self.hw(v))
 
     def belly(self, u, v):
-        rx = BELLY_RX + self.p['belly']
+        rx = BELLY_RX + self.bulge
         return (u / rx) ** 2 + ((v - BELLY_V) / BELLY_RY) ** 2 < 1
 
     def arm_joints(self, side, spec):
-        """Keep the pose's joint directions at the front-view segment lengths."""
+        """Move from the shoulder with rigid limbs; torso breathing must not twist them."""
         name = spec if isinstance(spec, str) else None
         (eu, ev), (hu, hv) = ARMS[spec] if name else spec
         sh = self.trunk_pt(side * SHOULDER_U, SHOULDER_V)
-        target_el = self.trunk_pt(side * eu, ev)
-        target_ha = self.trunk_pt(side * hu, hv)
-        dx, dy = target_el[0] - sh[0], target_el[1] - sh[1]
+        dx, dy = side * (eu - SHOULDER_U), ev - SHOULDER_V
         upper = math.hypot(dx, dy)
-        el = (sh[0] + UPPER_ARM * dx / upper, sh[1] + UPPER_ARM * dy / upper)
-        dx, dy = target_ha[0] - target_el[0], target_ha[1] - target_el[1]
+        el = (sh[0] + UPPER_ARM * (dx * self.c - dy * self.s) / upper,
+              sh[1] - UPPER_ARM * (dx * self.s + dy * self.c) / upper)
+        dx, dy = side * (hu - eu), hv - ev
         fore = math.hypot(dx, dy)
-        ha = (el[0] + FOREARM * dx / fore, el[1] + FOREARM * dy / fore)
+        ha = (el[0] + FOREARM * (dx * self.c - dy * self.s) / fore,
+              el[1] - FOREARM * (dx * self.s + dy * self.c) / fore)
         return sh, el, ha
 
     def arm(self, side, spec):
         sh, el, ha = self.arm_joints(side, spec)
-        arm = capsule(sh, el, ARM_R) | capsule(el, ha, ARM_R)
         pc = (iround_from(ha[0], self.ox), iround(ha[1]))
-        paw = ellipse(pc, PAW_R, PAW_R)
         style = PAWS.get(spec) if isinstance(spec, str) else None
-        if style == 'open':
-            paw = ellipse(pc, 2.0, 1.9)
-        return arm & ~paw, paw
+        return arm_pixels(sh, el, pc, style == 'open' or self.p['open_paws'][0 if side < 0 else 1])
 
     def legs(self):
         spec = self.p['legs']
         feet_pts = LEGS[spec] if isinstance(spec, str) else spec
         legs = np.zeros((H, W), bool)
         feet = np.zeros((H, W), bool)
-        for side, (fx, fy) in zip((-1, 1), feet_pts):
+        for side, (fx, fy), (rx, ry) in zip((-1, 1), feet_pts, LEGS['stand']):
+            # Step in whole pixels from the standing spot, so the sole keeps its shape.
+            fx, fy = rx + iround_from(fx - rx, 0), ry + iround(fy - ry)
             hip = self.fig(side * 5.0, 2.0)
             ank = self.fig(fx * 0.9, fy + 2.5)
             legs |= capsule(hip, ank, 2.5)
@@ -537,9 +665,123 @@ def dark_rim(m):
     return m & ~(shifted(m, 1, 1) & shifted(m, 0, 2) & shifted(m, 2, 0))
 
 
+def joined(m):
+    """`m` without its lone pixels: a shade one pixel big reads as a speck."""
+    near = np.zeros_like(m)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if dy or dx:
+                near |= shifted(m, dy, dx)
+    return m & near
+
+
+def settle(layers, rigid):
+    """Outline the stacked pieces with lines one pixel thick; returns (line, opaque).
+
+    `layers`, back to front, are (masks, border): the masks of one piece's parts
+    in paint order, and for a stamped bitmap the outline it brings itself (else
+    None). A piece gets a line where it overlaps the pieces behind it, and the
+    whole figure gets one around it. Where two of those lines run side by side,
+    where they leave a pinhole or a slit one pixel wide, and where one pixel
+    sticks out, a few local rules repair it. A part takes over the line pixels
+    cleared next to it and its mask grows in place, unless it is one of `rigid`,
+    the masks that keep their shape.
+    """
+    owner = np.zeros((H, W), np.uint8)   # the part seen at each pixel, 1-based
+    line = np.zeros((H, W), bool)
+    locked = np.zeros((H, W), bool)      # a bitmap's own outline is left alone
+    plain = np.zeros((H, W), bool)       # pieces without an outline of their own
+    behind = np.zeros((H, W), bool)
+    parts, piece_of, rigid_of = [], [None], [True]
+    for n, (masks, border) in enumerate(layers):
+        piece = np.zeros((H, W), bool) if border is None else border.copy()
+        for m in masks:
+            parts.append(m)
+            piece_of.append(n)
+            rigid_of.append(any(m is fixed for fixed in rigid))
+            owner[m] = len(parts)
+            piece |= m
+        line &= ~piece
+        locked &= ~piece
+        if border is None:
+            line |= dilate4(piece) & ~piece & behind
+            plain |= piece
+        else:
+            owner[border] = 0
+            line |= border
+            locked |= border
+        behind |= piece
+    line |= dilate4(plain) & ~behind
+
+    def sides(m):
+        return shifted(m, 0, -1), shifted(m, -1, 0), shifted(m, 0, 1), shifted(m, 1, 0)
+
+    for _ in range(H):   # settles within a few rounds
+        opaque = line | (owner > 0)
+        # A line pixel held by one neighbour is a spike: clear it, and let the
+        # fill it uncovers become the outline.
+        spike = line & ~locked & (sum(s.astype(int) for s in sides(opaque)) <= 1)
+        line &= ~spike
+        opaque &= ~spike
+        bare = opaque & ~line & dilate4(~opaque)
+        line |= bare
+        # A transparent pixel squeezed from two sides is a pinhole or a slit one
+        # pixel wide: draw through it.
+        left, up, right, down = sides(opaque)
+        slit = ~opaque & ((left & right) | (up & down))
+        line |= slit
+        opaque |= slit
+        changed = bool(spike.any() or bare.any() or slit.any())
+        # A line pixel away from the edge whose fill neighbours are all one piece
+        # separates nothing. Give it to that piece, the pieces in front first, when
+        # it doubles a line (it lies in a 2 x 2 block of line, or an overlap line
+        # steps along the contour as the inner corner of a stair) or ends a line
+        # poking into the fill.
+        left, up, right, down = sides(opaque)
+        inner = np.argwhere(line & ~locked & left & up & right & down)
+        for n in reversed(range(len(layers))):
+            for y, x in inner:
+                if not line[y, x]:
+                    continue
+                l, u, r, d = line[y, x - 1], line[y - 1, x], line[y, x + 1], line[y + 1, x]
+                found = [owner[y + dy, x + dx] for (dy, dx), drawn
+                         in zip(((0, -1), (-1, 0), (0, 1), (1, 0)), (l, u, r, d)) if not drawn]
+                if not found or {piece_of[q] for q in found} != {n}:
+                    continue
+                block = ((l and u and line[y - 1, x - 1]) or (u and r and line[y - 1, x + 1])
+                         or (r and d and line[y + 1, x + 1]) or (d and l and line[y + 1, x - 1]))
+                stair = len(found) == 2 and l != r and owner[y, x]
+                if not (block or stair or len(found) >= 3):
+                    continue
+                if piece_of[owner[y, x]] != n:   # the piece has to grow into it
+                    free = [q for q in found if not rigid_of[q]]
+                    if not free:
+                        continue
+                    owner[y, x] = free[0]
+                line[y, x] = False
+                changed = True
+        if not changed:
+            break
+    for i, m in enumerate(parts, 1):
+        m |= (owner == i) & ~line
+    return line, line | (owner > 0)
+
+
+def arm_pixels(shoulder, elbow, hand, open_paw=False):
+    """Rasterize one articulated piece, with its wrist attached to the snapped palm."""
+    shoulder = tuple(iround(v * 2) / 2 for v in shoulder)
+    elbow = tuple(iround(v * 2) / 2 for v in elbow)
+    paw = ellipse(hand, 2.0, 1.9) if open_paw else ellipse(hand, PAW_R, PAW_R)
+    dx, dy = hand[0] - elbow[0], hand[1] - elbow[1]
+    wrist = ((CX - hand[0]) * dx + (CY - hand[1]) * dy
+             < -PAW_R / 2 * math.hypot(dx, dy))
+    arm = capsule(shoulder, elbow, ARM_R) | (capsule(elbow, hand, ARM_R) & wrist)
+    return arm & ~paw, paw
+
+
 # ---------------------------------------------------------------- lying on its belly
 #
-# prone, played while dragged, has a figure of its own seen from the side: crawling
+# crawl, played while dragged, has a figure of its own seen from the side: crawling
 # on its belly with the rump on the left and the legs stretched out behind it, the head
 # at the right end held up on the forepaws and turned to the viewer.
 
@@ -557,21 +799,22 @@ PRONE_PAWS = ((46.0, 57.0), (32.0, 57.0))
 
 
 def prone_shin(knee, deg):
-    """A shin from `knee`, tilted `deg` from upright towards the head (-90 lies flat
-    behind), and its foot, the sole turned away from the knee."""
-    a = math.radians(deg)
+    """A shin tilted from upright (-90 lies behind), ending in a slim rounded foot."""
+    # Swing in steps of about one pixel at the ankle, so the shin never creeps.
+    step = math.degrees(1 / PRONE_SHIN)
+    a = math.radians(step * iround((deg + 90) / step) - 90)
     dx, dy = math.sin(a), -math.cos(a)
     ank = (knee[0] + PRONE_SHIN * dx, knee[1] + PRONE_SHIN * dy)
-    sole = (ank[0] + 2.4 * dx, ank[1] + 2.4 * dy)
+    sole = (ank[0] + .8 * dx, ank[1] + .8 * dy)
     fu, fv = CX - sole[0], CY - sole[1]
     along, across = fu * dx + fv * dy, fu * dy - fv * dx
-    foot = ((across / 3.8) ** 2 + (along / 3.0) ** 2 < 1) & (along < 0)
+    foot = (across / 1.8) ** 2 + (along / 2.6) ** 2 < 1
     return capsule(knee, ank, 2.3) & ~foot, foot
 
 
 def prone_arm(shoulder, paw, step):
     """Bend two fixed-length arm segments to reach the paw, with the elbow behind it."""
-    pc = (paw[0] + step[0], paw[1] - step[1])
+    pc = (iround(paw[0] + step[0]), iround(paw[1] - step[1]))
     dx, dy = pc[0] - shoulder[0], pc[1] - shoulder[1]
     distance = math.hypot(dx, dy)
     if not abs(UPPER_ARM - FOREARM) < distance < UPPER_ARM + FOREARM:
@@ -580,9 +823,7 @@ def prone_arm(shoulder, paw, step):
     bend = math.sqrt(UPPER_ARM ** 2 - along ** 2)
     elbow = (shoulder[0] + (along * dx - bend * dy) / distance,
              shoulder[1] + (along * dy + bend * dx) / distance)
-    paw = ellipse(pc, PAW_R, PAW_R)
-    arm = capsule(shoulder, elbow, ARM_R) | capsule(elbow, pc, ARM_R)
-    return arm & ~paw, paw
+    return arm_pixels(shoulder, elbow, pc)
 
 
 def render_prone(p):
@@ -594,7 +835,7 @@ def render_prone(p):
     hw = np.asarray(PRONE_HEAD, float)[np.clip(YS - top, 0, len(PRONE_HEAD) - 1)]
     head = (YS >= top) & (YS < top + len(PRONE_HEAD)) & (np.abs(CX - PRONE_X) < hw) & floor
     (rump_c, rump_rx, rump_ry), (chest_c, chest_rx, chest_ry) = PRONE_BODY
-    rise = q.get('rise', 0)          # the rump bobs as the hind feet push
+    rise = iround(q.get('rise', 0))  # the rump bobs a whole pixel as the hind feet push
     body = (ellipse((rump_c[0], rump_c[1] - rise / 2), rump_rx, rump_ry + rise / 2)
             | ellipse(chest_c, chest_rx, chest_ry)) & floor
     belly = ellipse((21.0, 58.5), 12.5, 4.5) & body
@@ -603,21 +844,19 @@ def render_prone(p):
     (far_shin, far_foot), (near_shin, near_foot), (far_arm, far_paw), (near_arm, near_paw) = (
         (limb & floor, end & floor) for limb, end in legs + arms)
 
-    sil = np.zeros((H, W), bool)
+    # Each piece is outlined against what is behind it; the body and the head keep
+    # their shape, the limbs may grow a pixel.
+    line, figure = settle([((far_shin, far_foot), None), ((near_shin, near_foot), None),
+                           ((far_arm, far_paw), None), ((body,), None), ((head,), None),
+                           ((near_arm, near_paw), None)], rigid=(body, head))
 
     def put(mask, name):
         lab[mask] = IDX[name]
 
     def layer(*parts):
-        """(mask, fill, dark) parts as one piece, outlined against what is behind it."""
-        nonlocal sil
-        piece = np.zeros((H, W), bool)
         for mask, fill, dark in parts:
             put(mask, fill)
             put(dark_rim(mask), dark)
-            piece |= mask
-        put(dilate4(piece) & ~piece & sil, 'line')
-        sil = sil | piece
 
     layer((far_shin, 'body_lo', 'body_lo2'), (far_foot, 'paw_lo', 'paw_lo'))
     layer((near_shin, 'body', 'body_lo'), (near_foot, 'paw', 'paw_lo'))
@@ -625,13 +864,13 @@ def render_prone(p):
     layer((body, 'body', 'body_lo'))
     put(body & ~shifted(body, -1, -1) & (YS < 50) & (XS < 20), 'body_hi')
     put(belly, 'belly')
-    put(belly & (dark_rim(body) | ~shifted(belly, 1, 1)), 'belly_lo')
+    put(joined(belly & (dark_rim(body) | ~shifted(belly, 1, 1))), 'belly_lo')
     layer((head, 'body', 'body_lo'))
     hi = head & ellipse((PRONE_X - 5.5, top + 2.5), 2.2, 1.2)
     hi |= head & ~shifted(head, -1, -1) & (YS < top + 7) & (XS < PRONE_X + 2)
     put(hi & ~dark_rim(head), 'body_hi')
     layer((near_arm, 'body', 'body_lo'), (near_paw, 'paw', 'paw_lo'))
-    put(dilate4(sil) & ~sil, 'line')
+    put(line, 'line')
 
     skin = head & ~dilate4(near_arm | near_paw)
     fx = PRONE_X + PRONE_FACE_U
@@ -645,7 +884,7 @@ def render_prone(p):
     for side in (-1, 1):
         face_part(eye_rows(p['eyes'], p['look'], side), fx + side * EYE_U, eye_y)
     face_part(MOUTHS[p['mouth']], fx, mouth_y)
-    return dict(lab=lab, body=dilate4(sil), free=np.zeros_like(sil), held=np.zeros_like(sil),
+    return dict(lab=lab, body=figure, free=np.zeros_like(figure), held=np.zeros_like(figure),
                 mouth=None, tint=p['tint'])
 
 
@@ -669,9 +908,16 @@ def render(p):
         soles = np.zeros((H, W), bool)
     arms = [rig.arm(s, a) for s, a in zip((-1, 1), p['arms'])]
 
-    sil = trunk | legs | feet | soles
-    for a, pw in arms:
-        sil |= a | pw
+    # The trunk and the parcel keep their shape; the limbs may grow a pixel.
+    layers = [((legs, feet, trunk), None), ((soles,), None)]
+    rigid = [trunk]
+    if p['parcel']:
+        x0, y0 = corner(PARCEL, *rig.trunk_pt(0, 4), rig.ox)
+        frame = bitmap_mask([''.join(c if c == 'o' else '.' for c in row) for row in PARCEL], x0, y0)
+        rigid.append(bitmap_mask(PARCEL, x0, y0) & ~frame)
+        layers.append(((rigid[-1],), frame))
+    layers += [(arm, None) for arm in arms]
+    line, body = settle(layers, rigid)
 
     def put(mask, name):
         lab[mask] = IDX[name]
@@ -685,29 +931,23 @@ def render(p):
     dark = dark_rim(trunk)
     put(dark, 'body_lo')
     put(belly, 'belly')
-    put(belly & (dark | ~shifted(belly, 1, 1)), 'belly_lo')
+    put(joined(belly & (dark | ~shifted(belly, 1, 1))), 'belly_lo')
     hi = trunk & ellipse(rig.trunk_pt(-5.0, HB - 3.0), 2.2, 1.2)
     hi |= trunk & ~shifted(trunk, -1, -1) & (v > HB - 9) & (u < 2)
     put(hi & ~dark, 'body_hi')
     put(dilate4(trunk) & legs & ~trunk, 'body_lo2')
-    if soles.any():
-        put(soles, 'paw')
-        put(soles & ~shifted(soles, 1, 1), 'paw_lo')
-        put(dilate4(soles) & ~soles & trunk, 'line')
+    put(soles, 'paw')
+    put(soles & ~shifted(soles, 1, 1), 'paw_lo')
     if p['parcel']:
-        x0, y0 = corner(PARCEL, *rig.trunk_pt(0, 4), rig.ox)
         stamp(lab, PARCEL, x0, y0,
               {'o': 'line', 'b': 'c3', 't': 'belly', 'd': 'body_lo2', 'w': 'white', 'k': 'code_line'})
-        sil |= bitmap_mask(PARCEL, x0, y0)
     for a, pw in arms:
         limb = a | pw
         put(a, 'body')
         put(a & ~(shifted(limb, 1, 1) & shifted(limb, 0, 1)), 'body_lo')
         put(pw, 'paw')
         put(pw & ~shifted(pw, 1, 1), 'paw_lo')
-        put(dilate4(limb) & ~limb & (trunk | legs | feet | soles), 'line')
-    put(dilate4(sil) & ~sil, 'line')
-    body = dilate4(sil)
+    put(line, 'line')
 
     # Face, behind any paw raised in front of it.
     limbs = np.zeros((H, W), bool)
@@ -723,10 +963,10 @@ def render(p):
     fu, fv = p['face']
     for side in (-1, 1):
         face_part(eye_rows(p['eyes'], p['look'], side),
-                  *rig.trunk_pt(side * EYE_U + fu, EYE_V + fv))
+                  *rig.face_pt(side * EYE_U + fu, EYE_V + fv))
         if p['blush']:
-            face_part(["pp"], *rig.trunk_pt(side * (EYE_U + 2.0) + fu, EYE_V - 5.0 + fv))
-    centre = face_part(MOUTHS[p['mouth']], *rig.trunk_pt(fu, MOUTH_V + fv))
+            face_part(["pp"], *rig.face_pt(side * (EYE_U + 2.0) + fu, EYE_V - 5.0 + fv))
+    centre = face_part(MOUTHS[p['mouth']], *rig.face_pt(fu, MOUTH_V + fv))
     mouth = centre if p['mouth'] == 'eat' else None
 
     if p['ghost']:
@@ -735,7 +975,17 @@ def render(p):
         lab[shifted(body, 0, -g) & ~body & (lab == 0)] = IDX['ghost_c']
         body = body | shifted(body, 0, g) | shifted(body, 0, -g)
 
+    under = {pr[0] for pr in p['props']} & {'keyboard', 'paper-held'}
+    if under:
+        before_props = lab.copy()
     free, held = draw_props(lab, p['props'])
+    if under:
+        # The paws stay in front of the paper; whole arms in front of the keyboard.
+        front = np.zeros((H, W), bool)
+        for a, pw in arms:
+            front |= (a | pw) if 'keyboard' in under else pw
+        mask = dilate4(front) & body
+        lab[mask] = before_props[mask]
     return dict(lab=lab, body=body, free=free, held=held, mouth=mouth, tint=p['tint'])
 
 
@@ -763,13 +1013,17 @@ def P(*bases, **kw):
 
 
 def anim_idle():
-    up = dict(sy=27 / 26)
-    dn = dict(sy=25 / 26, sx=1.03, belly=0.5)
-    return [
-        (P(), 260), (P(up), 200), (P(up), 240), (P(), 200), (P(dn), 240), (P(), 220),
-        (P(), 260), (P(up), 200), (P(up), 240), (P(), 200), (P(eyes='closed'), 100),
-        (P(), 180),
-    ]
+    fr = []
+    for t, ms in frame_times(2540):
+        breath = (1 - math.cos(2 * math.pi * t / 2540)) / 2
+        p = P()
+        # One breath is one whole-pixel rise: chest, belly and arms move on the same
+        # frame. Keep torso width fixed so it cannot protrude past the arms.
+        inhale = breath > .7
+        p.update(sy=1.035 if inhale else 1, belly=.5 if inhale else 0,
+                 eyes='closed' if 2220 <= t < 2320 else 'open')
+        fr.append((p, ms))
+    return fr
 
 
 def anim_idle_look():
@@ -783,10 +1037,10 @@ def anim_idle_look():
 
 
 def anim_idle_giggle():
-    g = dict(eyes='happy', mouth='line', arms=('down_in', 'cover'), blush=True)
+    g = dict(eyes='happy', mouth='line', arms=('down_in', 'cover'), blush=True, cover_mouth=True)
     a = P(g)
-    b = P(g, y=-1, sy=1.02)
-    c = P(g, sy=0.97, sx=1.03)
+    b = P(g, sy=1.02)
+    c = P(g, sy=0.97)
     return [
         (P(look=(1, 0)), 220), (P(eyes='happy', mouth='smile', blush=True), 160),
         (a, 120), (b, 90), (c, 90), (b, 90), (a, 120), (b, 90), (c, 90), (a, 220),
@@ -798,14 +1052,12 @@ def ha_at(x, y):
 
 
 def anim_snack():
-    lying = (('glyph', 'semi', 57, 35, 'c4'),)
     chew = dict(arms=('down', 'down_in'), cheeks=1.5)
-    return [
-        (P(look=(1, 1), props=lying), 240),
-        (P(look=(1, 0), arms=('down', 'reach'), lean=1, props=lying), 200),
-        (P(look=(1, 0), arms=('down', 'reach'), lean=1,
-           props=(('glyph-held', 'semi', 51, 32, 'c4'),)), 160),
-        (P(arms=('down', 'feed'), mouth='eat', props=(('code-in', ';', 31, 37, 'c4'),)), 200),
+    keys = [
+        (P(look=(1, 1)), 240),
+        (P(look=(1, 0), arms=('down', 'reach'), lean=1), 200),
+        (P(look=(1, 0), arms=('down', 'reach'), lean=1), 160),
+        (P(arms=('down', 'feed'), mouth='eat'), 200),
         (P(chew, mouth='chew_a'), 150),
         (P(chew, mouth='chew_b', eyes='happy'), 150),
         (P(chew, mouth='chew_a'), 150),
@@ -813,6 +1065,30 @@ def anim_snack():
         (P(mouth='burp', eyes='closed', sy=1.04, props=(('glyph', 'puff', 41, 18),)), 260),
         (P(mouth='smile', eyes='happy', blush=True), 300),
     ]
+    fr, t = [], 0
+    for pose, ms in smooth_sequence(keys, loop=True):
+        if t < 800:
+            if t < 440:
+                u = max(0, (t - 240) / 200)
+                x, y = iround(57 - 6 * u), iround(35 - 3 * u)
+            else:
+                u = (t - 440) / 360
+                x = iround(51 - 20 * u)
+                y = iround(32 + 5 * u + 3 * math.sin(math.pi * u))
+            if x <= 40:
+                pose['props'] = (('code-in', ';', x, y, 'c4'),)
+            else:
+                prop = ('glyph', 'semi', x, y, 'c4')
+                body = render(pose)['body']
+                free, _ = draw_props(np.zeros((H, W), np.uint8), (prop,))
+                # The symbol becomes held at actual paw contact, not at a fixed frame index.
+                kind = 'glyph-held' if (free & dilate8(body)).any() else 'glyph'
+                pose['props'] = ((kind, *prop[1:]),)
+            if t >= 560:
+                pose['mouth'] = 'eat'
+        fr.append((pose, ms))
+        t += ms
+    return fr
 
 
 def anim_dance():
@@ -853,123 +1129,295 @@ def anim_thinking():
     ]
 
 
-def anim_eat_code():
-    o = dict(mouth='eat', look=(1, 0))
-    chew = dict(mouth='chew_a', cheeks=1, eyes='happy')
-    fly = lambda ch, c, i: ('code', ch, (58, 53, 48)[i], (30, 32, 34)[i], c)
+def food_at(p, ch, x, y, color):
+    """Classify a travelling character at body contact, then inside the open mouth."""
+    body = render(P(p, props=()))['body']
+    glyph = bitmap_mask(CODE_FONT[ch], x, y)
+    if not (glyph & ~body).any():
+        kind = 'code-in'
+    elif (dilate8(glyph) & dilate8(body)).any():
+        kind = 'code-held'
+        p['cover_mouth'] = True
+    else:
+        kind = 'code'
+    return kind, ch, x, y, color
+
+
+def reach(p, side, palm):
+    """Arm spec putting the palm on canvas point `palm`, the elbow bent outward.
+
+    The elbow follows from the shoulder and the whole-pixel palm alone, so the
+    arm is redrawn only when one of them moves. Upright poses only (no `rot`).
+    """
+    sx, sy = Rig(p).trunk_pt(side * SHOULDER_U, SHOULDER_V)
+    dx, dy = palm[0] - sx, palm[1] - sy
+    d = math.hypot(dx, dy)
+    if not UPPER_ARM - FOREARM < d < UPPER_ARM + FOREARM:
+        raise ValueError(f'palm {palm} outside short-arm reach: {d}')
+    along = (UPPER_ARM ** 2 - FOREARM ** 2 + d * d) / (2 * d)
+    out = math.sqrt(UPPER_ARM ** 2 - along ** 2)
+    ex = sx + (along * dx + out * side * dy) / d
+    ey = sy + (along * dy - out * side * dx) / d
+    eu, ev = SHOULDER_U + side * (ex - sx), SHOULDER_V - (ey - sy)
+    return (eu, ev), (eu + side * (palm[0] - ex), ev - (palm[1] - ey))
+
+
+# Left palm points over keys, in the order one paw works through them: back row,
+# then front row. A palm at (x, y) strikes the key just below its outline, whose
+# left pixel is (x - 1, y + 3). The right paw uses the mirror image, x -> 64 - x.
+# All lie under or inside the shoulder: a palm outside it folds the short arm and
+# throws the elbow out like a wing.
+TYPING_KEYS = [(23, 46), (26, 46), (26, 48), (23, 48)]
+TYPING_REST = (21, 47)       # the left paw holding the keyboard by its back corner
+CODE_TOKENS = '{;}()<>[]+fn0x'
+GLYPH_COLORS = CODE_COLORS[:5]   # the grey one is too faint for a lone glyph
+
+
+def paw_path(strikes, frames):
+    """Palm point per frame for one paw striking (frame, point) in turn, looping.
+
+    The paw stays on the key a frame or two, lifts two pixels, travels while up
+    and comes down on the next key.
+    """
+    path = [None] * frames
+    for i, (start, a) in enumerate(strikes):
+        end, b = strikes[(i + 1) % len(strikes)]
+        span = (end - start) % frames or frames
+        down = 1 if span <= 5 else 2
+        lift = [0] * down + [1] + [2] * (span - down - 2) + [1]
+        for k in range(span):
+            w = min(1, max(0, (k - down) / (span - down - 1)))
+            path[(start + k) % frames] = (iround_from(a[0] + (b[0] - a[0]) * w, 32),
+                                          iround(a[1] + (b[1] - a[1]) * w) - lift[k])
+    return path
+
+
+def anim_typing(tier):
+    """One paw typing while the other holds the keyboard, both paws taking turns,
+    then rapid typing. Every keystroke lights its key and sends up a code glyph."""
+    frames = 40
+    right_keys = [(64 - x, y) for x, y in TYPING_KEYS]
+    if tier == 1:
+        times = [0, 4, 12, 20, 24, 32]      # tap-tap, tap, tap-tap, tap
+        order = [0, 0, 1, 2, 2, 3]
+        paws = {1: [(f, right_keys[k]) for f, k in zip(times, order)]}
+        glyphs = [(f, (37, 42)[i % 2]) for i, f in enumerate(times)]
+        life, rise = 14, 1
+    else:
+        step = 8 if tier == 2 else 4         # each paw's beat; the other paw is half a beat later
+        paws = {side: [(f, keys[i % len(keys)])
+                       for i, f in enumerate(range(0 if side < 0 else step // 2, frames, step))]
+                for side, keys in ((-1, TYPING_KEYS), (1, right_keys))}
+        columns = {2: {-1: (22,), 1: (39,)}, 3: {-1: (16, 24), 1: (37, 45)}}[tier]
+        glyphs = sorted((f, columns[side][i % len(columns[side])])
+                        for side, strikes in paws.items() for i, (f, _) in enumerate(strikes))
+        life, rise = (14, 1) if tier == 2 else (7, 2)   # rapid typing: quick, short-lived glyphs
+    paths = {side: paw_path(strikes, frames) for side, strikes in paws.items()}
+    if tier == 1:
+        paths[-1] = [TYPING_REST] * frames
     fr = []
-    for ch, c in (('{', 'c1'), ('0', 'c3')):
-        fr += [(P(o, props=(fly(ch, c, 0),)), 100), (P(o, props=(fly(ch, c, 1),)), 90),
-               (P(o, props=(fly(ch, c, 2),)), 90),
-               (P(o, look=(0, 0), props=(('code-in', ch, 31, 37, c),)), 110),
-               (P(chew), 140), (P(chew, mouth='chew_b'), 140)]
+    for f, (t, ms) in enumerate(frame_times(2000, 50)):
+        p = P(mouth='grin', look=(0, 1), eyes='closed' if f in (36, 37) else 'open',
+              sy=.97 if tier == 3 and f % 8 < 2 else 1.0)   # rapid typing: a dip every other stroke
+        p['arms'] = tuple(reach(p, side, paths[side][f]) for side in (-1, 1))
+        lit = tuple((x - 1, y + 3, f == s) for strikes in paws.values() for s, (x, y) in strikes
+                    if (f - s) % frames < 2)
+        props = [('keyboard', lit)]
+        for i, (s, x) in enumerate(glyphs):
+            age = (f - s) % frames
+            if age < life:
+                props.append(('code', CODE_TOKENS[i % len(CODE_TOKENS)], x, 18 - age * rise,
+                              GLYPH_COLORS[i % len(GLYPH_COLORS)]))
+        p['props'] = tuple(props)
+        fr.append((p, ms))
     return fr
 
 
-def anim_eat_code_fast():
-    """Both paws stuff code in turn: one at the mouth while the other grabs the next."""
-    seq = [('[', 'c2'), ('(', 'c4'), ('+', 'c1'), (']', 'c2'), (')', 'c4'), (';', 'c5')]
+def anim_terminals(count):
+    """Small >_ terminal icons respond to one or alternating pointing paws."""
     fr = []
-    for i in range(5):
-        side = 1 if i % 2 == 0 else -1
-        (ch, c), (nxt, nc) = seq[i], seq[i + 1]
-        props = (('code-in', ch, 31, 37, c), ('code-held', nxt, 51 if side > 0 else 10, 33, nc))
-        fr.append((P(mouth='eat', look=(side, 0),
-                     arms=('feed', 'reach') if side > 0 else ('reach', 'feed'), props=props), 90))
-        fr.append((P(mouth='chew_a' if side > 0 else 'chew_b', cheeks=1, eyes='happy',
-                     arms=('feed', 'feed')), 80))
-    return fr
-
-
-def anim_feast():
-    eat = dict(mouth='eat', arms=('feed', 'feed'))
-    chew = dict(cheeks=1.5, arms=('belly_up', 'belly_up'), eyes='squeeze')
-    sw = lambda k: (('glyph', 'sweat', 17, 19 + k), ('glyph', 'sweat', 44, 18 + k))
-    spray = [[(10, 36, 'c1'), (53, 34, 'c2'), (12, 44, 'c5'), (51, 43, 'c4')],
-             [(8, 32, 'c2'), (55, 31, 'c1'), (9, 41, 'c4'), (54, 40, 'c5')],
-             [(5, 29, 'c5'), (58, 28, 'c4'), (6, 38, 'c1'), (57, 37, 'c2')]]
-    cr = lambda k: tuple(('glyph', 'crumb', x, y, c) for x, y, c in spray[k])
-    fly = lambda ch, c, side: ('code', ch, 48 if side > 0 else 13, 33, c)
-    inn = lambda ch, c: ('code-in', ch, 31, 37, c)
-    return [
-        (P(eat, props=(inn('{', 'c1'), fly('}', 'c1', 1)) + sw(0)), 70),
-        (P(chew, mouth='chew_a', x=1, props=cr(0) + sw(0)), 60),
-        (P(eat, props=(inn('}', 'c1'), fly('(', 'c4', -1)) + sw(1)), 60),
-        (P(chew, mouth='chew_b', x=-1, props=cr(1) + sw(1)), 60),
-        (P(eat, ghost=1, props=(inn('(', 'c4'),) + sw(1)), 60),
-        (P(chew, mouth='chew_a', x=1, tint='pink', props=cr(2) + sw(2)), 60),
-        (P(chew, mouth='chew_b', x=-1, props=cr(0) + sw(2)), 60),
-        (P(eat, props=(inn('=', 'c3'), fly(';', 'c5', 1)) + sw(0)), 70),
-        (P(chew, mouth='chew_a', x=1, props=cr(1) + sw(0)), 60),
-        (P(eat, props=(inn(';', 'c5'), fly('[', 'c2', -1)) + sw(1)), 60),
-        (P(chew, mouth='chew_b', x=-1, tint='cyan', props=cr(0) + sw(1)), 60),
-        (P(eat, props=(inn('[', 'c2'),) + sw(2)), 60),
-        (P(chew, mouth='chew_a', x=1, ghost=1, props=cr(2) + sw(2)), 60),
-        (P(chew, mouth='chew_b', props=cr(1) + sw(0)), 80),
-    ]
-
-
-def anim_juggle():
-    """Two code tiles, one fountain per paw, half a cycle apart."""
-    ys = [24, 18, 13, 10, 9, 10, 13, 18]
-    xs = [4, 4, 5, 6, 6, 6, 5, 4]
-    fr = []
-    for k in range(8):
-        i, j = k, (k + 4) % 8
-        props = (('block', '{}', xs[i], ys[i], 'c1'), ('block', '[]', 53 - xs[j], ys[j], 'c2'))
-        arms = tuple('toss' if n in (1, 2) else 'catch' for n in (i, j))
-        fr.append((P(look=(-1, -1) if ys[i] < ys[j] else (1, -1), mouth='grin', arms=arms,
-                     sy=1.02 if k % 4 == 1 else 1.0, props=props), 130))
-    return fr
-
-
-def anim_juggle_many():
-    """Four tiles, two per paw: up on the inside, down on the outside, hips swaying."""
-    ys = [24, 18, 13, 9, 7, 6, 6, 7, 9, 13, 18, 23]
-    xs = [10, 10, 10, 9, 8, 7, 5, 3, 2, 1, 1, 2]
-    tiles = [('{', 'c1', 0, -1), ('[', 'c2', 6, -1), ('(', 'c3', 3, 1), ('<', 'c4', 9, 1)]
-    fr = []
-    for k in range(12):
-        props, low = [], {-1: False, 1: False}
-        for ch, c, phase, side in tiles:
-            i = (k + phase) % 12
-            props.append(('block', ch, xs[i] if side < 0 else 57 - xs[i], ys[i], c))
-            low[side] |= i in (11, 0)
-        lean = [-2, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1][k]
-        fr.append((P(mouth='laugh', eyes='happy', face=(0, 0.5), lean=lean,
-                     arms=tuple('catch' if low[s] else 'toss' for s in (-1, 1)),
-                     legs='step_l' if k % 4 < 2 else 'step_r', props=tuple(props)), 100))
+    for t, ms in frame_times(2000, 50):
+        phase = t / 2000
+        cue = (1 - math.cos(2 * math.pi * phase)) / 2
+        a = P(arms=('belly', 'wave'))
+        b = P(arms=('wave', 'belly') if count > 1 else ('belly', 'wave_b'))
+        p = between_poses(a, b, cue)
+        p.update(mouth='grin', look=(-1 if count > 1 and cue > .5 else 1, -1))
+        props = [('terminal', 43, iround(12 + math.sin(2 * math.pi * phase)), 'c4', phase)]
+        if count > 1:
+            props.append(('terminal', 7, iround(12 - math.sin(2 * math.pi * phase)), 'c1', (phase + .5) % 1))
+        p['props'] = tuple(props)
+        fr.append((p, ms))
     return fr
 
 
 def anim_shocked():
-    s = dict(eyes='wide', mouth='O', arms=('head', 'head'))
-    sw = lambda k: (('glyph', 'sweat', 12, 19 + k), ('glyph', 'sweat', 49, 19 + k))
-    bang = (('glyph', '!', 26, 12), ('glyph', '?', 31, 12))
-    return [
-        (P(s, sy=1.08, y=-2, props=bang), 70), (P(s, x=2, props=bang), 60),
-        (P(s, x=-2, props=bang), 60), (P(s, sy=1.08, y=-2, ghost=2, props=bang), 60),
-        (P(s, x=2, tint='cyan', props=bang), 60), (P(s, x=-2, props=bang), 60),
-        (P(s, x=1, props=bang + sw(0)), 120), (P(s, x=-1, props=bang + sw(1)), 120),
-        (P(s, x=1, props=sw(2)), 120), (P(s, x=-1, props=bang + sw(0)), 120),
-        (P(s, x=1, props=bang + sw(1)), 120), (P(s, x=-1, props=sw(2)), 120),
-    ]
+    fr = []
+    for t, ms in frame_times(1090, 50):
+        phase = 2 * math.pi * t / 1090
+        hop = math.sin(phase) ** 2
+        sweat = iround(19 + math.sin(phase) ** 2 * 2)
+        fr.append((P(eyes='wide', mouth='O', arms=('head', 'head'), face=(0, -.7),
+                     x=1.5 * math.sin(3 * phase), sy=1 + .04 * hop, y=-hop,
+                     props=(('glyph', '!', 26, 12), ('glyph', '?', 31, 12),
+                            ('glyph', 'sweat', 12, sweat), ('glyph', 'sweat', 49, sweat))), ms))
+    return fr
 
 
-def anim_laugh():
-    L = dict(eyes='happy', mouth='laugh', arms=('belly', 'belly'), blush=True, face=(0, 1.5))
-    R = dict(L, mouth='roar', face=(0, 2.0), sy=1.07, y=-1)
-    return [
-        (P(L, sy=1.04), 120),
-        (P(R, arms=('belly_up', 'belly_up'), props=(ha_at(49, 10),)), 100),
-        (P(L, sy=1.04, props=(ha_at(50, 7),)), 100),
-        (P(L, sy=0.97, sx=1.03, belly=1.5, props=(ha_at(51, 4),)), 100),
-        (P(L, sy=1.04), 100),
-        (P(R, arms=('belly_up', 'belly_up'), props=(ha_at(3, 10),)), 100),
-        (P(L, sy=1.04, props=(ha_at(2, 7),)), 100),
-        (P(L, sy=0.97, sx=1.03, belly=1.5, props=(ha_at(1, 4),)), 100),
-        (P(L, sy=1.04), 100), (P(L, sy=1.0), 140),
+def between_poses(a, b, t):
+    """Ease between standing poses; redraw limbs at their fixed segment lengths."""
+    if t in (0, 1):
+        return dict(a if t == 0 else b)
+    u = t * t * (3 - 2 * t)
+    p = dict(a if t < .5 else b)
+    for key in ('x', 'y', 'rot', 'sy', 'lean', 'cheeks', 'belly'):
+        p[key] = a[key] + (b[key] - a[key]) * u
+    p['face'] = tuple(x + (y - x) * u for x, y in zip(a['face'], b['face']))
+    if a['look'] != b['look']:
+        p['look'] = tuple(iround(x + (y - x) * u) for x, y in zip(a['look'], b['look']))
+    p['cover_mouth'] = a['cover_mouth'] or b['cover_mouth']
+    p['open_paws'] = tuple(a['open_paws'][i] or b['open_paws'][i]
+                          or (isinstance(aa, str) and PAWS.get(aa) == 'open')
+                          or (isinstance(ab, str) and PAWS.get(ab) == 'open')
+                          for i, (aa, ab) in enumerate(zip(a['arms'], b['arms'])))
+    if a['legs'] != b['legs']:
+        fa = LEGS[a['legs']] if isinstance(a['legs'], str) else a['legs']
+        fb = LEGS[b['legs']] if isinstance(b['legs'], str) else b['legs']
+        p['legs'] = tuple(tuple(x + (y - x) * u for x, y in zip(va, vb)) for va, vb in zip(fa, fb))
+    if a['prone'] and b['prone']:
+        qa, qb = a['prone'], b['prone']
+        p['prone'] = {
+            'paws': tuple(tuple(x + (y - x) * u for x, y in zip(va, vb))
+                          for va, vb in zip(qa['paws'], qb['paws'])),
+            'kick': tuple(x + (y - x) * u for x, y in zip(qa['kick'], qb['kick'])),
+            'rise': qa['rise'] + (qb['rise'] - qa['rise']) * u,
+            'nod': iround(qa['nod'] + (qb['nod'] - qa['nod']) * u),
+        }
+    p['arms'] = []
+    for aa, ab in zip(a['arms'], b['arms']):
+        ja = [(SHOULDER_U, SHOULDER_V), *(ARMS[aa] if isinstance(aa, str) else aa)]
+        jb = [(SHOULDER_U, SHOULDER_V), *(ARMS[ab] if isinstance(ab, str) else ab)]
+        sweeps = []
+        for i in range(2):
+            start = math.atan2(ja[i + 1][1] - ja[i][1], ja[i + 1][0] - ja[i][0])
+            end = math.atan2(jb[i + 1][1] - jb[i][1], jb[i + 1][0] - jb[i][0])
+            sweeps.append((start, (end - start + math.pi) % (2 * math.pi) - math.pi))
+
+        def swung(w):
+            joints = [(SHOULDER_U, SHOULDER_V)]
+            for (start, sweep), length in zip(sweeps, (UPPER_ARM, FOREARM)):
+                x, y = joints[-1]
+                angle = start + sweep * w
+                joints.append((x + length * math.cos(angle), y + length * math.sin(angle)))
+            return tuple(joints[1:])
+
+        def cell(k):   # the palm's pixel, rounded as Rig.arm rounds it
+            hu, hv = swung(k / 32)[1]
+            return iround(hu), iround(-hv)
+
+        # One drawing of the arm for each pixel its palm visits: the elbow and the
+        # palm then change on the same frame, where a free elbow would creep along
+        # the arm's edge between palm steps. Both key poses stay exact.
+        lo = hi = iround(u * 32)
+        here = cell(lo)
+        while lo > 0 and cell(lo - 1) == here:
+            lo -= 1
+        while hi < 32 and cell(hi + 1) == here:
+            hi += 1
+        if lo > 0 and hi < 32:
+            k = (lo + hi) // 2      # between the keys: the middle of this pixel's span
+        elif lo > 0 or (hi == 32 and u >= .5):
+            k = 32                  # already on key pose b's pixel
+        else:
+            k = 0
+        p['arms'].append(swung(k / 32))
+    return p
+
+
+def frame_times(total, step=60):
+    """Split a duration into GIF-exact 10 ms ticks, preserving its total."""
+    count = max(1, round(total / step))
+    edges = [round(i * total / count / 10) * 10 for i in range(count + 1)]
+    return [(a, b - a) for a, b in zip(edges, edges[1:])]
+
+
+def between_props(a, b, t):
+    """Move the same prop along its path; appearing and swallowed props change on the beat."""
+    out = []
+    for i, prop in enumerate(a if t < .5 else b):
+        if i >= len(a) or i >= len(b):
+            out.append(prop)
+            continue
+        first, last = a[i], b[i]
+        if first[0] == last[0] == 'bubble':
+            out.append(('bubble', *(iround(x + (y - x) * t) for x, y in zip(first[1:], last[1:]))))
+        elif first[:2] == last[:2] and first[4:] == last[4:]:
+            out.append((*first[:2], iround(first[2] + (last[2] - first[2]) * t),
+                        iround(first[3] + (last[3] - first[3]) * t), *first[4:]))
+        else:
+            out.append(prop)
+    return tuple(out)
+
+
+def smooth_sequence(seq, loop):
+    """Rasterize intermediate poses, including the final-to-first path of a loop."""
+    out, i, start = [], 0, 0
+    for time, ms in frame_times(sum(duration for _, duration in seq), 50):
+        while time >= start + seq[i][1]:
+            start += seq[i][1]
+            i += 1
+        a, duration = seq[i]
+        b = seq[(i + 1) % len(seq)][0] if loop or i + 1 < len(seq) else a
+        t = (time - start) / duration
+        p = between_poses(a, b, t)
+        # Blinks and mouth beats keep their authored onset, to the nearest output frame.
+        for key in ('eyes', 'mouth', 'blush'):
+            p[key] = a[key]
+        p['props'] = between_props(a['props'], b['props'], t)
+        out.append((p, ms))
+    return out
+
+
+def anim_celebrate():
+    """Completion: a silent La mouth shape, a small hop and a green check badge."""
+    la = dict(eyes='happy')
+    keys = [
+        (0, P()),
+        (120, P(sy=.98, arms=('down_in', 'down_in'))),
+        (240, P(sy=.95, arms=('down_out', 'down_out'))),
+        (360, P(sy=.93,
+                arms=between_poses(P(arms=('down_out', 'down_out')),
+                                   P(arms=('out', 'out')), .3)['arms'])),
+        (600, P(la, y=-3, arms=('out', 'out'))),
+        (720, P(la, y=-4, arms=('out_up', 'out_up'))),
+        (900, P(la, y=-3, arms=('out_up', 'out_up'))),
+        (1080, P(la, y=-1, arms=('out', 'out'))),
+        (1200, P(eyes='happy', sy=.95, arms=('out_dn', 'out_dn'))),
+        (1380, P(eyes='happy', arms=('out', 'out'))),
+        (1500, P(eyes='happy', sy=1.02, arms=('out', 'out'))),
+        (1800, P()),
+        (1860, P(eyes='closed')),
+        (1920, P()),
+        (2000, P()),
     ]
+    # Open straight into La, using the eating mouth's depth and a wider tongue.
+    # Mouth beats follow speech timing rather than the body interpolation midpoint.
+    mouths = [(0, 'smile'), (60, 'grin'), (120, 'la_close'),
+              (180, 'la'), (900, 'la_close'),
+              (1020, 'grin'), (1140, 'smile')]
+    fr, t = [], 0
+    for ms in [60] * 32 + [80, 80]:
+        left, right = next((a, b) for a, b in zip(keys, keys[1:]) if a[0] <= t <= b[0])
+        p = between_poses(left[1], right[1], (t - left[0]) / (right[0] - left[0]))
+        p['mouth'] = next(mouth for start, mouth in reversed(mouths) if t >= start)
+        if 480 <= t < 1860:
+            # Grow and shrink the badge without a sudden 8-to-12 px jump.
+            size = max(3, iround(12 * min(1, (t - 420) / 240, (1860 - t) / 300)))
+            y = iround(10 - 3 * math.sin(math.pi * (t - 480) / 1380))
+            p['props'] = (('check', 32 - size // 2, y, size),)
+        fr.append((p, ms))
+        t += ms
+    return fr
 
 
 def grounded(p):
@@ -979,23 +1427,39 @@ def grounded(p):
 
 
 def anim_laugh_roll():
-    """Three taps: crouch, roll laughing with kicking soles, then stand back up."""
+    """Three taps: laugh holding the belly, roll with kicking soles, then stand up."""
+    L = dict(eyes='happy', mouth='laugh', arms=('belly', 'belly'), blush=True, face=(0, 1.5))
     R = dict(eyes='happy', mouth='roar', arms=('belly', 'belly'), face=(0, 1.0), blush=True)
-    kick = [((-9.0, 4.0), (8.0, -1.0)), ((-8.0, -1.0), (9.0, 4.0))]
-    fr = [
-        (P(eyes='happy', mouth='grin', arms=('belly', 'belly')), 100),
-        (P(eyes='happy', mouth='laugh', arms=('belly', 'belly'), sy=0.90), 120),
-    ]
-    for k, rot in enumerate([0, 12, 22, 12, 0, -12, -22, -12]):
-        props = (ha_at(48, 10),) if k in (1, 2) else (ha_at(5, 10),) if k in (5, 6) else ()
-        # Rock about the middle of the trunk, not the hips.
-        p = P(R, sit=kick[k % 2], rot=rot, x=13 * math.sin(math.radians(rot)), props=props)
-        fr.append((grounded(p), 110))
-    fr.extend([
-        (grounded(P(eyes='happy', mouth='grin', arms=('lap', 'lap'), sit=True)), 140),
-        (P(eyes='happy', arms=('down_in', 'down_in'), sy=0.95), 140),
-        (P(), 180),
-    ])
+    fr = []
+    # Three breathing laugh beats fill the requested 1.44 s, with fresh poses
+    # every 60 ms instead of holding each of four drawings for 360 ms.
+    for i in range(24):
+        pulse = (1 - math.cos(2 * math.pi * i / 8)) / 2
+        p = between_poses(P(L, sy=.98, belly=1),
+                          P(L, sy=1.05, mouth='roar', arms=('belly_up', 'belly_up')), pulse)
+        if i < 3:
+            p = between_poses(P(), p, i / 3)
+        if 3 <= i % 12 <= 10:
+            p['props'] = (ha_at(49 if i < 12 else 2, 12 - (i % 12 - 3)),)
+        fr.append((p, 60))
+    crouch = P(R, mouth='laugh', sy=.90)
+    start = dict(fr[-1][0], props=())
+    fr.extend((between_poses(start, crouch, i / 3), 60) for i in (1, 2, 3))
+    for i in range(15):
+        phase = i / 14
+        lift = math.sin(math.pi * phase)
+        rot = 22 * math.sin(2 * math.pi * phase)
+        kick = 1.5 * math.sin(4 * math.pi * phase)
+        feet = ((-7.2 - .8 * lift, -2.5 + lift * (8 + kick)),
+                (7.2 + .8 * lift, -2.5 + lift * (8 - kick)))
+        props = (ha_at(48, 10),) if 2 <= i <= 5 else (ha_at(5, 10),) if 9 <= i <= 12 else ()
+        # Rock around the middle of the trunk; both soles move along arcs.
+        p = P(R, sit=feet, sy=.94 + .06 * lift, rot=rot,
+              x=13 * math.sin(math.radians(rot)), props=props)
+        fr.append((grounded(p), 60))
+    for i in range(7):
+        p = between_poses(P(crouch, mouth='grin'), P(), i / 6)
+        fr.append((p, 60))
     return fr
 
 
@@ -1010,22 +1474,22 @@ def anim_alert():
     ]
 
 
-DEVOUR_LINE = 'fn(x)=>{'    # four bites, four characters showing on the ribbon
-
-
-def anim_devour():
-    """A line of code rides in on a ribbon at mouth height; one character per bite."""
-    def ribbon(start):
-        return tuple(('code', ch, 48 + 4 * i, 34 - (2 * i) // 3, CODE_COLORS[(start + i) % 6])
-                     for i, ch in enumerate(DEVOUR_LINE[start:start + 4]))
-
+def anim_eat_paper():
+    """Keep feeding one continuous sheet, with alternating paws and steady bites."""
     fr = []
-    for b in range(4):
-        gulp = ('code-in', DEVOUR_LINE[b], 31, 37, CODE_COLORS[b % 6])
-        fr += [(P(mouth='eat', look=(1, 0), arms=('down', 'belly'), props=ribbon(b)), 120),
-               (P(mouth='eat', arms=('down', 'belly'), props=(gulp,) + ribbon(b + 1)), 100),
-               (P(mouth='chew_a', cheeks=1, eyes='happy', arms=('down', 'belly_up'),
-                  props=ribbon(b + 1)), 120)]
+    left = P(arms=('belly_up', 'belly'), mouth='eat', cover_mouth=True)
+    right = P(arms=('belly', 'belly_up'), mouth='eat', cover_mouth=True)
+    for t, ms in frame_times(2400, 50):
+        phase = t / 2400
+        pull = (1 - math.cos(6 * math.pi * phase)) / 2
+        p = between_poses(left, right, pull)
+        p.update(mouth='la_close' if pull > .75 else 'eat',
+                 eyes='closed' if 2100 <= t < 2200 else 'open',
+                 cheeks=.4 * math.sin(6 * math.pi * phase) ** 2)
+        # One pixel per frame, 48 pixels per loop: an exact multiple of the
+        # six-row print pattern, so the paper never resets or leaves the mouth.
+        p['props'] = (('paper-held', 32, 38, 22, t // 50, math.sin(2 * math.pi * phase)),)
+        fr.append((p, ms))
     return fr
 
 
@@ -1047,14 +1511,17 @@ def anim_sleep():
 def anim_wake():
     s = dict(sit=True, y=2, arms=('lap', 'lap'))
     return [
-        (P(s, eyes='shut', mouth='line'), 260),
-        (P(s, eyes='sleepy', mouth='line'), 200),
-        (P(eyes='sleepy', mouth='yawn', arms=('stretch', 'stretch'), sy=1.08, y=-1), 300),
-        (P(eyes='closed', mouth='yawn', arms=('stretch', 'stretch'), sy=1.1, y=-2), 360),
-        (P(eyes='sleepy', mouth='line', sy=0.95, sx=1.04), 160),
-        (P(eyes='open', mouth='smile', sy=1.03), 140),
-        (P(eyes='closed'), 100),
-        (P(), 200),
+        (P(s, eyes='shut', mouth='line'), 180),
+        (P(s, eyes='sleepy', mouth='line'), 120),
+        (P(s, eyes='sleepy', mouth='line', y=1, sy=.96, arms=('down_in', 'down_in')), 100),
+        (P(eyes='sleepy', mouth='line', sy=.90, arms=('down_in', 'down_in')), 120),
+        (P(eyes='sleepy', mouth='yawn', arms=('out', 'out')), 180),
+        (P(eyes='sleepy', mouth='yawn', arms=('stretch', 'stretch'), sy=1.06, y=-1), 280),
+        (P(eyes='closed', mouth='yawn', arms=('stretch', 'stretch'), sy=1.08, y=-1), 220),
+        (P(eyes='sleepy', mouth='line', arms=('out_dn', 'out_dn'), sy=1.02), 160),
+        (P(eyes='sleepy', mouth='line', sy=.98), 140),
+        (P(eyes='closed'), 80),
+        (P(), 140),
     ]
 
 
@@ -1063,18 +1530,19 @@ def anim_walk():
         (P(legs='step_l', lean=-1, arms=('down_out', 'down_in')), 140),
         (P(legs='lift_l', lean=-1, y=-1, arms=('down_out', 'down_in')), 120),
         (P(legs='step_l', lean=-1, arms=('down', 'down')), 120),
-        (P(lean=0, sy=0.97, sx=1.02), 120),
+        (P(lean=0, sy=0.97), 120),
         (P(legs='step_r', lean=1, arms=('down_in', 'down_out')), 140),
         (P(legs='lift_r', lean=1, y=-1, arms=('down_in', 'down_out')), 120),
         (P(legs='step_r', lean=1, arms=('down', 'down')), 120),
-        (P(lean=0, sy=0.97, sx=1.02), 120),
+        (P(lean=0, sy=0.97), 120),
     ]
 
 
 def anim_poke(direction):
     d = direction
     return [
-        (P(eyes='squeeze', mouth='wavy', lean=3 * d, sx=1.05, sy=0.95, x=d), 90),
+        (P(), 40),
+        (P(eyes='squeeze', mouth='wavy', lean=3 * d, sy=0.95, x=d), 50),
         (P(eyes='squeeze', mouth='wavy', lean=5 * d, x=d), 110),
         (P(eyes='open', mouth='o', lean=3 * d), 100),
         (P(eyes='open', mouth='o', lean=-2 * d), 110),
@@ -1102,16 +1570,16 @@ def anim_carrying():
 
 def anim_annoyed():
     """Six taps: puff the cheeks, put paws on hips, stamp twice, then relax."""
-    glare = dict(eyes='annoyed', mouth='pout', cheeks=1.5)
+    glare = dict(eyes='annoyed', mouth='pout', cheeks=1.5, face=(0, -.6))
     huff = dict(glare, arms=('hip', 'hip'))
     return [
         (P(glare), 100),
-        (P(huff, sx=1.02), 120),
+        (P(huff), 120),
         (P(huff, legs='lift_r', lean=-1), 130),
-        (P(huff, sy=0.95, sx=1.04), 90),
+        (P(huff, sy=0.95), 90),
         (P(huff), 130),
         (P(huff, legs='lift_l', lean=1), 130),
-        (P(huff, sy=0.95, sx=1.04), 90),
+        (P(huff, sy=0.95), 90),
         (P(huff, lean=-1), 160),
         (P(huff), 180),
         (P(eyes='closed', mouth='line', arms=('down_in', 'down_in')), 120),
@@ -1120,7 +1588,7 @@ def anim_annoyed():
     ]
 
 
-def anim_prone():
+def anim_crawl():
     """Dragged: alternate forepaw reaches and diagonal hind-foot pushes, with a blink."""
     # Lift, reach, plant, pull. The planted paw travels back relative to the body;
     # the last pose joins the opposite half-cycle within one pixel of paw travel.
@@ -1145,13 +1613,14 @@ def anim_prone():
 ANIMS = {
     'idle': anim_idle, 'idle-look': anim_idle_look, 'idle-giggle': anim_idle_giggle,
     'snack': anim_snack, 'dance': anim_dance, 'thinking': anim_thinking,
-    'eat-code': anim_eat_code, 'eat-code-fast': anim_eat_code_fast, 'feast': anim_feast,
-    'juggle': anim_juggle, 'juggle-many': anim_juggle_many, 'shocked': anim_shocked,
-    'laugh': anim_laugh, 'laugh-roll': anim_laugh_roll,
-    'alert': anim_alert, 'devour': anim_devour, 'carrying': anim_carrying,
+    'typing': lambda: anim_typing(1), 'typing-both': lambda: anim_typing(2),
+    'typing-fast': lambda: anim_typing(3), 'terminal': lambda: anim_terminals(1),
+    'terminals': lambda: anim_terminals(2), 'shocked': anim_shocked,
+    'celebrate': anim_celebrate, 'laugh-roll': anim_laugh_roll,
+    'alert': anim_alert, 'eat-paper': anim_eat_paper, 'carrying': anim_carrying,
     'sleep': anim_sleep, 'wake': anim_wake, 'walk': anim_walk,
     'poke-left': lambda: anim_poke(1), 'poke-right': lambda: anim_poke(-1),
-    'annoyed': anim_annoyed, 'prone': anim_prone,
+    'annoyed': anim_annoyed, 'crawl': anim_crawl,
 }
 
 
@@ -1164,15 +1633,15 @@ def pet_json(anims):
         'anims': [{'key': n, 'durs': anims[n]['durs'], 'loop': n not in ONE_SHOT}
                   for n in ANIM_NAMES],
         'states': {
-            'idle': ['idle'], 'thinking': ['thinking'], 'working': ['eat-code'],
-            'juggling': ['juggle'], 'error': ['shocked'], 'attention': ['laugh'],
-            'notification': ['alert'], 'sweeping': ['devour'], 'carrying': ['carrying'],
+            'idle': ['idle'], 'thinking': ['thinking'], 'working': ['typing'],
+            'juggling': ['terminal'], 'error': ['shocked'], 'attention': ['celebrate'],
+            'notification': ['alert'], 'sweeping': ['eat-paper'], 'carrying': ['carrying'],
             'sleeping': ['sleep'], 'waking': ['wake'], 'roam': ['walk'],
         },
         'tiers': {
-            'working': [{'min': 3, 'anim': 'feast'}, {'min': 2, 'anim': 'eat-code-fast'},
-                        {'min': 1, 'anim': 'eat-code'}],
-            'juggling': [{'min': 2, 'anim': 'juggle-many'}, {'min': 1, 'anim': 'juggle'}],
+            'working': [{'min': 3, 'anim': 'typing-fast'}, {'min': 2, 'anim': 'typing-both'},
+                        {'min': 1, 'anim': 'typing'}],
+            'juggling': [{'min': 2, 'anim': 'terminals'}, {'min': 1, 'anim': 'terminal'}],
         },
         'idlePool': [
             {'anim': 'idle-look', 'loops': 2, 'weight': 1},
@@ -1180,11 +1649,10 @@ def pet_json(anims):
             {'anim': 'snack', 'loops': 1, 'weight': 1},
             {'anim': 'dance', 'loops': 2, 'weight': 1},
         ],
-        'bonus': {'attention': {'anims': ['dance'],
-                                'chance': 0.5}},
+        'bonus': {},
         'reactions': {'tapLeft': 'poke-left', 'tapRight': 'poke-right', 'tickle': 'laugh-roll',
-                      'annoyed': 'annoyed', 'drag': 'prone'},
-        'holds': {'attention': 3, 'error': 2, 'notification': 2, 'waking': 1,
+                      'annoyed': 'annoyed', 'drag': 'crawl'},
+        'holds': {'attention': 1, 'error': 2, 'notification': 2, 'waking': 1,
                   'sweeping': 1},
         'faces': 'front',
     }
@@ -1211,6 +1679,9 @@ def draw_all():
     out = {}
     for name in ANIM_NAMES:
         seq = ANIMS[name]()
+        if name not in {'idle', 'snack', 'typing', 'typing-both', 'typing-fast', 'shocked',
+                        'eat-paper', 'celebrate', 'laugh-roll', 'terminal', 'terminals'}:
+            seq = smooth_sequence(seq, loop=name not in ONE_SHOT)
         metas = [render(p) for p, _ in seq]
         out[name] = dict(frames=[to_rgba(m) for m in metas], durs=[ms for _, ms in seq],
                          meta=metas, poses=[p for p, _ in seq])
@@ -1319,13 +1790,20 @@ def check(anims, files):
             if not np.array_equal(big, opaque & body):
                 bad.append(f'{n} frame {i}: the largest 8-connected blob is not the body')
     idle = anims['idle']
-    reference = Rig(idle['poses'][0]).arm_joints(1, 'down')
+    rest = Rig(idle['poses'][0])
+    fixed_head = rest.trunk(*rest.local())[:rest.head_y]
+    reference = rest.arm_joints(1, 'down')
     arm_lengths = [math.dist(a, b) for a, b in zip(reference, reference[1:])]
     for n, anim in anims.items():
         for i, p in enumerate(anim['poses']):
             if p['prone']:
                 continue  # The crawl solves the same two fixed segment lengths.
             rig = Rig(p)
+            if not p['rot']:
+                aligned = shifted(rig.trunk(*rig.local()), rig.head_y - rest.head_y,
+                                  rig.head_x - rest.head_x)
+                if not np.array_equal(aligned[:rest.head_y], fixed_head):
+                    bad.append(f'{n} frame {i}: head outline changes after aligning its position')
             for side, spec in zip((-1, 1), p['arms']):
                 joints = rig.arm_joints(side, spec)
                 lengths = [math.dist(a, b) for a, b in zip(joints, joints[1:])]
@@ -1334,9 +1812,37 @@ def check(anims, files):
     grounds = {int(np.nonzero(f[..., 3].any(axis=1))[0][-1]) + 1 for f in idle['frames']}
     if grounds != {GROUND}:
         bad.append(f'idle: feet on lines {sorted(grounds)}, want {GROUND}')
-    for i, (fr, m) in enumerate(zip(idle['frames'], idle['meta'])):
+    fur_colors = [IDX[c] for c in ('body', 'body_hi', 'body_lo', 'body_lo2', 'belly', 'belly_lo')]
+    idle_arm_edges = {}
+    for i, (p, fr, m) in enumerate(zip(idle['poses'], idle['frames'], idle['meta'])):
         if len(blobs8(fr[..., 3] > 0)) != 1:
             bad.append(f'idle frame {i}: has detached props')
+        rig = Rig(p)
+        for side, spec in zip((-1, 1), p['arms']):
+            _, elbow, hand = rig.arm_joints(side, spec)
+            arm, palm = rig.arm(side, spec)
+            # Inspect the rendered outer contour, including one pixel outside it:
+            # torso widening can otherwise poke through beside a stable arm.
+            edge = dilate4(arm | palm)
+            outer_x = (np.where(edge, XS, W).min(axis=1) if side < 0
+                       else np.where(edge, XS, -1).max(axis=1))
+            outside = edge.any(axis=1)[:, None] & (np.abs(XS - outer_x[:, None]) <= 1)
+            edge_pixels = m['lab'][outside]
+            key = (side, rig.head_x, rig.head_y)
+            fixed_edges = idle_arm_edges.setdefault(key, edge_pixels)
+            if not np.array_equal(edge_pixels, fixed_edges):
+                bad.append(f'idle frame {i}: outer edge of arm {side} changes while it is still')
+            for part, fixed in zip((arm, palm), rest.arm(side, 'down')):
+                aligned = shifted(part, rig.head_y - rest.head_y, rig.head_x - rest.head_x)
+                if not np.array_equal(aligned, fixed):
+                    bad.append(f'idle frame {i}: arm {side} changes shape while breathing')
+                    break
+            pc = (iround_from(hand[0], rig.ox), iround(hand[1]))
+            dx, dy = hand[0] - elbow[0], hand[1] - elbow[1]
+            tip = (CX - pc[0]) * dx + (CY - pc[1]) * dy >= 0
+            rim = tip & dilate4(palm) & ~palm
+            if (rim & np.isin(m['lab'], fur_colors)).any():
+                bad.append(f'idle frame {i}: yellow fur leaks past palm {side}')
     first = idle['frames'][0][..., 3] > 0
     for n in sorted(ONE_SHOT):
         last = anims[n]['frames'][-1][..., 3] > 0
@@ -1349,10 +1855,10 @@ def check(anims, files):
             for x, y in (m['mouth'] for m in anims[n]['meta'] if m['mouth']):
                 if abs(x - mx) > 1 or abs(y - 0.5 - my) > 1:
                     bad.append(f'{n}: open mouth at ({x}, {y}) is off {label} ({mx}, {my})')
-    for i, m in enumerate(anims['prone']['meta']):
+    for i, (p, m) in enumerate(zip(anims['crawl']['poses'], anims['crawl']['meta'])):
         line = int(np.nonzero(m['body'].any(axis=1))[0][-1]) + 1
         if not GROUND <= line <= GROUND + 2:
-            bad.append(f'prone frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
+            bad.append(f'crawl frame {i}: belly on line {line}, want {GROUND}..{GROUND + 2}')
     # Check every expression against its complete facial bitmaps. Covering the
     # mouth while giggling, chewing a glyph and the sleep bubble are intentional.
     for n, anim in anims.items():
@@ -1367,10 +1873,10 @@ def check(anims, files):
                 rig = Rig(p)
                 axis = rig.ox
                 fu, fv = p['face']
-                eyes = [rig.trunk_pt(side * EYE_U + fu, EYE_V + fv) for side in (-1, 1)]
-                mouth = rig.trunk_pt(fu, MOUTH_V + fv)
+                eyes = [rig.face_pt(side * EYE_U + fu, EYE_V + fv) for side in (-1, 1)]
+                mouth = rig.face_pt(fu, MOUTH_V + fv)
             parts = [(eye_rows(p['eyes'], p['look'], side), pt) for side, pt in zip((-1, 1), eyes)]
-            if 'cover' not in p['arms'] and not any(pr[0] in ('code-in', 'bubble') for pr in p['props']):
+            if not p['cover_mouth'] and not any(pr[0] in ('code-in', 'bubble') for pr in p['props']):
                 parts.append((MOUTHS[p['mouth']], mouth))
             for rows, (x, y) in parts:
                 stamp(expected, rows, *corner(rows, x, y, axis), FACE)
@@ -1477,29 +1983,14 @@ def animated_preview(anims, name, path, zoom=4, loop_all=False):
     return path
 
 
-def completion_preview(anims, path, bonus=False):
-    """Completion's state timer includes the optional dance; then return to idle."""
+def completion_preview(anims, path):
+    """Show the completion animation, followed by idle when no new task arrives."""
     spec = pet_json(anims)
-    name = spec['states']['attention'][0]
-    remaining = sum(anims[name]['durs']) * spec['holds']['attention']
-    frames, durs = [], []
-    if bonus:
-        extra = anims[spec['bonus']['attention']['anims'][0]]
-        frames.extend(extra['frames'])
-        durs.extend(extra['durs'])
-        remaining -= sum(extra['durs'])
-    while remaining > 0:
-        for frame, ms in zip(anims[name]['frames'], anims[name]['durs']):
-            duration = min(ms, remaining)
-            frames.append(frame)
-            durs.append(duration)
-            remaining -= duration
-            if remaining == 0:
-                break
+    complete = anims[spec['states']['attention'][0]]
     idle = anims[spec['states']['idle'][0]]
-    frames.extend(idle['frames'])
-    durs.extend(idle['durs'])
-    return animated_preview({'completion': {'frames': frames, 'durs': durs}},
+    flow = {'frames': complete['frames'] * spec['holds']['attention'] + idle['frames'],
+            'durs': complete['durs'] * spec['holds']['attention'] + idle['durs']}
+    return animated_preview({'completion': flow},
                             'completion', path, zoom=3, loop_all=True)
 
 
@@ -1513,7 +2004,7 @@ def main(argv=None):
     ap.add_argument('--strip', nargs='*', default=[], metavar='ANIM', help='4x grid per animation')
     ap.add_argument('--gif', nargs='*', default=[], metavar='ANIM', help='4x animated GIF per animation')
     ap.add_argument('--gallery', metavar='DIR', help='all animations as looping 3x GIFs for the README')
-    ap.add_argument('--completion-previews', metavar='DIR', help='normal and bonus completion flows at 3x')
+    ap.add_argument('--completion-previews', metavar='DIR', help='completion followed by idle at 3x')
     args = ap.parse_args(argv)
 
     anims = draw_all()
@@ -1558,10 +2049,8 @@ def main(argv=None):
             animated_preview(anims, n, os.path.join(args.gallery, f'{n}.gif'), zoom=3, loop_all=True)
         print(f'  gallery {args.gallery}: {len(anims)} looping GIFs')
     if args.completion_previews:
-        for bonus in (False, True):
-            filename = 'naiwa-attention-bonus.gif' if bonus else 'naiwa-attention.gif'
-            path = os.path.join(args.completion_previews, filename)
-            print('  completion ' + completion_preview(anims, path, bonus=bonus))
+        path = os.path.join(args.completion_previews, 'naiwa-attention.gif')
+        print('  completion ' + completion_preview(anims, path))
     for p in problems:
         print(f'error: {p}', file=sys.stderr)
     return 1 if problems else 0

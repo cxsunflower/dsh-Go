@@ -98,9 +98,9 @@ void main() {
       final validated = PetPackValidator.validateArchive(bytes);
       final pack = validated.pack;
       expect(pack.animations.length, 24);
-      expect(pack.animations.values.fold<int>(0, (sum, a) => sum + a.frames.length), 251);
+      expect(pack.animations.values.fold<int>(0, (sum, a) => sum + a.frames.length), 861);
       expect(validated.sheets.length, 24);
-      for (final removed in ['laugh-point', 'laugh-belly', 'tickle']) {
+      for (final removed in ['laugh', 'laugh-point', 'laugh-belly', 'tickle']) {
         expect(pack.animations.containsKey(removed), isFalse);
       }
       expect(validated.dropped, isEmpty);
@@ -112,7 +112,7 @@ void main() {
         for (final state in PetStateName.values)
           for (final tier in [0, 1, 2, 3]) pack.animFor(state, tier: tier).name,
         for (final idle in pack.idles) idle.anim,
-        ...pack.bonusOf(PetStateName.attention)!.anims,
+        ...?pack.bonusOf(PetStateName.attention)?.anims,
         for (final variants in pack.reactions.values) ...variants,
         pack.roam.name,
       };
@@ -121,14 +121,16 @@ void main() {
       final imported = await library.install(zip);
       expect(imported.id, 'user-naiwa');
       final loaded = await library.load(imported.id);
+      expect(loaded.animFor(PetStateName.attention).name, 'celebrate');
+      expect(loaded.bonusOf(PetStateName.attention), isNull);
       expect(loaded.animFor(PetStateName.carrying).name, 'carrying');
       expect(loaded.reactions['tickle'], ['laugh-roll']);
       expect(loaded.reaction('annoyed')!.name, 'annoyed');
-      expect(loaded.reaction('drag')!.name, 'prone');
+      expect(loaded.reaction('drag')!.name, 'crawl');
     },
   );
 
-  testWidgets('dragging loops prone and releasing returns to idle', (tester) async {
+  testWidgets('dragging loops crawl and releasing returns to idle', (tester) async {
     final pack = await _pump(tester, _Pick(0));
     final gesture = await tester.startGesture(
       petCanvas(tester).topLeft + pack.contentBox.center * petScaleOn(tester, pack),
@@ -137,9 +139,9 @@ void main() {
     await tester.pump();
     await gesture.moveBy(const Offset(30, -20));
     await tester.pump();
-    expect(petLayer(tester).playing?.name, 'prone');
+    expect(petLayer(tester).playing?.name, 'crawl');
     await _step(tester, const Duration(seconds: 2));
-    expect(petLayer(tester).playing?.name, 'prone');
+    expect(petLayer(tester).playing?.name, 'crawl');
     await gesture.up();
     await _step(tester, const Duration(milliseconds: 400));
     expect(petLayer(tester).playing?.name, 'idle');
@@ -164,7 +166,7 @@ void main() {
     });
   }
 
-  testWidgets('three taps roll laughing; six taps interrupt with annoyed and start a new chain', (tester) async {
+  testWidgets('three taps laugh then roll; six taps interrupt with annoyed and start a new chain', (tester) async {
     final pack = await _pump(tester, _Pick(0));
     await _tap(tester, pack);
     await _tap(tester, pack);
@@ -183,15 +185,18 @@ void main() {
 
   testWidgets('laugh-roll returns after one pass instead of holding for a recording', (tester) async {
     final pack = await _pump(tester, _Pick(0));
+    expect(pack.playOf(pack.animations['laugh-roll']!), 2940);
     for (var i = 0; i < 3; i++) {
       await _tap(tester, pack);
     }
     expect(petLayer(tester).playing?.name, 'laugh-roll');
-    await _step(tester, Duration(milliseconds: pack.playOf(pack.animations['laugh-roll']!) + 100));
+    await _step(tester, const Duration(milliseconds: 2300));
+    expect(petLayer(tester).playing?.name, 'laugh-roll');
+    await _step(tester, const Duration(milliseconds: 740));
     expect(petLayer(tester).playing?.name, 'idle');
   });
 
-  for (final (index, name) in ['eat-code', 'eat-code-fast', 'feast'].indexed) {
+  for (final (index, name) in ['typing', 'typing-both', 'typing-fast'].indexed) {
     testWidgets('${index + 1} running conversations play $name', (tester) async {
       await _pump(tester, _Pick(0));
       container
@@ -223,17 +228,20 @@ void main() {
     expect(petLayer(tester).playing?.name, 'idle');
   });
 
-  testWidgets('completion bonus dance plays once before the main laugh and returns', (tester) async {
+  testWidgets('completion celebrates for one pass and returns to idle', (tester) async {
     final pack = await _pump(tester, _Pick(0));
+    final complete = pack.animations['celebrate']!;
+    expect(complete.loop, isFalse);
+    expect(pack.playOf(complete), 2080);
     container
         .read(petEventBusProvider)
         .add(PetEvent(kind: PetEventKind.done, host: HostRef.local, sessionId: 'finished', key: 'turn', at: clock.now));
     await tester.pump();
     await _step(tester, const Duration(milliseconds: 1600));
-    expect(petLayer(tester).playing?.name, 'dance');
-    await _step(tester, Duration(milliseconds: pack.playOf(pack.animations['dance']!) + 20));
-    expect(petLayer(tester).playing?.name, 'laugh');
-    await _step(tester, const Duration(seconds: 4));
+    expect(petLayer(tester).playing?.name, 'celebrate');
+    await _step(tester, Duration(milliseconds: pack.playOf(complete) - 100));
+    expect(petLayer(tester).playing?.name, 'celebrate');
+    await _step(tester, const Duration(milliseconds: 200));
     expect(petLayer(tester).playing?.name, 'idle');
   });
 }

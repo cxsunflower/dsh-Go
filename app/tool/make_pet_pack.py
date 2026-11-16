@@ -31,8 +31,8 @@ Three source formats, all mapped onto Clawd on Desk's states (our pet protocol):
   reactions are required, every animation is used). Reaction variants use numbered
   string keys such as tickle2; annoyed is optional. Holds and idlePool loops become ms
   (decision 6). Only the app's silent pet-pack fields are emitted. The art keeps the drawing
-  rules of naiwa-pet.md section 3: alpha 0 or 255, 4-16 frames of 60-400 ms per
-  animation, at most 400 frames per pack and 256 colours (transparent included) per
+  rules of naiwa-pet.md section 3: alpha 0 or 255, 4-64 frames of 40-400 ms per
+  animation, at most 1024 frames per pack and 256 colours (transparent included) per
   animation, and nothing detached from the body in the idle loop, whose pixels are the
   contentBox.
 
@@ -51,7 +51,9 @@ Decisions (measured on every run, the build fails when an assumption breaks):
 3. Storage. Per animation: crop to the union of its non-transparent pixels
    (rounded out to whole logical pixels: `box`), store each distinct frame once
    (`frames[].i` may repeat), pack the cells row-major in a grid at most 4096 px
-   on a side (GPU texture limit on older phones). Fully transparent pixels are
+   on a side (GPU texture limit on older phones). Naiwa retains a transparent
+   logical pixel around each cell to keep adjacent frames out of edge sampling
+   during subpixel placement. Fully transparent pixels are
    written as 0,0,0,0. A sheet with at most 256 RGBA colours is written as an
    indexed PNG with a tRNS table (lossless), otherwise as RGBA. The image data is
    deflated again by Python's zlib with the settings Pillow's encoder uses (level 9,
@@ -153,9 +155,9 @@ CATCH = 0.9               # every animation's hit box holds at least this share 
 # Sprite sources (docs/design/naiwa-pet.md sections 3 and 4).
 SPRITE_KEYS = ['id', 'w', 'h', 'anims', 'states', 'tiers', 'idlePool', 'bonus', 'reactions',
                'holds', 'faces']
-SPRITE_FRAMES = (4, 16)   # frames per animation
-SPRITE_MS = (60, 400)     # ms per frame
-SPRITE_TOTAL = 400        # frames per pack
+SPRITE_FRAMES = (4, 64)   # frames per animation; 64 cells fit a 4096 px strip at 64 px
+SPRITE_MS = (40, 400)     # ms per frame
+SPRITE_TOTAL = 1024       # frames per pack
 SPRITE_COLORS = 256       # RGBA values per animation, transparent included: the sheet stays indexed
 TIERED = ['working', 'juggling']
 NAME = re.compile(r'[a-z0-9-]+')    # animation names (they become file names)
@@ -165,6 +167,7 @@ NAIWA = dict(
     license='像素重绘；奶龙角色形象权利归其权利人，非官方',
     source='来源于奶龙民间二创「奶蛙」，以像素风格重新绘制。',
     idle_every={'mean': 18000, 'min': 10000, 'max': 25000},
+    frame_padding=1,
     preview_zoom=3, preview_per_row=16,
 )
 
@@ -863,9 +866,15 @@ def save_png(a, path):
     check(np.array_equal(back, a), f'{path}: PNG round trip is not lossless')
 
 
-def write_anim(name, anim, scale, out_dir):
+def write_anim(name, anim, scale, out_dir, padding=0):
     frames = anim['frames']
     bx, by, bw, bh = anim_box(frames, scale)
+    if padding:
+        h, w = frames[0].shape[:2]
+        right = min(w // scale, bx + bw + padding)
+        bottom = min(h // scale, by + bh + padding)
+        bx, by = max(0, bx - padding), max(0, by - padding)
+        bw, bh = right - bx, bottom - by
     fw, fh = bw * scale, bh * scale
     cells, index, seq = [], {}, []
     for f in frames:
@@ -949,7 +958,8 @@ def build(pack_id, src, out_root, log=print):
 
     order = anim_order(mapping, set(anims))
     hits, bodies = hit_boxes(anims, scale, mapping, order)
-    animations = {n: write_anim(n, anims[n], scale, out_dir) for n in order}
+    animations = {n: write_anim(n, anims[n], scale, out_dir, meta.get('frame_padding', 0))
+                  for n in order}
     pack = {
         'schema': SCHEMA,
         'id': pack_id,

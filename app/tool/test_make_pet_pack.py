@@ -279,11 +279,14 @@ class PackFormat(unittest.TestCase):
                 self.assertIn('非官方', p['license'])
                 self.assertNotIn('sizeScale', p)
                 self.assertEqual(p['roam'], {'anim': 'walk', 'faces': 'front'})
-                self.assertEqual(p['reactions']['drag'], 'prone')
+                self.assertEqual(p['reactions']['drag'], 'crawl')
                 self.assertEqual(p['states']['carrying'], ['carrying'])
                 self.assertEqual(p['reactions']['annoyed'], 'annoyed')
                 self.assertEqual(p['reactions']['tickle'], 'laugh-roll')
-                self.assertEqual(p['bonus']['attention'], {'anims': ['dance'], 'chance': 0.5})
+                self.assertEqual(p['states']['attention'], ['celebrate'])
+                self.assertFalse(p['animations']['celebrate']['loop'])
+                self.assertEqual(p['timings']['autoReturn']['attention'], 2080)
+                self.assertEqual(p['bonus'], {})
                 self.assertEqual([x['weight'] for x in p['idlePool']['anims']], [1, 1, 1, 1])
                 self.assertTrue(os.path.isfile(os.path.join(APP, 'assets', 'pet_sounds', 'naiwa', 'sounds.json')))
 
@@ -326,6 +329,19 @@ class PackFormat(unittest.TestCase):
                     self.assertTrue(all(isinstance(f['ms'], int) and f['ms'] > 0 for f in a['frames']))
                     self.assertEqual(a['ms'], sum(f['ms'] for f in a['frames']))
                     self.assertIsInstance(a['loop'], bool)
+
+    def test_naiwa_frames_have_transparent_borders(self):
+        """A draw just outside a cell must not pick up the next frame's outline."""
+        p, d = load('naiwa')
+        for name, a in p['animations'].items():
+            with self.subTest(anim=name):
+                sheet = rgba(os.path.join(d, a['sheet']))
+                for i in {f['i'] for f in a['frames']}:
+                    r, c = divmod(i, a['cols'])
+                    h, w = a['frameH'], a['frameW']
+                    alpha = sheet[r * h:(r + 1) * h, c * w:(c + 1) * w, 3]
+                    border = np.concatenate((alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1]))
+                    self.assertFalse(border.any(), f'cell {i} touches an atlas edge')
 
     def test_transparency(self):
         for pid in IDS:
