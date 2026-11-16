@@ -13,11 +13,11 @@
 
 | 输入（= clip id） | 角色 / cue | pak 内条目 | 时长 | 处理 |
 |---|---|---|---|---|
-| `hahahahahahaha.wav` | 大笑 `laugh`、`laugh-roll` | `sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c` | 25.286531 秒 | **保留整段**；22050 Hz 的 PCM 有 1,115,214 字节，超过 SoundPool 单段上限，故降为 11025 Hz（278,784 帧 = 557,568 字节 PCM） |
+| `hahahahahahaha.wav` | 捧腹大笑与打滚 `laugh-roll` | `sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c` | 25.286531 秒 | **保留整段**；22050 Hz 的 PCM 有 1,115,214 字节，超过 SoundPool 单段上限，故降为 11025 Hz（278,784 帧 = 557,568 字节 PCM） |
 | `dajiaosei.wav` | 戳左 `poke-left` | `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_01.vsnd_c` | 1.071020 秒 | 逐字节复制，22050 Hz |
 | `diu.wav` | 戳右 `poke-right` | `sounds/abilities/dynamo/dynamo_a1_stomp_prestomp_02.vsnd_c` | 1.071020 秒 | 逐字节复制，22050 Hz |
 | `andi.wav` | 叫醒 `wake` | `sounds/abilities/dynamo/dyanmo_a2_quantum_cast.vsnd_c`（包内拼写即 `dyanmo`） | 1.306122 秒 | 逐字节复制，22050 Hz |
-| `gagadilaxia.wav` | 趴行 `prone` | `sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c` | 1.384490 秒 | 逐字节复制，22050 Hz |
+| `gagadilaxia.wav` | 趴行 `crawl` | `sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c` | 1.384490 秒 | 逐字节复制，22050 Hz |
 | `houla.wav` | 通知 `alert` | `sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_02.vsnd_c` | 2.089796 秒 | 逐字节复制，22050 Hz |
 
 ## 打包与限制
@@ -32,11 +32,11 @@
 
 | cue | clip |
 |---|---|
-| `laugh`、`laugh-roll` | `hahahahahahaha` |
+| `laugh-roll` | `hahahahahahaha` |
 | `poke-left` | `dajiaosei` |
 | `poke-right` | `diu` |
 | `wake` | `andi` |
-| `prone` | `gagadilaxia` |
+| `crawl` | `gagadilaxia` |
 | `alert` | `houla` |
 
 ## 授权

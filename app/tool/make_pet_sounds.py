@@ -33,14 +33,14 @@ RATE = 22050
 LAUGH_ID = 'hahahahahahaha'
 LAUGH_RATE = 11025
 
-# clip id → reference cues. Both laugh poses share one recording;
+# clip id → reference cues. The laugh recording accompanies the triple-tap pose;
 # `wake` is the waking state's animation, `alert` the notification state's.
 CLIPS = {
-    'hahahahahahaha': ('laugh', 'laugh-roll'),
+    'hahahahahahaha': ('laugh-roll',),
     'dajiaosei': ('poke-left',),
     'diu': ('poke-right',),
     'andi': ('wake',),
-    'gagadilaxia': ('prone',),
+    'gagadilaxia': ('crawl',),
     'houla': ('alert',),
 }
 IDS = list(CLIPS)

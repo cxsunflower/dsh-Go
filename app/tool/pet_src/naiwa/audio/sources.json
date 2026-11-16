@@ -1,7 +1,7 @@
 {
   "hahahahahahaha": {
     "label": "大笑",
-    "cue": ["laugh", "laugh-roll"],
+    "cue": ["laugh-roll"],
     "pak": "nawa_pak50_dir.vpk",
     "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
     "pakEntry": "sounds/abilities/dynamo/dynamo_singularity_lp.vsnd_c",
@@ -53,7 +53,7 @@
   },
   "gagadilaxia": {
     "label": "趴行",
-    "cue": ["prone"],
+    "cue": ["crawl"],
     "pak": "nawa_pak50_dir.vpk",
     "pakSha256": "093ace9eef9b133e923fd08a3d7c70472f84855df8731e704b3855349483af13",
     "pakEntry": "sounds/abilities/dynamo/a3_heal/dynamo_a3_heal_cast_01.vsnd_c",

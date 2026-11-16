@@ -44,9 +44,6 @@
     }
   },
   "cues": {
-    "laugh": [
-      "hahahahahahaha"
-    ],
     "laugh-roll": [
       "hahahahahahaha"
     ],
@@ -59,7 +56,7 @@
     "wake": [
       "andi"
     ],
-    "prone": [
+    "crawl": [
       "gagadilaxia"
     ],
     "alert": [
