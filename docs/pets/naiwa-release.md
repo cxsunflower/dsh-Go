@@ -1,11 +1,13 @@
-像素奶蛙 1.1.1 是供 DSH Go 导入的无声像素宠物包，共 24 段动画、251 帧。
+像素奶蛙 1.1.1 是供 DSH Go 导入的无声像素宠物包，共 24 段动画、861 帧。本次更新替换此前的 251 帧版本，同 ID 再次导入即可更新。
 
 ## 更新内容
 
-- 新增抱箱搬运 `carrying`，在导入宠物包期间循环播放；新增鼓腮跺脚 `annoyed`，在六连点时播放一次并恢复待机。
-- 移除指着笑 `laugh-point`、肚皮起伏笑 `laugh-belly` 和挠痒大笑 `tickle`。三连点改为翻滚笑 `laugh-roll`，补齐屈身、起身与待机收尾。
-- 完成状态保留捧腹大笑，有 50% 概率先跳舞；全部动画覆盖 main 的 11 个状态、游走及 5 类交互入口。
-- 中英文 README 按状态展示动画，包含工作和子代理档位，以及「大笑 → 待机」「跳舞 → 大笑 → 待机」两种完成状态动态演示；完整帧图同步更新。
+- 完成状态改为 `celebrate`：轻跃、“啦”口型与 ✅，播放一遍后返回当前状态。三连点播放 `laugh-roll`，先捧腹大笑 1440 ms，再打滚、起身，共 2940 ms。
+- 工作三档改为单爪敲键、双爪交替和快速打字，资源名为 `typing`、`typing-both`、`typing-fast`；击键与键盘亮键、上浮字符同步。
+- 子代理使用 `terminal` / `terminals` 终端小图标；上下文压缩使用 `eat-paper`，持续吞入下端带卷边的长纸；拖动趴行使用 `crawl`。
+- 优化全部动作的衔接、呼吸、手臂、脚掌与描边，减少轮廓逐点跳变、手掌漏黄点和双线；保留趴行接缝。图集每帧保留透明边距，隔开相邻帧。
+- 保留导入时的抱箱搬运 `carrying`、六连点的鼓腮跺脚 `annoyed` 和四种待机小动作，覆盖 main 的现有状态与交互入口。
+- 中英文 README 按状态展示全部动作，更新完成后回到待机的演示和完整 861 帧大图。
 - 声音资源完整保留参考，宠物继续按无声方式设计；发布 ZIP 只包含清单与 24 张 PNG。
 
 ## 下载与导入
@@ -16,12 +18,14 @@
 
 ## English
 
-Pixel Naiwa 1.1.1 is a silent pet pack for DSH Go with 24 animations and 251 frames.
+Pixel Naiwa 1.1.1 is a silent pet pack for DSH Go with 24 animations and 861 frames. This update replaces the earlier 251-frame build; importing the same pet ID updates the installed pack.
 
-- Adds a dedicated parcel-carrying animation during imports and a puff-and-stamp reaction after six quick taps.
-- Removes pointing laughter, belly laughter and the old tickle animation. Three quick taps now play rolling laughter with an entrance, a stand-up transition and an idle ending.
-- Completion plays the main laugh, with a 50% chance to dance first. The pack covers main's 11 states, roaming and five interaction types.
-- Reorganizes the bilingual README around states and tiers, with animated completion sequences and an updated full frame sheet.
+- Completion now plays `celebrate`: a small hop, a “La” mouth shape and a check mark, followed by a return to the current state. Three taps play `laugh-roll`: 1440 ms of belly laughter followed by rolling and standing up, for 2940 ms in total.
+- Three work tiers use `typing`, `typing-both` and `typing-fast`, with one paw, alternating paws and rapid typing. Key flashes and rising characters follow the keystrokes.
+- Subagents use the `terminal` / `terminals` icons. Context compaction uses `eat-paper`, continuously feeding a long sheet with a curled lower edge. Dragging uses the `crawl` animation.
+- Refines transitions, breathing, arms, feet and outlines to reduce stray pixels, yellow leaks around palms and doubled lines. Keeps the crawl's body seam and adds transparent margins between atlas cells.
+- Keeps parcel carrying during imports, the six-tap puff-and-stamp reaction, and all four idle variations, covering main's existing states and interactions.
+- Updates all state previews in both READMEs, the completion-to-idle sequence and the full 861-frame sheet.
 - Retains sound resources for reference. The downloadable pack remains silent and contains only the manifest and 24 PNG sheets.
 
 Download **pixel-naiwa.zip**, import it under **Settings → Pets → Import**, then select Pixel Naiwa. Importing the same ID updates the existing pet. Use `SHA256SUMS` to verify the download.
