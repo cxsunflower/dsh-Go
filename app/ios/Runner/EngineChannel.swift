@@ -77,17 +77,19 @@ private struct GuestStartupTemporary {
 private final class NativeEngine {
   private typealias Start = @convention(c) (
     UnsafePointer<CChar>, UnsafePointer<CChar>, UnsafePointer<CChar>, UnsafePointer<CChar>, UnsafePointer<CChar>,
-    UnsafePointer<CChar>, Int32, UnsafePointer<UnsafePointer<CChar>?>?, UnsafePointer<UnsafePointer<CChar>?>?,
+    UnsafePointer<CChar>, UnsafePointer<CChar>, Int32, UnsafePointer<UnsafePointer<CChar>?>?, UnsafePointer<UnsafePointer<CChar>?>?,
     UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
   ) -> Int32
   private typealias GuestConfig = @convention(c) (Int32, UnsafePointer<CChar>) -> Int32
   private let guestConfig: GuestConfig
   private typealias Stop = @convention(c) () -> Void
+  private typealias ObserveLifecycle = @convention(c) (Int32, Int32) -> Void
   private typealias Text = @convention(c) () -> UnsafeMutablePointer<CChar>?
   private typealias Free = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
 
   private let start: Start
   private let stopEngine: Stop
+  private let observeLifecycle: ObserveLifecycle
   private let state: Text
   private let drain: Text
   private let free: Free
@@ -114,12 +116,14 @@ private final class NativeEngine {
     guestConfig = try symbol("dsh_host_guest_config", as: GuestConfig.self)
     start = try symbol("dsh_host_start", as: Start.self)
     stopEngine = try symbol("dsh_host_stop", as: Stop.self)
+    observeLifecycle = try symbol("dsh_host_set_lifecycle", as: ObserveLifecycle.self)
     state = try symbol("dsh_host_state", as: Text.self)
     drain = try symbol("dsh_host_drain", as: Text.self)
     free = try symbol("dsh_host_free", as: Free.self)
   }
 
-  func begin(runtime: String, guest: String, home: String, cache: String, workspace: String, env: [String: String]) throws {
+  func begin(runtime: String, guest: String, home: String, cache: String, linuxDirectory: String,
+             workspace: String, env: [String: String]) throws {
     let keys = env.keys.map { strdup($0) }
     let values = env.keys.map { strdup(env[$0] ?? "") }
     defer {
@@ -133,7 +137,7 @@ private final class NativeEngine {
     let result = keyPointers.withUnsafeBufferPointer { keyBuffer in
       valuePointers.withUnsafeBufferPointer { valueBuffer in
         start(
-          runtime, guest, home, cache, frameworks, workspace, Int32(env.count), keyBuffer.baseAddress,
+          runtime, guest, home, cache, frameworks, linuxDirectory, workspace, Int32(env.count), keyBuffer.baseAddress,
           valueBuffer.baseAddress, &code, &message)
       }
     }
@@ -157,6 +161,9 @@ private final class NativeEngine {
   }
 
   func stop() { stopEngine() }
+  func updateLifecycle(foreground: Bool, continued: Bool) {
+    observeLifecycle(foreground ? 1 : 0, continued ? 1 : 0)
+  }
 
   func currentState() -> [String: Any] { (read(state) as? [String: Any]) ?? [:] }
 
@@ -276,7 +283,7 @@ private enum IOSContainerPaths {
 /// Tells the engine when the app moves between foreground and background. It only ever
 /// repeats this idempotent observation, never a tool or a prompt.
 private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
-  private var foreground = false
+  private(set) var foreground = false
   private var revision = 1
   private var generation = 0
   private var origin: String?
@@ -294,6 +301,7 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
   private var failures = 0
 
   private let queue: DispatchQueue
+  private let updateNative: (Bool, Bool) -> Void
   private let changed: () -> Void
   private let lostServer: () -> Void
   private lazy var session: URLSession = {
@@ -307,8 +315,10 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     return URLSession(configuration: configuration, delegate: self, delegateQueue: delegateQueue)
   }()
 
-  init(queue: DispatchQueue, changed: @escaping () -> Void, lostServer: @escaping () -> Void) {
+  init(queue: DispatchQueue, updateNative: @escaping (Bool, Bool) -> Void,
+       changed: @escaping () -> Void, lostServer: @escaping () -> Void) {
     self.queue = queue
+    self.updateNative = updateNative
     self.changed = changed
     self.lostServer = lostServer
   }
@@ -321,27 +331,26 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
   }
 
   func observe(foreground: Bool) {
-    resetRetry()
     self.foreground = foreground
-    revision += 1
-    failures = 0
-    push()
+    observed()
   }
 
   /// The system is letting the engine keep running in the background.
   func observe(continued: Bool) {
     guard continued != continuedProcessing else { return }
-    resetRetry()
     continuedProcessing = continued
-    revision += 1
-    failures = 0
-    push()
+    observed()
   }
 
   func observe(pictureInPicture: Bool) {
     guard pictureInPicture != self.pictureInPicture else { return }
-    resetRetry()
     self.pictureInPicture = pictureInPicture
+    observed()
+  }
+
+  private func observed() {
+    updateNative(foreground, continued)
+    resetRetry()
     revision += 1
     failures = 0
     push()
@@ -412,10 +421,10 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     if cookie == nil {
       authenticate(origin: origin, token: token, current: current) { [weak self] code in
         guard let self else { return }
-        if let code { done(code) } else { self.send(origin: origin, revision: revision, done: done) }
+        if let code { done(code) } else { self.send(origin: origin, revision: revision, current: current, done: done) }
       }
     } else {
-      send(origin: origin, revision: revision, done: done)
+      send(origin: origin, revision: revision, current: current, done: done)
     }
   }
 
@@ -438,7 +447,7 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     task?.resume()
   }
 
-  private func send(origin: String, revision: Int, done: @escaping (String?) -> Void) {
+  private func send(origin: String, revision: Int, current: @escaping () -> Bool, done: @escaping (String?) -> Void) {
     guard let url = URL(string: origin + "/dsh-go/v1/lifecycle"), let cookie else { return done("ios_lifecycle_endpoint") }
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -446,20 +455,24 @@ private final class EngineLifecycle: NSObject, URLSessionTaskDelegate {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     // Only actual system-backed execution counts: an active continued task or
     // a playing, unsuspended PiP with its owned audio session. A setting alone does not.
-    let foreground = self.foreground || continued
+    let foreground = self.foreground
+    let continuous = !foreground && continued
     let body: [String: Any] = [
       "operation": "host", "revision": revision, "foreground": foreground,
       "computePermission": continued ? "granted" : "denied",
     ]
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
     task = session.dataTask(with: request) { [weak self] data, response, error in
-      guard let self else { return }
+      guard let self, current() else { return }
       guard error == nil, let http = response as? HTTPURLResponse else { return done("ios_lifecycle_unavailable") }
       if http.statusCode == 401 { self.cookie = nil }
       guard http.statusCode == 200, let data,
         let ack = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-        (ack["v"] as? Int) == 1, let host = ack["host"] as? [String: Any],
-        (host["revision"] as? Int) == revision, (host["foreground"] as? Bool) == foreground,
+        (ack["v"] as? Int) == 1, (ack["observationRevision"] as? Int) == revision,
+        let host = ack["host"] as? [String: Any], (host["foreground"] as? Bool) == foreground,
+        let nativeHost = ack["nativeHost"] as? [String: Any],
+        (nativeHost["available"] as? Int) == 1, (nativeHost["clockFailed"] as? Int) == 0,
+        ((host["computePermission"] as? String) == "granted") == continuous,
         (ack["closed"] as? Bool) == false, (ack["blocked"] as? Bool) == false
       else { return done(http.statusCode == 200 ? "ios_lifecycle_ack" : "ios_lifecycle_control") }
       done(nil)
@@ -504,6 +517,9 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   private var skillOwner: EngineSkills.Owner?
   private lazy var lifecycle = EngineLifecycle(
     queue: queue,
+    updateNative: { [weak self] foreground, continued in
+      self?.native?.updateLifecycle(foreground: foreground, continued: continued)
+    },
     changed: { [weak self] in self?.lifecycleChanged() },
     lostServer: { [weak self] in self?.restartAfterLostServer() })
 
@@ -1050,6 +1066,8 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       // Installation changes take effect at the next engine start. This is an
       // App-owned snapshot, never a user environment/configuration override.
       let linux = GuestRootfsInstaller(base: filesDirectory.appendingPathComponent("dsh-guest", isDirectory: true))
+      let linuxDirectory = EngineChannel.prepared(filesDirectory.appendingPathComponent("linux-tools", isDirectory: true))
+      excludeFromBackup(linuxDirectory)
       let linuxStartup = GuestStartupState(installer: linux, kernel: NativeGuestKernelAccess.shared)
       if let failure = linuxStartup.failure {
         // A storage/protocol failure disables guest admission while the ordinary
@@ -1068,9 +1086,10 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       linuxSnapshot["addon"] = (native?.frameworks ?? "") + "/DshGuestBridge.framework/DshGuestBridge"
       linuxSnapshot["protectedPaths"] = protectedPaths
       try native?.configureGuest(linuxSnapshot)
+      native?.updateLifecycle(foreground: lifecycle.foreground, continued: lifecycle.continued)
       try native?.begin(
         runtime: installer.root.path, guest: guestRoot.path, home: dshHome.path, cache: cache.path,
-        workspace: workspace.path, env: launchEnvironment)
+        linuxDirectory: linuxDirectory.path, workspace: workspace.path, env: launchEnvironment)
       // Native begin accepted an asynchronous start, not a successfully loaded
       // JS owner. Keep a fallback ticket until this generation has fully joined.
       if guestStartupTemporary != nil {
