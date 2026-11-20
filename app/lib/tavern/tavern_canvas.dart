@@ -16,6 +16,7 @@ import 'package:dsh_tavern/dsh_tavern.dart' show PersonaSelection, TavernPersona
 
 import 'tavern_canvas_helpers.dart';
 import 'tavern_card_scripts.dart' show tavernUsesMvu;
+import 'tavern_islands.dart' show tavernFence, tavernFenceIsHtml, tavernHtmlBlocks, tavernPageColors;
 
 /// One message on the canvas.
 final class TavernCanvasEntry {
@@ -133,21 +134,22 @@ String _words(String text) => text
     .replaceAllMapped(_emUnderscore, (m) => '<em>${m[1]}</em>')
     .replaceAllMapped(_said, (m) => '<q>${m[0]}</q>');
 
-final _fence = RegExp(r'^(`{3,}|~{3,})[ \t]*([\w-]*)[^\n]*\n([\s\S]*?)\n?^\1[ \t]*$', multiLine: true);
 final _blockTag = RegExp(
-  r'^<(div|p|style|script|table|details|section|article|center|ul|ol|blockquote|pre|h[1-6]|hr|img|svg|iframe|form|figure|dsh-[a-z-]+)\b',
+  r'^<(!doctype|html|head|body|link|meta|title|div|p|style|script|table|details|section|article|center|ul|ol|blockquote|pre|textarea|h[1-6]|hr|img|svg|iframe|form|figure|dsh-[a-z-]+)\b',
   caseSensitive: false,
 );
 final _heading = RegExp(r'^(#{1,6})\s+(.*)$');
+final _lang = RegExp(r'^[\w-]*');
 
 /// A message's text as the canvas shows it: paragraphs with their line
-/// breaks, Markdown's emphasis, what is said in <q>, ```html blocks and block
-/// HTML as written, other code blocks escaped.
+/// breaks, Markdown's emphasis, what is said in <q>, ```html blocks (and code
+/// blocks holding a whole page, [tavernFenceIsHtml]) and block HTML as
+/// written, other code blocks escaped.
 String tavernStoryHtml(String text) {
   final source = text.replaceAll('\r\n', '\n');
   final out = <String>[];
   void prose(String segment) {
-    for (final block in segment.split(RegExp(r'\n[ \t]*\n'))) {
+    for (final block in tavernHtmlBlocks(segment)) {
       final trimmed = block.trim();
       if (trimmed.isEmpty) continue;
       if (_blockTag.hasMatch(trimmed)) {
@@ -165,12 +167,12 @@ String tavernStoryHtml(String text) {
   }
 
   var at = 0;
-  for (final f in _fence.allMatches(source)) {
+  for (final f in tavernFence.allMatches(source)) {
     prose(source.substring(at, f.start));
-    final lang = f[2]!.toLowerCase();
+    final lang = _lang.stringMatch(f[2]!.trim())!.toLowerCase();
     final body = f[3]!;
     out.add(
-      lang == 'html'
+      tavernFenceIsHtml(f[2]!, body)
           ? body
           : '<pre><code${lang.isEmpty ? '' : ' class="language-$lang"'}>${_escape(body)}</code></pre>',
     );
@@ -179,9 +181,6 @@ String tavernStoryHtml(String text) {
   prose(source.substring(at));
   return out.join('\n');
 }
-
-String _css(Color c) =>
-    'rgba(${(c.r * 255).round()},${(c.g * 255).round()},${(c.b * 255).round()},${c.a.toStringAsFixed(3)})';
 
 /// How many of the latest messages the canvas always lays out; older ones
 /// are skipped while off screen (CSS content-visibility).
@@ -233,9 +232,9 @@ const tavernToastMax = 300;
 /// the `DshTavern` channel. [noScripts] and [offline] are 酒馆设置 › 安全's
 /// choices, as for islands. [libraries] are put in first, for card scripts.
 /// [themeCss] (an ST theme's custom CSS) comes after our styles, so it wins
-/// where both say something, as it does in ST. [cardScripts] ({id, name,
-/// content}, tavern_card_scripts.dart) are the card's own scripts, each run
-/// in a hidden frame once the story is drawn; not when scripts do not run.
+/// where both say something, as it does in ST. The chat's scripts come later
+/// (dsh.setScripts), each run in a hidden frame once the story is drawn; not
+/// when scripts do not run.
 /// [card] (its fields) and [characterId] are the chat's character, for the
 /// scripts that ask about it; none for a group.
 String tavernCanvasDocument({
@@ -254,14 +253,12 @@ String tavernCanvasDocument({
   bool offline = false,
   List<String> libraries = const [],
   String themeCss = '',
-  List<Map<String, Object?>> cardScripts = const [],
   Map<String, Object?>? card,
   String? characterId,
 }) {
-  // The card and its scripts go in as JSON (see [_inScript]).
+  // The card goes in as JSON (see [_inScript]).
   final cardJson = noScripts || card == null ? 'null' : _inScript(card);
   final cardIdJson = noScripts ? 'null' : _inScript(characterId);
-  final cardScriptsJson = noScripts ? '[]' : _inScript(cardScripts);
   // MVU's variables, kept by the engine, for a card that uses them.
   final mvu = !noScripts && tavernUsesMvu(card);
   // The libraries card scripts expect on the page (jQuery, lodash), ours and
@@ -289,8 +286,8 @@ String tavernCanvasDocument({
 ${policy == null ? '' : '<meta http-equiv="Content-Security-Policy" content="$policy">'}
 <style>
 :root{
-  --dsh-text:${_css(text)};--dsh-accent:${_css(accent)};--dsh-muted:${_css(muted)};--dsh-user:${_css(userTint)};
-  --SmartThemeBodyColor:var(--dsh-text);--SmartThemeQuoteColor:${_css(quote)};--SmartThemeEmColor:${_css(emphasis)};
+  ${tavernPageColors({'text': text, 'accent': accent, 'muted': muted, 'user': userTint, 'quote': quote, 'emphasis': emphasis}).entries.map((e) => '${e.key}:${e.value};').join()}
+  --SmartThemeBodyColor:var(--dsh-text);--SmartThemeQuoteColor:var(--dsh-quote);--SmartThemeEmColor:var(--dsh-emphasis);
   --SmartThemeUnderlineColor:var(--dsh-accent);--SmartThemeBorderColor:var(--dsh-muted);
   --mainFontSize:${fontSize}px;
 }
@@ -311,6 +308,7 @@ body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple
 .mes_text q::before,.mes_text q::after{content:none;}
 .mes_text em{color:var(--SmartThemeEmColor);}
 .mes_text a{color:var(--dsh-accent);}
+button,input,select,textarea{color-scheme:var(--dsh-scheme);}
 .mes_text img,.mes_text video,.mes_text svg{max-width:100%;height:auto;}
 .mes_text pre{white-space:pre-wrap;}
 .mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF" / "";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
@@ -451,11 +449,8 @@ $preload
       // reader goes to it from there), not read out as it was written.
       var last=chat.lastElementChild;
       if(replied&&last&&fresh.indexOf(last)>=0&&last.getAttribute('is_user')!=='true')say(fill(L.replied,'name',last.getAttribute('aria-label')||''));
-      // The card's own scripts start once the story is drawn, its snapshot in.
-      if(runScripts&&!scriptsStarted&&(cardScripts.length||mvuWanted)){
-        scriptsStarted=true;
-        var start=function(){runCardScripts();};dsh.scripts.ready().then(start,start);
-      }
+      // The chat's scripts start once the story is drawn, its snapshot in.
+      drawn=true;startScripts();
       if(stay)toBottom();
     },
     stream:function(name,html){
@@ -484,15 +479,20 @@ $preload
       return {key:'message:'+id,target:{scope:'message',messageId:id},id:id};
     }
     if(type==='global'||type==='chat'||type==='character')return {key:type,target:{scope:type}};
-    // A card script's own: the script asking (or the one script_id names).
+    // A script's own: the script asking (or the one script_id names), kept
+    // on its whole owner (global, preset or card).
     if(type==='script'){
       var s=o&&o.script_id!=null?scriptById(String(o.script_id)):callerScript();
-      if(!s)throw new TypeError('Script variables are asked for from a card script, or by its script_id');
-      return {key:'script:'+s.id,target:{scope:'script',scriptOwner:{kind:'character',scriptId:s.id}}};
+      if(!s)throw new TypeError('Script variables are asked for from a script, or by its script_id');
+      return {key:varKey({scope:'script',scriptOwner:s.owner}),target:{scope:'script',scriptOwner:s.owner}};
     }
     throw new TypeError('Variables of type '+type+' are not kept on this page');
   }
-  function varKey(t){return t.scope==='script'?'script:'+((t.scriptOwner||{}).scriptId||''):t.scope;}
+  function varKey(t){
+    if(t.scope!=='script')return t.scope;
+    var o=t.scriptOwner||{},c=o.presetCarrier||{};
+    return 'script:'+JSON.stringify([o.kind,o.assetId,o.scriptId,c.kind,c.chatId,c.workingId].map(function(v){return v==null?null:v;}));
+  }
   function kept(s){
     var e=vars[s.key];
     if(e)return e;
@@ -569,7 +569,7 @@ $preload
       if(d.kind==='invoke'){invoke(d);return;}
       if(d.kind==='generation'){generationEvent(d);return;}
       // A script's button pressed in the app: the event getButtonEvent names.
-      if(d.kind==='button'){fire(evName('dsh_button__'+d.scriptId+'__'+d.name),[]);return;}
+      if(d.kind==='button'){var f=frames[d.key];if(f)fire(evName(buttonEvent(f,d.name)),[]);return;}
       if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
@@ -1120,7 +1120,7 @@ $preload
   }
   // Whose a listener is: a card script's (each its own frame there), or this
   // page's; clearing reaches only the caller's own, as one frame's would.
-  function listenerOwner(){var s=callerScript();return s?'script:'+s.id:'page';}
+  function listenerOwner(){var s=callerScript();return s?'script:'+s.key:'page';}
   function others(h){return h.owner!==listenerOwner();}
   function eventOn(n,fn){return listen(n,fn,false);}
   function eventOnce(n,fn){return listen(n,fn,true);}
@@ -1439,12 +1439,16 @@ $preload
   },function(el){var x=roll(el);return ['group',named([x.title,x.score,x.label])];});
   define('dsh-notice',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<slot></slot>';},function(){return ['note',null];});
   define('dsh-game',':host{text-align:center;font-size:.85em;color:var(--dsh-muted);}',function(){return '<span aria-hidden="true">▷ </span>'+esc(L.game);},function(){return ['note',null];});
-  // A card's own scripts (its 角色脚本库, docs/design/roleplay-compat.md §8.3):
+  // The chat's scripts (酒馆助手's, docs/design/roleplay-compat.md §8.3: the
+  // global library's, the current preset's, the card's), as the app gives
+  // them (dsh.setScripts), each {key, id, name, content, owner, buttonList}:
   // each in a hidden frame of its own, as a module, with this page's helpers
   // on its global — this page's \$ too, which is how a script reaches the
-  // story — and named dsh-script-<n>.js, so what it defines knows which
-  // script it is (getScriptId, getScriptName, getIframeName).
-  var cardScripts=$cardScriptsJson,scriptsStarted=false;
+  // story — and named dsh-script-<n>.js after its frame, so what it defines
+  // knows which script it is (getScriptId, getScriptName, getIframeName).
+  // A frame is kept by its script's key (its whole owner) while its code
+  // stays the same: a new order, name or button list runs nothing again.
+  var scripts=[],frames={},frameAt=[],started=null,drawn=false;
   var shared=['getVariables','replaceVariables','updateVariablesWith','insertOrAssignVariables','insertVariables',
     'deleteVariable','getChatMessages','setChatMessages','createChatMessages','deleteChatMessages','rotateChatMessages',
     'eventOn','eventOnce','eventRemoveListener','eventEmit','tavern_events','iframe_events','getLastMessageId',
@@ -1460,42 +1464,70 @@ $preload
     var limit=Error.stackTraceLimit;Error.stackTraceLimit=200;
     var stack=String(new Error().stack||'');Error.stackTraceLimit=limit;
     var k=/dsh-script-(\\d+)\\.js/.exec(stack);
-    return k&&cardScripts[+k[1]]||null;
+    return k&&frameAt[+k[1]]||null;
   }
-  function scriptById(id){for(var i=0;i<cardScripts.length;i++)if(cardScripts[i].id===id)return cardScripts[i];return null;}
-  function getScriptId(){var s=callerScript();if(!s)throw new Error('getScriptId: not called from a card script');return s.id;}
-  function getScriptName(){var s=callerScript();if(!s)throw new Error('getScriptName: not called from a card script');return s.name;}
-  // The event a script's button sends when pressed; the buttons themselves
-  // are the app's (above the composer).
-  function getButtonEvent(name){var s=callerScript();return 'dsh_button__'+(s?s.id:'')+'__'+String(name);}
+  // The caller itself when it is that script; else the one running script of
+  // that id. The same id from two places (global and card) is not guessed.
+  function scriptById(id){
+    var c=callerScript();if(c&&c.id===id)return c;
+    var hit=scripts.filter(function(s){return s.id===id;});
+    if(hit.length>1)throw new Error('script_id '+id+' names more than one running script');
+    return hit[0]||null;
+  }
+  function getScriptId(){var s=callerScript();if(!s)throw new Error('getScriptId: not called from a script');return s.id;}
+  function getScriptName(){var s=callerScript();if(!s)throw new Error('getScriptName: not called from a script');return s.name;}
+  // The event a script's button sends when pressed (named after its frame);
+  // the buttons themselves are the app's (above the composer).
+  function buttonEvent(s,name){return 'dsh_button__'+(s?s.n:'')+'__'+String(name);}
+  function getButtonEvent(name){return buttonEvent(callerScript(),name);}
   [['getScriptId',getScriptId],['getScriptName',getScriptName],['getButtonEvent',getButtonEvent]].forEach(function(f){
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
 ${tavernCanvasHelpersJs(mvu: mvu)}
   // MVU (when the card uses it) is on for this chat and Mvu shared before
   // any of them runs.
-  function runCardScripts(){mvuStart().then(startCardScripts);}
-  function startCardScripts(){
-    cardScripts.forEach(function(s,n){
-      var frame=document.createElement('iframe');
-      frame.style.display='none';frame.setAttribute('aria-hidden','true');frame.dataset.script=s.id;
-      // Its own variables first, so getVariables({type:'script'}) reads them
-      // at once (or as none, should they not come).
-      var own=call('getVariables',{target:{scope:'script',scriptOwner:{kind:'character',scriptId:s.id}}})
-        .then(setVar,function(){});
-      frame.onload=function(){
-        var w=frame.contentWindow;if(!w)return;
-        shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
-        own.then(function(){
-          var el=w.document.createElement('script');el.type='module';
-          el.textContent=withoutMvuImport(s.content)+'\\n//# sourceURL=dsh-script-'+n+'.js';
-          w.document.head.appendChild(el);
-        });
-      };
-      // Head and body come of themselves; no closing tags in our script.
-      frame.srcdoc='<!doctype html><meta charset="utf-8">';
-      document.body.appendChild(frame);
+  function startScripts(){
+    if(!runScripts||started||!drawn||!(scripts.length||mvuWanted))return;
+    var go=function(){return mvuStart();};
+    started=dsh.scripts.ready().then(go,go);
+    started.then(syncFrames);
+  }
+  dsh.setScripts=function(list){scripts=list;if(started)started.then(syncFrames);else startScripts();};
+  // A frame for each script, as the list now has them: one gone, or whose
+  // code changed, is taken down with its listeners and buttons.
+  function syncFrames(){
+    var want={};scripts.forEach(function(s){want[s.key]=s;});
+    Object.keys(frames).forEach(function(k){if(!want[k]||want[k].content!==frames[k].content)stopFrame(k);});
+    scripts.forEach(function(s){
+      var f=frames[s.key];if(!f){startFrame(s);return;}
+      if(JSON.stringify(f.buttonList||[])!==JSON.stringify(s.buttonList||[]))listButtons(s.key,s.buttonList);
+      f.name=s.name;f.buttonList=s.buttonList;
     });
+  }
+  function stopFrame(k){
+    var f=frames[k];delete frames[k];frameAt[f.n]=null;f.el.remove();delete buttons[k];delete buttonWrites[k];delete listMoved[k];buttonGen[k]=(buttonGen[k]||0)+1;
+    for(var e in on)on[e]=on[e].filter(function(h){return h.owner!=='script:'+k;});
+  }
+  function startFrame(s){
+    var f=Object.assign({},s,{n:frameAt.length});frames[s.key]=f;frameAt.push(f);
+    var frame=f.el=document.createElement('iframe');
+    frame.style.display='none';frame.setAttribute('aria-hidden','true');frame.dataset.script=s.key;
+    // Its own variables first, so getVariables({type:'script'}) reads them
+    // at once (or as none, should they not come).
+    var own=call('getVariables',{target:{scope:'script',scriptOwner:s.owner}}).then(setVar,function(){});
+    frame.onload=function(){
+      var w=frame.contentWindow;if(!w||frames[s.key]!==f)return;
+      shared.forEach(function(k){if(window[k]!==undefined)w[k]=window[k];});
+      own.then(function(){
+        if(frames[s.key]!==f)return;
+        var el=w.document.createElement('script');el.type='module';
+        el.textContent=withoutMvuImport(s.content)+'\\n//# sourceURL=dsh-script-'+f.n+'.js';
+        w.document.head.appendChild(el);
+      });
+    };
+    // Head and body come of themselves; no closing tags in our script.
+    frame.srcdoc='<!doctype html><meta charset="utf-8">';
+    document.body.appendChild(frame);
   }
   post({type:'ready'});
   // The app's player learns there is a page to play on, music or not.
