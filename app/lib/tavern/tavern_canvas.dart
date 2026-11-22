@@ -15,8 +15,10 @@ import 'dart:ui' show Color;
 import 'package:dsh_tavern/dsh_tavern.dart' show PersonaSelection, TavernPersona;
 
 import 'tavern_canvas_helpers.dart';
+import 'tavern_canvas_host.dart';
 import 'tavern_card_scripts.dart' show tavernUsesMvu;
 import 'tavern_islands.dart' show tavernFence, tavernFenceIsHtml, tavernHtmlBlocks, tavernPageColors;
+import 'tavern_page_perf.dart';
 
 /// One message on the canvas.
 final class TavernCanvasEntry {
@@ -182,9 +184,10 @@ String tavernStoryHtml(String text) {
   return out.join('\n');
 }
 
-/// How many of the latest messages the canvas always lays out; older ones
-/// are skipped while off screen (CSS content-visibility).
-const tavernCanvasNear = 20;
+/// How many of the latest messages the canvas always draws, so scrolling to
+/// the bottom lands on what is there; any other is skipped and paused while
+/// out of sight ([tavernOffscreenJs]).
+const tavernCanvasTail = 2;
 
 /// The user's personas as the page is told them (dsh.setPersonas): each one's
 /// id, name, description and its position (ST's own numbers); which this
@@ -236,7 +239,8 @@ const tavernToastMax = 300;
 /// (dsh.setScripts), each run in a hidden frame once the story is drawn; not
 /// when scripts do not run.
 /// [card] (its fields) and [characterId] are the chat's character, for the
-/// scripts that ask about it; none for a group.
+/// scripts that ask about it; none for a group. [lowPower] is 省电渲染
+/// ([tavernCalmJs]); [perf] the frame log ([tavernPerfJs]).
 String tavernCanvasDocument({
   required Color text,
   required Color accent,
@@ -255,6 +259,8 @@ String tavernCanvasDocument({
   String themeCss = '',
   Map<String, Object?>? card,
   String? characterId,
+  bool lowPower = false,
+  bool perf = false,
 }) {
   // The card goes in as JSON (see [_inScript]).
   final cardJson = noScripts || card == null ? 'null' : _inScript(card);
@@ -294,8 +300,10 @@ ${policy == null ? '' : '<meta http-equiv="Content-Security-Policy" content="$po
 html,body{margin:0;padding:0;background:transparent;}
 body{color:var(--dsh-text);font:var(--mainFontSize)/$lineHeight system-ui,-apple-system,"Noto Sans CJK SC",sans-serif;overflow-wrap:anywhere;-webkit-text-size-adjust:100%;}
 #chat{display:flex;flex-direction:column;gap:14px;padding:12px 16px 24px;}
-.mes{display:flex;flex-direction:column;}
-.mes.far{content-visibility:auto;contain-intrinsic-size:auto 160px;}
+.mes{display:flex;flex-direction:column;contain-intrinsic-size:auto 160px;}
+.mes.dsh-off{content-visibility:auto;}
+.mes.dsh-off *{animation-play-state:paused!important;}
+.mes[data-streaming]{contain:content;}
 .mes .ch_name{font-size:.82em;font-weight:600;color:var(--dsh-accent);margin-bottom:2px;}
 .mes[is_user="true"] .ch_name{color:var(--dsh-muted);}
 .mes[is_user="true"] .mes_text{background:var(--dsh-user);border-radius:16px;padding:8px 12px;align-self:flex-end;max-width:85%;box-sizing:border-box;}
@@ -313,6 +321,7 @@ button,input,select,textarea{color-scheme:var(--dsh-scheme);}
 .mes_text pre{white-space:pre-wrap;}
 .mes[data-streaming] .mes_text>:last-child::after,.mes[data-streaming] .mes_text:empty::after{content:"\\25CF" / "";color:var(--dsh-muted);margin-left:3px;font-size:.6em;vertical-align:middle;}
 #dsh-live{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+${lowPower ? tavernCalmCss : ''}
 </style>
 ${themeCss.trim().isEmpty ? '' : '<style id="st-theme-css">${themeCss.replaceAll(RegExp('</style', caseSensitive: false), r'<\/style')}</style>'}
 </head>
@@ -354,7 +363,15 @@ $preload
         });});
       });
     });
+    // What the scripts drew, calmed too.
+    if(lowPower)running.then(function(){dshCalm();});
   }
+$tavernOffscreenJs
+$tavernScopeJs
+  var sight=dshOffscreen();
+  // 省电渲染: each newly drawn piece's styles calmed.
+  var lowPower=$lowPower;
+${lowPower ? tavernCalmJs : ''}
   function nearBottom(){return window.innerHeight+window.scrollY>=document.body.scrollHeight-80;}
   function toBottom(){window.scrollTo(0,document.body.scrollHeight);}
   function sig(e){return JSON.stringify([e.name||'',!!e.user,!!e.system,e.html||'']);}
@@ -427,13 +444,14 @@ $preload
         var e=list[i],key=sig(e),m=kept[e.node||''];
         if(m&&m._dsh===key){delete kept[e.node];m.setAttribute('mesid',String(e.mesid));}
         else{m=mes(e);m._dsh=key;fresh.push(m);}
-        // Only the latest few are always laid out; older ones are skipped
-        // while off screen.
-        m.classList.toggle('far',i<list.length-$tavernCanvasNear);
+        // Only the latest are always drawn; the rest while in sight.
+        sight.watch(m,i>=list.length-$tavernCanvasTail);
         var at=chat.children[i];
         if(at!==m)chat.insertBefore(m,at||null);
       }
-      while(chat.children.length>list.length)chat.lastElementChild.remove();
+      while(chat.children.length>list.length){sight.unwatch(chat.lastElementChild);chat.lastElementChild.remove();}
+      fresh.forEach(dshScope);
+      if(lowPower)dshCalm();
       lastList=list;
       if(loaded)renumber();
       // A newly drawn message's scripts run, once the page has the engine's
@@ -460,6 +478,8 @@ $preload
       if(!stream){stream=mes({mesid:chat.children.length,node:'',name:name,html:'',user:false,system:false});stream.dataset.streaming='1';stream.setAttribute('aria-busy','true');chat.appendChild(stream);}
       else if(stream.getAttribute('ch_name')!==(name||'')){stream.setAttribute('ch_name',name||'');stream.setAttribute('aria-label',name||'');stream.querySelector('.name_text').textContent=name||'';}
       stream.querySelector('.mes_text').innerHTML=html;
+      dshScope(stream);
+      if(lowPower)dshCalm(stream);
       if(stay)toBottom();
     }
   };
@@ -559,7 +579,9 @@ $preload
         var waiting=held;held=[];waiting.forEach(apply);
         // The library's presets, for getPreset by name, on the way.
         preloadPresets();
-        return true;
+        // A held delivery that moved the path read the snapshot again: wait
+        // for that one, or a message just written runs before its floor is in.
+        return loaded?true:loading;
       },function(x){loading=null;throw x;});
       return loading;
     },
@@ -570,6 +592,8 @@ $preload
       if(d.kind==='generation'){generationEvent(d);return;}
       // A script's button pressed in the app: the event getButtonEvent names.
       if(d.kind==='button'){var f=frames[d.key];if(f)fire(evName(buttonEvent(f,d.name)),[]);return;}
+      // One the app shows from ST's places for buttons (tavernCanvasHostJs).
+      if(d.kind==='press'){press(d.id);return;}
       if(d.kind!=='cache')return;
       // Not asked for yet: a snapshot taken later covers what was dropped.
       if(!loaded){if(!loading&&held.length>=200)held=[];held.push(d);return;}
@@ -711,10 +735,14 @@ $preload
         if(t){
           t.innerHTML=fresh.querySelector('.mes_text').innerHTML;
           [].forEach.call(t.querySelectorAll('script'),function(x){if(!inert(x))x.remove();});
+          dshScope(t);
         }
         return Promise.resolve();
       }
       m.parentNode.replaceChild(fresh,m);
+      sight.unwatch(m);fresh._dshIn=m._dshIn;sight.watch(fresh,m._dshTail);
+      dshScope(fresh);
+      if(lowPower)dshCalm(fresh);
       if(runScripts&&fresh.querySelector('script')){var go=function(){runIn([fresh]);};return dsh.scripts.ready().then(go,go);}
       return Promise.resolve();
     });
@@ -726,7 +754,8 @@ $preload
   // extensions): what this page can truly give — the chat as ST keeps it
   // (name, is_user, is_system for a hidden one, mes, its swipes and their
   // variables), fresh from this page's copy at each reading; getContext();
-  // the chat's id. The rest of ST's interface is not here, rather than faked.
+  // the chat's id; its events and the preset in use (tavernCanvasHostJs).
+  // The rest of ST's interface is not here, rather than faked.
   function stMessage(x){
     var ss=x.swipes&&x.swipes.length?x.swipes:null;
     var out={name:x.name,is_user:x.role==='user',is_system:!!x.hidden,mes:x.message,extra:x.extra||{},
@@ -1484,6 +1513,7 @@ $preload
     dsh.scripts[f[0]]=f[1];if(!window[f[0]])window[f[0]]=f[1];
   });
 ${tavernCanvasHelpersJs(mvu: mvu)}
+$tavernCanvasHostJs
   // MVU (when the card uses it) is on for this chat and Mvu shared before
   // any of them runs.
   function startScripts(){
@@ -1509,6 +1539,7 @@ ${tavernCanvasHelpersJs(mvu: mvu)}
     for(var e in on)on[e]=on[e].filter(function(h){return h.owner!=='script:'+k;});
   }
   function startFrame(s){
+    hostAnchors();
     var f=Object.assign({},s,{n:frameAt.length});frames[s.key]=f;frameAt.push(f);
     var frame=f.el=document.createElement('iframe');
     frame.style.display='none';frame.setAttribute('aria-hidden','true');frame.dataset.script=s.key;
@@ -1529,6 +1560,7 @@ ${tavernCanvasHelpersJs(mvu: mvu)}
     frame.srcdoc='<!doctype html><meta charset="utf-8">';
     document.body.appendChild(frame);
   }
+${perf ? '$tavernPerfJs  dshPerf(post,function(){return {mes:chat.children.length,off:chat.getElementsByClassName("dsh-off").length};});' : ''}
   post({type:'ready'});
   // The app's player learns there is a page to play on, music or not.
   audioReport();

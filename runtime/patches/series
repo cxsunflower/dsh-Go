@@ -5,6 +5,7 @@ fs-create-exclusive.diff
 install-log-redaction.diff
 piai-anthropic-opus55-thinking.diff
 piai-google-openai-store.diff
+piai-mistral-openai-store.diff
 plugin-manager-active-run-guard.diff
 plugin-manager-cancel-tree-confirmation.diff
 preset-legacy-delegation.diff
@@ -154,6 +155,11 @@ deepseek-unnamed-stream-error.diff
 web-empty-reply-notice.diff
 profile-root-installation-precedence.diff
 # HarmonyOS-only overlays (pins.json targetSets.ohos), after the whole common chain.
+messages-usage-evidence.diff
+piai-usage-evidence.diff
+piai-tool-call-id.diff
+piai-bedrock-usage-evidence.diff
+empty-tool-name-replay.diff
 ohos-attachment-publication.diff
 ohos-attachment-diagnostic.diff
 ohos-hap-native-libraries.diff

@@ -23,6 +23,7 @@ import '../../tavern/tavern_canvas_audio.dart';
 import '../../tavern/tavern_canvas_calls.dart';
 import '../../tavern/tavern_canvas_helpers.dart' show tavernMvuIssueText;
 import '../../tavern/tavern_islands.dart' show tavernFrameBaseUrl, tavernPageColorsJs;
+import '../../tavern/tavern_page_perf.dart';
 import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_provider.dart';
 import '../../tavern/tavern_settings.dart';
@@ -83,6 +84,10 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   late WebViewGuard _guard = WebViewGuard(onGone: _onGone);
   bool _ready = false;
   Object? _loaded;
+
+  /// Which document the page is: one asked by a page since reloaded is not
+  /// answered into the new one (its call ids start again).
+  int _document = 0;
   String? _rendered;
   Timer? _streamTimer;
   (String, String)? _streamSent;
@@ -193,6 +198,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         ? ref.read(tavernStThemeProvider)?.canvasCss ?? ''
         : '';
     final reading = ref.read(tavernSettingsProvider.select((s) => (s.textSize, s.lineHeight)));
+    // 省电渲染: the page is built again with it, the story drawn as it was.
+    final lowPower = ref.read(tavernSettingsProvider.select((s) => s.lowPower));
     final text = theme.colorScheme.onSurface;
     // Card scripts get their libraries first; the page waits for them (and
     // goes without, should they not load) — not when scripts do not run.
@@ -227,15 +234,21 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     };
     _wantDark = theme.brightness == Brightness.dark;
     _syncDark();
-    final key = (noScripts, offline, reading, themeCss, card, character);
+    final key = (noScripts, offline, reading, themeCss, card, character, lowPower);
     _character = character;
     if (key == _loaded) {
       _pushColors();
       return;
     }
     _loaded = key;
+    _document++;
     _ready = false;
     _rendered = null;
+    // The old page's script buttons go with it, now (a press could not reach
+    // them); after this frame, as this can run while the chat page builds.
+    if (widget.calls case final calls? when calls.hostButtons.value.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => calls.hostButtons.value = const []);
+    }
     final document = tavernCanvasDocument(
       text: text,
       accent: theme.colorScheme.primary,
@@ -267,6 +280,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
       themeCss: themeCss,
       card: card,
       characterId: character,
+      lowPower: lowPower,
+      perf: tavernPerfLog,
     );
     final controller = _controller ??= WebViewController();
     final textZoom = MediaQuery.textScalerOf(context).scale(100).round().clamp(50, 300);
@@ -312,6 +327,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         _rendered = null;
         _streamSent = null;
         _avatars.reset();
+        widget.calls?.hostButtons.value = const [];
         _audio?.report(null);
         if (_hidden) _suspendAudio(true);
         _pushPersonas();
@@ -337,6 +353,14 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         if (data case {'key': final String key, 'names': final List<Object?> names}) {
           widget.calls?.showButtons(key, [for (final n in names) '$n']);
         }
+      // What scripts put in ST's places for buttons: the same row shows them.
+      case 'hostButtons':
+        if (data['buttons'] case final List<Object?> list) {
+          widget.calls?.hostButtons.value = [
+            for (final b in list)
+              if (b case {'id': final String id, 'label': final String label}) (id: id, label: label),
+          ];
+        }
       // What the engine said went wrong with the card's variables (MVU),
       // said as a notice: the page went on.
       case 'issues':
@@ -353,6 +377,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
         if (widget.calls?.chatId case final chat?) unawaited(tavernSaveAudio(chat, data['state']).catchError((_) {}));
       case 'audioNow':
         _audio?.report(data['now']);
+      case 'perf':
+        debugPrint(tavernPerfLine('canvas', data, lowPower: ref.read(tavernSettingsProvider).lowPower));
     }
   }
 
@@ -386,6 +412,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   /// built since, after the renderer went).
   Future<void> _answer(Map<Object?, Object?> request) async {
     final controller = _controller;
+    final document = _document;
     final calls = widget.calls;
     final reply = calls == null
         ? {
@@ -394,7 +421,7 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
             'error': {'code': 'unsupportedCapability', 'message': 'Nothing answers here.', 'committed': false},
           }
         : await calls.handle(request);
-    if (!mounted || controller == null || !identical(controller, _controller)) return;
+    if (!mounted || controller == null || !identical(controller, _controller) || document != _document) return;
     await controller.runJavaScript('window.dsh&&dsh.answer(${jsonEncode(reply)})').catchError((_) {});
   }
 
@@ -476,6 +503,8 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
     // The handlers the lost page was running will not answer; its music
     // stopped with it.
     widget.calls?.pageLost();
+    // Its script buttons too, even while the new page waits for what it loads.
+    widget.calls?.hostButtons.value = const [];
     _audio?.report(null);
     setState(() {
       _guard = WebViewGuard(onGone: _onGone);
@@ -514,7 +543,9 @@ class _TavernCanvasViewState extends ConsumerState<TavernCanvasView> {
   @override
   Widget build(BuildContext context) {
     ref.listen(
-      tavernSettingsProvider.select((s) => (s.islandNoScripts, s.islandOffline, s.textSize, s.lineHeight, s.palette)),
+      tavernSettingsProvider.select(
+        (s) => (s.islandNoScripts, s.islandOffline, s.textSize, s.lineHeight, s.palette, s.lowPower),
+      ),
       (_, _) => _open(),
     );
     ref.listen(tavernStThemeProvider, (_, _) => _open());

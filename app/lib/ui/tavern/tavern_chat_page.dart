@@ -1,8 +1,7 @@
 // One tavern chat (docs/design/roleplay-ui.md §2, §7): the current path of the
 // tree, the reply as it streams, alternatives under the last reply (‹ 2/5 ›),
 // and a long-press menu for the rest. Messages draw with the chat's own
-// widgets for now; the canvas (WebView, ST's display pipeline) replaces the
-// list once regex and HTML land (R2).
+// widgets, or on the whole-page canvas when it is turned on (a trial, 酒馆设置).
 
 import 'dart:async';
 
@@ -32,6 +31,7 @@ import '../../tavern/tavern_interact.dart';
 import '../../tavern/tavern_islands.dart';
 import '../../tavern/tavern_canvas.dart';
 import '../../tavern/tavern_canvas_calls.dart';
+import '../../tavern/tavern_canvas_host.dart' show tavernHostButtonPrefix;
 import '../../tavern/tavern_card_scripts.dart';
 import '../../tavern/tavern_script_wire.dart' show tavernScriptKey;
 import '../../tavern/tavern_components.dart' show tavernComponentTagsOut;
@@ -227,14 +227,17 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   /// chat's own script context, opened on its first call.
   TavernCanvasCalls? _calls;
   String? _canvasCharacter;
-  TavernCanvasCalls get _canvasCalls => _calls ??= TavernCanvasCalls(
-    _tavern.scripts,
-    chatId: widget.chatId,
-    characterId: () => _canvasCharacter,
-    pages: ref.read(tavernScriptPagesProvider),
-    avatar: (id) async => tavernImageDataUrl((await _tavern.character(id))?.avatarPath),
-    interact: _interact,
-  )..liveButtons.addListener(_buttonsChanged);
+  TavernCanvasCalls get _canvasCalls => _calls ??=
+      TavernCanvasCalls(
+          _tavern.scripts,
+          chatId: widget.chatId,
+          characterId: () => _canvasCharacter,
+          pages: ref.read(tavernScriptPagesProvider),
+          avatar: (id) async => tavernImageDataUrl((await _tavern.character(id))?.avatarPath),
+          interact: _interact,
+        )
+        ..liveButtons.addListener(_buttonsChanged)
+        ..hostButtons.addListener(_buttonsChanged);
 
   void _buttonsChanged() {
     if (mounted) setState(() {});
@@ -1203,7 +1206,13 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
   void _pressScriptButton(String key, String name) {
     unawaited(HapticFeedback.selectionClick());
     final deliver = _canvasCalls.deliver;
-    if (deliver != null) unawaited(deliver({'kind': 'button', 'key': key, 'name': name}));
+    if (deliver == null) return;
+    // One a script put in ST's places for buttons: clicked there.
+    if (key.startsWith(tavernHostButtonPrefix)) {
+      unawaited(deliver({'kind': 'press', 'id': key.substring(tavernHostButtonPrefix.length)}));
+      return;
+    }
+    unawaited(deliver({'kind': 'button', 'key': key, 'name': name}));
   }
 
   void _sendQuick(String text) {
@@ -1753,6 +1762,9 @@ class _TavernChatPageState extends ConsumerState<TavernChatPage> {
                     const <TavernRunnableScript>[])
               if (s.buttonsEnabled)
                 for (final b in live[tavernScriptKey(s.owner)] ?? tavernScriptButtons(s)) (tavernScriptKey(s.owner), b),
+            // And what they put in ST's places for buttons (its QR bar…).
+            for (final b in _calls?.hostButtons.value ?? const <({String id, String label})>[])
+              ('$tavernHostButtonPrefix${b.id}', b.label),
           ]
         : const <(String, String)>[];
     // The card's own scripts, where they wait on 整页画布 being on (off, and
